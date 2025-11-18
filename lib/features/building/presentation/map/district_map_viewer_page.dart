@@ -1,5 +1,5 @@
 // lib/features/building/presentation/map/district_map_viewer_page.dart
-// --- FILE BARU ---
+// --- FILE DIPERBARUI ---
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -95,6 +95,103 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
     );
   }
 
+  // --- FUNGSI HELPER BARU (diambil dari management_page) ---
+  /// Membaca data.json dari folder bangunan untuk mendapatkan info ikon.
+  Future<Map<String, dynamic>> _getBuildingIconData(
+    String buildingFolderName,
+  ) async {
+    try {
+      final buildingDir = Directory(
+        p.join(widget.districtDirectory.path, buildingFolderName),
+      );
+      final jsonFile = File(p.join(buildingDir.path, 'data.json'));
+      if (!await jsonFile.exists()) {
+        return {'type': null, 'data': null};
+      }
+
+      final content = await jsonFile.readAsString();
+      final data = json.decode(content);
+
+      final iconType = data.containsKey('icon_type') ? data['icon_type'] : null;
+      final iconData = data.containsKey('icon_data') ? data['icon_data'] : null;
+
+      // Untuk gambar, kita butuh path lengkap
+      if (iconType == 'image' && iconData != null) {
+        final imageFile = File(p.join(buildingDir.path, iconData.toString()));
+        return {'type': 'image', 'file': imageFile}; // Kembalikan File
+      }
+
+      return {'type': iconType, 'data': iconData};
+    } catch (e) {
+      print('Gagal membaca ikon: $e');
+      return {'type': null, 'data': null};
+    }
+  }
+
+  // --- FUNGSI HELPER BARU ---
+  /// Membuat widget pin kustom
+  Widget _buildMapPinWidget(Map<String, dynamic> iconData) {
+    final type = iconData['type'];
+
+    Widget pinContent;
+
+    if (type == 'text' &&
+        iconData['data'] != null &&
+        iconData['data'].toString().isNotEmpty) {
+      pinContent = Text(
+        iconData['data'].toString(),
+        style: const TextStyle(
+          fontSize: 16,
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+        ),
+        textAlign: TextAlign.center,
+        maxLines: 1,
+        overflow: TextOverflow.clip,
+      );
+    } else if (type == 'image') {
+      final File? imageFile = iconData['file'];
+      if (imageFile != null) {
+        pinContent = ClipOval(
+          child: Image.file(
+            imageFile,
+            width: 24,
+            height: 24,
+            fit: BoxFit.cover,
+            errorBuilder: (c, e, s) =>
+                const Icon(Icons.location_city, size: 14, color: Colors.white),
+          ),
+        );
+      } else {
+        pinContent = const Icon(
+          Icons.location_city,
+          size: 14,
+          color: Colors.white,
+        );
+      }
+    } else {
+      pinContent = const Icon(
+        Icons.location_city,
+        size: 14,
+        color: Colors.white,
+      );
+    }
+
+    // Container pin
+    return Container(
+      width: 30,
+      height: 30,
+      decoration: BoxDecoration(
+        color: Colors.red, // Warna merah untuk pin di viewer
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 2),
+        boxShadow: const [BoxShadow(color: Colors.black, blurRadius: 4.0)],
+      ),
+      child: Center(child: pinContent),
+    );
+  }
+  // --- SELESAI FUNGSI HELPER ---
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -139,6 +236,7 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
                 fit: BoxFit.contain,
               ),
 
+              // --- PERUBAHAN RENDER PIN ---
               // Pin Bangunan
               ..._placements.map((p) {
                 final String name = p['building_folder_name'];
@@ -146,22 +244,35 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
                 final double y = p['map_y'];
 
                 return Positioned(
-                  left: x * constraints.maxWidth - 20, // Setengah lebar marker
-                  top: y * constraints.maxHeight - 40, // Tinggi marker
+                  // Pusatkan pin di koordinat x/y
+                  left:
+                      x * constraints.maxWidth - 15, // 15 = setengah lebar pin
+                  top:
+                      y * constraints.maxHeight -
+                      15, // 15 = setengah tinggi pin
                   child: Tooltip(
                     message: name,
                     child: GestureDetector(
                       onTap: () => _navigateToBuilding(name),
-                      child: const Icon(
-                        Icons.location_on,
-                        color: Colors.red,
-                        size: 40,
-                        shadows: [Shadow(color: Colors.black, blurRadius: 4.0)],
+                      child: FutureBuilder<Map<String, dynamic>>(
+                        future: _getBuildingIconData(name),
+                        builder: (context, snapshot) {
+                          if (!snapshot.hasData) {
+                            // Pin default saat loading
+                            return _buildMapPinWidget({
+                              'type': null,
+                              'data': null,
+                            });
+                          }
+                          // Pin kustom
+                          return _buildMapPinWidget(snapshot.data!);
+                        },
                       ),
                     ),
                   ),
                 );
               }),
+              // --- SELESAI PERUBAHAN RENDER PIN ---
             ],
           ),
         );

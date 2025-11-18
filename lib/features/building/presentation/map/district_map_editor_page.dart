@@ -1,5 +1,5 @@
 // lib/features/building/presentation/map/district_map_editor_page.dart
-// --- FILE BARU ---
+// --- FILE DIPERBARUI ---
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -137,7 +137,7 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
 
     final buildingName = p.basename(_selectedBuildingToPlace!.path);
 
-    // Cek apakah sudah ada
+    // Cek apakah sudah ada (LOGIKA INI OTOMATIS MENANGANI EDIT)
     _placements.removeWhere((p) => p['building_folder_name'] == buildingName);
 
     // Tambahkan yang baru
@@ -163,15 +163,102 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
     _saveData();
   }
 
-  // Mendapatkan daftar bangunan yang BELUM ditempatkan
-  List<Directory> get _unplacedBuildings {
-    final placedNames = _placements
-        .map((p) => p['building_folder_name'])
-        .toSet();
-    return _buildingFolders
-        .where((dir) => !placedNames.contains(p.basename(dir.path)))
-        .toList();
+  // --- FUNGSI HELPER BARU (diambil dari management_page) ---
+  /// Membaca data.json dari folder bangunan untuk mendapatkan info ikon.
+  Future<Map<String, dynamic>> _getBuildingIconData(
+    String buildingFolderName,
+  ) async {
+    try {
+      final buildingDir = Directory(
+        p.join(widget.districtDirectory.path, buildingFolderName),
+      );
+      final jsonFile = File(p.join(buildingDir.path, 'data.json'));
+      if (!await jsonFile.exists()) {
+        return {'type': null, 'data': null};
+      }
+
+      final content = await jsonFile.readAsString();
+      final data = json.decode(content);
+
+      final iconType = data.containsKey('icon_type') ? data['icon_type'] : null;
+      final iconData = data.containsKey('icon_data') ? data['icon_data'] : null;
+
+      // Untuk gambar, kita butuh path lengkap
+      if (iconType == 'image' && iconData != null) {
+        final imageFile = File(p.join(buildingDir.path, iconData.toString()));
+        return {'type': 'image', 'file': imageFile}; // Kembalikan File
+      }
+
+      return {'type': iconType, 'data': iconData};
+    } catch (e) {
+      print('Gagal membaca ikon: $e');
+      return {'type': null, 'data': null};
+    }
   }
+
+  // --- FUNGSI HELPER BARU ---
+  /// Membuat widget pin kustom
+  Widget _buildMapPinWidget(Map<String, dynamic> iconData) {
+    final type = iconData['type'];
+
+    Widget pinContent;
+
+    if (type == 'text' &&
+        iconData['data'] != null &&
+        iconData['data'].toString().isNotEmpty) {
+      pinContent = Text(
+        iconData['data'].toString(),
+        style: const TextStyle(
+          fontSize: 16,
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+        ),
+        textAlign: TextAlign.center,
+        maxLines: 1,
+        overflow: TextOverflow.clip,
+      );
+    } else if (type == 'image') {
+      final File? imageFile = iconData['file'];
+      if (imageFile != null) {
+        pinContent = ClipOval(
+          child: Image.file(
+            imageFile,
+            width: 24,
+            height: 24,
+            fit: BoxFit.cover,
+            errorBuilder: (c, e, s) =>
+                const Icon(Icons.location_city, size: 14, color: Colors.white),
+          ),
+        );
+      } else {
+        pinContent = const Icon(
+          Icons.location_city,
+          size: 14,
+          color: Colors.white,
+        );
+      }
+    } else {
+      pinContent = const Icon(
+        Icons.location_city,
+        size: 14,
+        color: Colors.white,
+      );
+    }
+
+    // Container pin
+    return Container(
+      width: 30,
+      height: 30,
+      decoration: BoxDecoration(
+        color: Colors.blue, // Warna biru untuk pin di editor
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 2),
+        boxShadow: const [BoxShadow(color: Colors.black, blurRadius: 4.0)],
+      ),
+      child: Center(child: pinContent),
+    );
+  }
+  // --- SELESAI FUNGSI HELPER ---
 
   @override
   Widget build(BuildContext context) {
@@ -193,6 +280,7 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
   }
 
   Widget _buildMapImageSection() {
+    // ... (Tidak berubah)
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -221,17 +309,19 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Tempatkan Bangunan',
+          'Tempatkan / Edit Bangunan',
           style: Theme.of(context).textTheme.titleLarge,
         ),
         const SizedBox(height: 16),
 
+        // --- PERUBAHAN DROPDOWN ---
         // 1. Dropdown pilih bangunan
         DropdownButton<Directory>(
           value: _selectedBuildingToPlace,
-          hint: const Text('1. Pilih bangunan untuk ditempatkan'),
+          hint: const Text('1. Pilih bangunan... (untuk ditempatkan / diedit)'),
           isExpanded: true,
-          items: _unplacedBuildings.map((dir) {
+          // Gunakan _buildingFolders (semua) BUKAN _unplacedBuildings
+          items: _buildingFolders.map((dir) {
             return DropdownMenuItem(
               value: dir,
               child: Text(p.basename(dir.path)),
@@ -243,6 +333,8 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
             });
           },
         ),
+
+        // --- SELESAI PERUBAHAN DROPDOWN ---
         const SizedBox(height: 16),
         Text(
           '2. Ketuk (tap) lokasi pada peta di bawah:',
@@ -288,22 +380,35 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
                               height: constraints.maxHeight,
                             ),
 
+                            // --- PERUBAHAN RENDER PIN ---
                             // Pin yang sudah ada
                             ..._placements.map((p) {
                               return Positioned(
                                 left:
                                     p['map_x'] * constraints.maxWidth -
-                                    12, // (12 = setengah lebar ikon)
+                                    15, // 15 = setengah lebar pin
                                 top:
                                     p['map_y'] * constraints.maxHeight -
-                                    24, // (24 = tinggi ikon)
-                                child: const Icon(
-                                  Icons.location_on,
-                                  color: Colors.blue,
-                                  size: 24,
+                                    15, // 15 = setengah tinggi pin
+                                child: FutureBuilder<Map<String, dynamic>>(
+                                  future: _getBuildingIconData(
+                                    p['building_folder_name'],
+                                  ),
+                                  builder: (context, snapshot) {
+                                    if (!snapshot.hasData) {
+                                      // Pin default saat loading
+                                      return _buildMapPinWidget({
+                                        'type': null,
+                                        'data': null,
+                                      });
+                                    }
+                                    // Pin kustom
+                                    return _buildMapPinWidget(snapshot.data!);
+                                  },
                                 ),
                               );
                             }),
+                            // --- SELESAI PERUBAHAN RENDER PIN ---
 
                             // Pin baru yang akan ditempatkan
                             if (_tappedRelativeCoords != null)
@@ -333,7 +438,7 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
         Center(
           child: ElevatedButton.icon(
             icon: const Icon(Icons.check),
-            label: const Text('Tempatkan Bangunan'),
+            label: const Text('Tempatkan / Perbarui Posisi'),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
             onPressed:
                 (_selectedBuildingToPlace != null &&
@@ -347,6 +452,7 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
   }
 
   Widget _buildPlacedListSection() {
+    // ... (Tidak berubah)
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -370,6 +476,7 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
             trailing: IconButton(
               icon: const Icon(Icons.delete_forever, color: Colors.red),
               onPressed: () => _removePlacement(name),
+              tooltip: 'Hapus dari peta',
             ),
           );
         }),
