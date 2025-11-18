@@ -4,6 +4,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
+// --- TAMBAHAN ---
+import 'package:mind_palace_manager/app_settings.dart';
+// --- SELESAI TAMBAHAN ---
 import 'package:mind_palace_manager/features/building/presentation/viewer/building_viewer_page.dart';
 
 class DistrictMapViewerPage extends StatefulWidget {
@@ -153,6 +156,7 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
       final File? imageFile = iconData['file'];
       if (imageFile != null) {
         pinContent = ClipOval(
+          // Gambar di dalam pin selalu bulat agar rapi
           child: Image.file(
             imageFile,
             width: 24,
@@ -177,16 +181,35 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
       );
     }
 
+    // Tentukan warna pin
+    const Color pinColor = Colors.red; // Merah untuk viewer
+
+    // Tentukan dekorasi berdasarkan AppSettings
+    BoxDecoration pinDecoration;
+
+    if (AppSettings.iconShape == 'Bulat') {
+      pinDecoration = BoxDecoration(
+        color: pinColor,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 2),
+        boxShadow: const [BoxShadow(color: Colors.black, blurRadius: 4.0)],
+      );
+    } else {
+      // 'Kotak' atau 'Tidak Ada' (default ke Kotak di peta agar terlihat)
+      pinDecoration = BoxDecoration(
+        color: pinColor,
+        borderRadius: BorderRadius.circular(4), // Menjadi kotak
+        border: Border.all(color: Colors.white, width: 2),
+        boxShadow: const [BoxShadow(color: Colors.black, blurRadius: 4.0)],
+      );
+    }
+
     // Container pin
     return Container(
       width: 30,
       height: 30,
-      decoration: BoxDecoration(
-        color: Colors.red, // Warna merah untuk pin di viewer
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 2),
-        boxShadow: const [BoxShadow(color: Colors.black, blurRadius: 4.0)],
-      ),
+      clipBehavior: Clip.antiAlias, // Selalu potong
+      decoration: pinDecoration,
       child: Center(child: pinContent),
     );
   }

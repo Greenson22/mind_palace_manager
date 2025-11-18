@@ -1,9 +1,8 @@
 // lib/features/settings/settings_page.dart
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-// 'path' tidak lagi digunakan di sini
 import 'dart:io';
-import 'package:mind_palace_manager/app_settings.dart';
+import 'package:mind_palace_manager/app_settings.dart'; // <-- Impor AppSettings
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -14,6 +13,9 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   late TextEditingController _folderController;
+  // --- TAMBAHAN ---
+  late String _currentIconShape;
+  // --- SELESAI TAMBAHAN ---
 
   @override
   void initState() {
@@ -21,6 +23,9 @@ class _SettingsPageState extends State<SettingsPage> {
     _folderController = TextEditingController(
       text: AppSettings.baseBuildingsPath ?? 'Belum diatur',
     );
+    // --- TAMBAHAN ---
+    _currentIconShape = AppSettings.iconShape;
+    // --- SELESAI TAMBAHAN ---
   }
 
   @override
@@ -34,18 +39,12 @@ class _SettingsPageState extends State<SettingsPage> {
 
     if (selectedPath != null) {
       try {
-        // --- PERUBAHAN ---
-        // Kita tidak lagi membuat sub-folder 'buildings'.
-        // Kita gunakan path yang dipilih pengguna secara langsung.
         final rootDir = Directory(selectedPath);
-
-        // Simpan ke AppSettings
-        await AppSettings.saveBaseBuildingsPath(rootDir.path); // <-- Diubah
+        await AppSettings.saveBaseBuildingsPath(rootDir.path);
 
         setState(() {
           _folderController.text = AppSettings.baseBuildingsPath!;
         });
-        // --- SELESAI PERUBAHAN ---
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -78,11 +77,12 @@ class _SettingsPageState extends State<SettingsPage> {
       appBar: AppBar(title: const Text('Pengaturan')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        // --- UBAH Column menjadi ListView ---
+        child: ListView(
+          // --- SELESAI UBAHAN ---
           children: [
             Text(
-              'Atur Lokasi Folder Utama', // <-- Teks diubah
+              'Atur Lokasi Folder Utama',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 16.0),
@@ -90,7 +90,7 @@ class _SettingsPageState extends State<SettingsPage> {
               controller: _folderController,
               readOnly: true,
               decoration: const InputDecoration(
-                labelText: 'Path Folder Utama (Root)', // <-- Teks diubah
+                labelText: 'Path Folder Utama (Root)',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -101,10 +101,43 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             const SizedBox(height: 8.0),
             Text(
-              // <-- Teks diubah
               'Ini adalah lokasi utama tempat semua distrik dan bangunan Anda akan disimpan.',
               style: Theme.of(context).textTheme.bodySmall,
             ),
+
+            // --- TAMBAHAN: Pengaturan Bentuk Ikon ---
+            const Divider(height: 32.0),
+            Text(
+              'Tampilan Ikon Bangunan',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8.0),
+            Text(
+              'Atur bentuk bingkai (outline) untuk semua ikon bangunan di daftar dan peta.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8.0),
+            DropdownButton<String>(
+              value: _currentIconShape,
+              isExpanded: true,
+              items: ['Bulat', 'Kotak', 'Tidak Ada (Tanpa Latar)']
+                  .map(
+                    (String value) => DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (String? newValue) async {
+                if (newValue != null) {
+                  await AppSettings.saveIconShape(newValue);
+                  setState(() {
+                    _currentIconShape = newValue;
+                  });
+                }
+              },
+            ),
+            // --- SELESAI TAMBAHAN ---
           ],
         ),
       ),

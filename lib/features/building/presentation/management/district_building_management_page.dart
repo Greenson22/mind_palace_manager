@@ -4,6 +4,9 @@ import 'package:path/path.dart' as p;
 import 'dart:io';
 import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
+// --- TAMBAHAN ---
+import 'package:mind_palace_manager/app_settings.dart';
+// --- SELESAI TAMBAHAN ---
 import 'package:mind_palace_manager/features/building/presentation/editor/room_editor_page.dart';
 import 'package:mind_palace_manager/features/building/presentation/viewer/building_viewer_page.dart';
 import 'package:mind_palace_manager/permission_helper.dart';
@@ -668,6 +671,62 @@ class _DistrictBuildingManagementPageState
     }
   }
 
+  // --- FUNGSI HELPER BARU ---
+  /// Membangun kontainer ikon berdasarkan pengaturan global
+  Widget _buildIconContainer(Widget? child, {File? imageFile}) {
+    double size = 40.0; // Ukuran standar leading ListTile
+
+    switch (AppSettings.iconShape) {
+      case 'Bulat':
+        return CircleAvatar(
+          radius: size / 2,
+          backgroundImage: imageFile != null ? FileImage(imageFile) : null,
+          // Tampilkan ikon error jika file gambar tidak ada
+          onBackgroundImageError: imageFile != null
+              ? (e, s) => const Icon(Icons.image_not_supported)
+              : null,
+          // Tampilkan child (teks/ikon) HANYA jika tidak ada gambar
+          child: imageFile == null ? child : null,
+        );
+      case 'Kotak':
+        return Container(
+          width: size,
+          height: size,
+          clipBehavior: Clip.antiAlias, // Penting untuk memotong gambar
+          decoration: BoxDecoration(
+            // Beri latar belakang abu-abu jika itu ikon/teks
+            color: imageFile == null ? Colors.grey.shade200 : null,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: imageFile != null
+              ? Image.file(
+                  imageFile,
+                  fit: BoxFit.cover, // Penuhi kotak
+                  errorBuilder: (c, e, s) =>
+                      const Center(child: Icon(Icons.image_not_supported)),
+                )
+              : Center(child: child),
+        );
+      case 'Tidak Ada (Tanpa Latar)':
+      default:
+        // Hanya Sizedbox untuk menjaga alignment
+        return SizedBox(
+          width: size,
+          height: size,
+          child: imageFile != null
+              ? Image.file(
+                  imageFile,
+                  fit: BoxFit.contain, // Tampilkan seluruh gambar
+                  errorBuilder: (c, e, s) =>
+                      const Center(child: Icon(Icons.image_not_supported)),
+                )
+              : Center(child: child),
+        );
+    }
+  }
+  // --- SELESAI FUNGSI HELPER BARU ---
+
+  // --- PERUBAHAN BESAR DI _buildBody ---
   Widget _buildBody() {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -689,20 +748,15 @@ class _DistrictBuildingManagementPageState
         final folder = _buildingFolders[index];
         final folderName = p.basename(folder.path);
 
-        // --- Widget Ikon Dinamis ---
+        // --- Widget Ikon Dinamis (DIPERBARUI) ---
         final Widget leadingIcon = FutureBuilder<Map<String, dynamic>>(
-          // Panggil helper untuk folder ini
           future: _getBuildingIconData(folder),
-          // --- TAMBAHAN: key ---
-          // Beri key unik untuk memastikan FutureBuilder dieksekusi ulang
-          // saat item direbuild (jika diperlukan oleh setState)
-          key: ValueKey(folder.path),
-          // --- SELESAI TAMBAHAN ---
+          key: ValueKey(folder.path), // Key penting untuk refresh
           builder: (context, snapshot) {
             // Saat memuat
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const CircleAvatar(
-                child: SizedBox(
+              return _buildIconContainer(
+                const SizedBox(
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(strokeWidth: 2),
@@ -712,7 +766,7 @@ class _DistrictBuildingManagementPageState
 
             // Jika error atau tidak ada data
             if (!snapshot.hasData || snapshot.hasError) {
-              return const CircleAvatar(child: Icon(Icons.location_city));
+              return _buildIconContainer(const Icon(Icons.location_city));
             }
 
             final type = snapshot.data!['type'];
@@ -720,8 +774,8 @@ class _DistrictBuildingManagementPageState
 
             // Tipe Teks
             if (type == 'text' && data != null && data.toString().isNotEmpty) {
-              return CircleAvatar(
-                child: Text(
+              return _buildIconContainer(
+                Text(
                   data.toString(),
                   style: const TextStyle(fontSize: 20),
                   textAlign: TextAlign.center,
@@ -734,34 +788,18 @@ class _DistrictBuildingManagementPageState
             // Tipe Gambar
             if (type == 'image' && data != null) {
               final imageFile = File(p.join(folder.path, data.toString()));
-
-              // Tampilkan gambar dari file
-              return CircleAvatar(
-                backgroundImage: FileImage(imageFile),
-                // Tampilkan ikon error jika file gambar tidak ada
-                onBackgroundImageError: (exception, stackTrace) =>
-                    const Icon(Icons.image_not_supported),
-                // Pastikan ada child fallback jika FileImage gagal load
-                child: FutureBuilder<bool>(
-                  future: imageFile.exists(),
-                  builder: (context, snapshot) {
-                    if (snapshot.data == false) {
-                      return const Icon(Icons.image_not_supported);
-                    }
-                    return const SizedBox.shrink(); // Widget kosong
-                  },
-                ),
-              );
+              // Kirim file ke helper, child = null
+              return _buildIconContainer(null, imageFile: imageFile);
             }
 
             // Fallback (Default)
-            return const CircleAvatar(child: Icon(Icons.location_city));
+            return _buildIconContainer(const Icon(Icons.location_city));
           },
         );
         // --- Selesai Widget Ikon ---
 
         return ListTile(
-          leading: leadingIcon, // Ganti dengan widget dinamis
+          leading: leadingIcon, // Gunakan widget yang sudah dibuat
           title: Text(folderName, style: const TextStyle(fontSize: 18)),
           subtitle: Text(folder.path, style: const TextStyle(fontSize: 12)),
           trailing: Row(

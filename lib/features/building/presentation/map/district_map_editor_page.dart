@@ -5,6 +5,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
+// --- TAMBAHAN ---
+import 'package:mind_palace_manager/app_settings.dart';
+// --- SELESAI TAMBAHAN ---
 
 class DistrictMapEditorPage extends StatefulWidget {
   final Directory districtDirectory;
@@ -221,6 +224,7 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
       final File? imageFile = iconData['file'];
       if (imageFile != null) {
         pinContent = ClipOval(
+          // Gambar di dalam pin selalu bulat agar rapi
           child: Image.file(
             imageFile,
             width: 24,
@@ -245,16 +249,35 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
       );
     }
 
+    // Tentukan warna pin
+    const Color pinColor = Colors.blue; // Biru untuk editor
+
+    // Tentukan dekorasi berdasarkan AppSettings
+    BoxDecoration pinDecoration;
+
+    if (AppSettings.iconShape == 'Bulat') {
+      pinDecoration = BoxDecoration(
+        color: pinColor,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 2),
+        boxShadow: const [BoxShadow(color: Colors.black, blurRadius: 4.0)],
+      );
+    } else {
+      // 'Kotak' atau 'Tidak Ada' (default ke Kotak di peta agar terlihat)
+      pinDecoration = BoxDecoration(
+        color: pinColor,
+        borderRadius: BorderRadius.circular(4), // Menjadi kotak
+        border: Border.all(color: Colors.white, width: 2),
+        boxShadow: const [BoxShadow(color: Colors.black, blurRadius: 4.0)],
+      );
+    }
+
     // Container pin
     return Container(
       width: 30,
       height: 30,
-      decoration: BoxDecoration(
-        color: Colors.blue, // Warna biru untuk pin di editor
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 2),
-        boxShadow: const [BoxShadow(color: Colors.black, blurRadius: 4.0)],
-      ),
+      clipBehavior: Clip.antiAlias, // Selalu potong
+      decoration: pinDecoration,
       child: Center(child: pinContent),
     );
   }
@@ -280,7 +303,6 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
   }
 
   Widget _buildMapImageSection() {
-    // ... (Tidak berubah)
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -452,7 +474,6 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
   }
 
   Widget _buildPlacedListSection() {
-    // ... (Tidak berubah)
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
