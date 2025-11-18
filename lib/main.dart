@@ -7,10 +7,7 @@ import 'dart:convert'; // Untuk JSON
 // -------------------------------------
 // KELAS STATIS (Sama seperti sebelumnya)
 // -------------------------------------
-/// Menyimpan pengaturan global (path) agar bisa diakses
-/// oleh SettingsPage dan halaman manajemen.
 class AppSettings {
-  /// Path lengkap ke folder 'buildings' (cth: /home/user/Dokumen/buildings)
   static String? baseBuildingsPath;
 }
 
@@ -31,7 +28,7 @@ class MainApp extends StatelessWidget {
 }
 
 // -------------------------------------
-// HALAMAN DASHBOARD (DIMODIFIKASI)
+// HALAMAN DASHBOARD (Sama seperti sebelumnya)
 // -------------------------------------
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
@@ -44,7 +41,6 @@ class DashboardPage extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // TOMBOL VIEW DAN EDITOR DIGANTI DENGAN INI
             ElevatedButton(
               onPressed: () {
                 Navigator.push(
@@ -57,7 +53,6 @@ class DashboardPage extends StatelessWidget {
               child: const Text('Kelola Bangunan'),
             ),
             const SizedBox(height: 20),
-            // TOMBOL PENGATURAN TETAP ADA
             ElevatedButton(
               onPressed: () {
                 Navigator.push(
@@ -75,20 +70,8 @@ class DashboardPage extends StatelessWidget {
 }
 
 // -------------------------------------
-// HALAMAN VIEW (DIHAPUS)
-// -------------------------------------
-// Halaman BuildingViewPage (yang statis) telah dihapus
-// sesuai permintaan.
-
-// -------------------------------------
-// HALAMAN EDITOR (DIHAPUS)
-// -------------------------------------
-// Halaman EditorPage telah dihapus dan digantikan oleh
-// BuildingManagementPage di bawah ini.
-
-// -------------------------------------
-// HALAMAN BARU (BuildingManagementPage)
-// Menggabungkan fungsionalitas list, buat, view, edit, hapus
+// HALAMAN MANAJEMEN BANGUNAN (DIMODIFIKASI)
+// Tombol "View" sekarang berfungsi
 // -------------------------------------
 class BuildingManagementPage extends StatefulWidget {
   const BuildingManagementPage({super.key});
@@ -105,7 +88,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
   @override
   void initState() {
     super.initState();
-    // Tunda pemuatan hingga frame pertama selesai
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadBuildings());
   }
 
@@ -115,7 +97,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
     super.dispose();
   }
 
-  // --- Fungsi untuk Memuat Daftar Bangunan ---
   Future<void> _loadBuildings() async {
     setState(() {
       _isLoading = true;
@@ -159,7 +140,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
     });
   }
 
-  // --- Fungsi untuk Membuat Bangunan Baru (Dialog) ---
   Future<void> _showCreateBuildingDialog() async {
     _newBuildingController.clear();
     return showDialog<void>(
@@ -187,11 +167,10 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
     );
   }
 
-  // --- Fungsi untuk Membuat Bangunan Baru (Logika) ---
   Future<void> _createNewBuilding() async {
     if (AppSettings.baseBuildingsPath == null) {
-      Navigator.of(context).pop(); // Tutup dialog
-      _loadBuildings(); // Ini akan memicu pesan error "path belum diatur"
+      Navigator.of(context).pop();
+      _loadBuildings();
       return;
     }
 
@@ -206,14 +185,13 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
       final newDir = Directory(newBuildingPath);
       await newDir.create(recursive: true);
 
-      // Buat file data.json awal
       final dataJsonFile = File(p.join(newBuildingPath, 'data.json'));
       await dataJsonFile.writeAsString(json.encode({"rooms": []}));
 
       if (mounted) {
-        Navigator.of(context).pop(); // Tutup dialog
+        Navigator.of(context).pop();
       }
-      await _loadBuildings(); // Muat ulang daftar bangunan
+      await _loadBuildings();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -222,7 +200,7 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
       }
     } catch (e) {
       if (mounted) {
-        Navigator.of(context).pop(); // Tutup dialog
+        Navigator.of(context).pop();
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Gagal membuat bangunan: $e')));
@@ -230,36 +208,30 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
     }
   }
 
-  // --- Fungsi Aksi untuk ListTile ---
-
+  // --- MODIFIKASI DI SINI ---
   void _viewBuilding(Directory buildingDir) {
-    // TODO: Implementasikan halaman "View" yang sesungguhnya.
-    // Untuk saat ini, kita bisa tampilkan placeholder
-    // atau navigasi ke halaman yang sama dengan "Edit".
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Fitur "View" belum diimplementasikan.')),
+    // Arahkan ke halaman viewer baru
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            BuildingViewerPage(buildingDirectory: buildingDir),
+      ),
     );
-    // Alternatif:
-    // _editBuilding(buildingDir);
   }
 
   void _editBuilding(Directory buildingDir) {
-    // Navigasi ke halaman editor ruangan (RoomEditorPage)
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => RoomEditorPage(buildingDirectory: buildingDir),
       ),
-    ).then((_) {
-      // Muat ulang daftar jika diperlukan
-      // _loadBuildings();
-    });
+    );
   }
 
   Future<void> _deleteBuilding(Directory buildingDir) async {
     final buildingName = p.basename(buildingDir.path);
 
-    // Tampilkan dialog konfirmasi
     final bool? didConfirm = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
@@ -287,7 +259,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
       },
     );
 
-    // Jika dikonfirmasi, lakukan penghapusan
     if (didConfirm == true) {
       try {
         await buildingDir.delete(recursive: true);
@@ -298,7 +269,7 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
             ),
           );
         }
-        await _loadBuildings(); // Muat ulang daftar
+        await _loadBuildings();
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -308,8 +279,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
       }
     }
   }
-
-  // --- Build Method Utama ---
 
   @override
   Widget build(BuildContext context) {
@@ -361,7 +330,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
       );
     }
 
-    // Tampilkan daftar bangunan
     return ListView.builder(
       itemCount: _buildingFolders.length,
       itemBuilder: (context, index) {
@@ -372,12 +340,12 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
           title: Text(folderName, style: const TextStyle(fontSize: 18)),
           subtitle: Text(folder.path, style: const TextStyle(fontSize: 12)),
           trailing: Row(
-            mainAxisSize: MainAxisSize.min, // Agar Row tidak makan tempat
+            mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
                 icon: const Icon(Icons.visibility),
                 tooltip: 'Lihat',
-                onPressed: () => _viewBuilding(folder),
+                onPressed: () => _viewBuilding(folder), // <- Diperbarui
               ),
               IconButton(
                 icon: const Icon(Icons.edit),
@@ -391,7 +359,7 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
               ),
             ],
           ),
-          onTap: null, // Nonaktifkan onTap utama agar tombol bisa diklik
+          onTap: null,
         );
       },
     );
@@ -505,8 +473,8 @@ class _SettingsPageState extends State<SettingsPage> {
 }
 
 // -------------------------------------
-// HALAMAN RoomEditorPage (Sama seperti sebelumnya)
-// Halaman ini tidak diubah, karena ini adalah tujuan dari tombol "Edit"
+// HALAMAN RoomEditorPage (DIMODIFIKASI)
+// Tombol "Atur Navigasi" sekarang berfungsi
 // -------------------------------------
 class RoomEditorPage extends StatefulWidget {
   final Directory buildingDirectory;
@@ -525,7 +493,7 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
   final TextEditingController _roomNameController = TextEditingController();
   String? _pickedImagePath;
 
-  List<dynamic> get _rooms => _buildingData['rooms'];
+  List<dynamic> get _rooms => _buildingData['rooms'] as List? ?? [];
 
   @override
   void initState() {
@@ -546,11 +514,15 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
     });
     try {
       if (!await _jsonFile.exists()) {
-        await _saveData();
+        await _saveData(); // Buat file dasar jika tidak ada
       }
       final content = await _jsonFile.readAsString();
       setState(() {
         _buildingData = json.decode(content);
+        // Pastikan setiap ruangan punya list 'connections'
+        for (var room in _rooms) {
+          room['connections'] ??= [];
+        }
         _isLoading = false;
       });
     } catch (e) {
@@ -666,7 +638,7 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
         'id': DateTime.now().millisecondsSinceEpoch.toString(),
         'name': roomName,
         'image': relativeImagePath,
-        'connections': [],
+        'connections': [], // Selalu buat list kosong
       };
 
       setState(() {
@@ -675,20 +647,133 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
       await _saveData();
 
       if (mounted) {
-        Navigator.of(context).pop(); // Tutup dialog
+        Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Ruangan "$roomName" berhasil dibuat')),
         );
       }
     } catch (e) {
       if (mounted) {
-        Navigator.of(context).pop(); // Tutup dialog
+        Navigator.of(context).pop();
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Gagal membuat ruangan: $e')));
       }
     }
   }
+
+  // --- FUNGSI BARU UNTUK MENGELOLA NAVIGASI ---
+  Future<void> _showNavigationDialog(Map<String, dynamic> fromRoom) async {
+    final otherRooms = _rooms.where((r) => r['id'] != fromRoom['id']).toList();
+    final connections = (fromRoom['connections'] as List? ?? []);
+
+    final labelController = TextEditingController();
+    String? selectedTargetRoomId;
+
+    return showDialog(
+      context: context,
+      builder: (context) {
+        // Gunakan StatefulBuilder agar dialog bisa update
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text('Atur Navigasi: ${fromRoom['name']}'),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Navigasi Saat Ini:',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      if (connections.isEmpty)
+                        const Text('Belum ada navigasi.'),
+                      ...connections.map((conn) {
+                        final targetRoom = otherRooms.firstWhere(
+                          (r) => r['id'] == conn['targetRoomId'],
+                          orElse: () => {'name': 'Ruangan Dihapus'},
+                        );
+                        return ListTile(
+                          title: Text(conn['label'] ?? 'Tanpa Label'),
+                          subtitle: Text('-> ${targetRoom['name']}'),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () {
+                              setDialogState(() {
+                                connections.remove(conn);
+                              });
+                              _saveData(); // Simpan perubahan
+                            },
+                          ),
+                        );
+                      }),
+                      const Divider(height: 24),
+                      const Text(
+                        'Tambah Navigasi Baru:',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      TextField(
+                        controller: labelController,
+                        decoration: const InputDecoration(
+                          labelText: 'Label Tombol',
+                        ),
+                      ),
+                      DropdownButton<String>(
+                        hint: const Text('Pilih Ruangan Tujuan'),
+                        value: selectedTargetRoomId,
+                        isExpanded: true,
+                        items: otherRooms.map((room) {
+                          return DropdownMenuItem(
+                            value: room['id'].toString(),
+                            child: Text(room['name'] ?? 'Tanpa Nama'),
+                          );
+                        }).toList(),
+                        onChanged: (newValue) {
+                          setDialogState(() {
+                            selectedTargetRoomId = newValue;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  child: const Text('Tutup'),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+                ElevatedButton(
+                  child: const Text('Tambah'),
+                  onPressed: () {
+                    if (labelController.text.isNotEmpty &&
+                        selectedTargetRoomId != null) {
+                      final newConnection = {
+                        'id': DateTime.now().millisecondsSinceEpoch.toString(),
+                        'label': labelController.text,
+                        'targetRoomId': selectedTargetRoomId,
+                      };
+                      setDialogState(() {
+                        connections.add(newConnection);
+                      });
+                      _saveData(); // Simpan perubahan
+                      // Reset form
+                      labelController.clear();
+                      selectedTargetRoomId = null;
+                    }
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+  // --- AKHIR FUNGSI BARU ---
 
   @override
   Widget build(BuildContext context) {
@@ -747,19 +832,202 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
           leading: CircleAvatar(child: leadingIcon, radius: 25),
           title: Text(roomName),
           subtitle: Text('ID: ${room['id']}'),
+          // --- MODIFIKASI DI SINI ---
           trailing: IconButton(
             icon: const Icon(Icons.link),
             onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Fitur navigasi belum diimplementasikan.'),
-                ),
-              );
+              // Panggil dialog navigasi baru
+              _showNavigationDialog(room);
             },
             tooltip: 'Atur Navigasi',
           ),
         );
       },
+    );
+  }
+}
+
+// -------------------------------------
+// HALAMAN BARU (BuildingViewerPage)
+// Halaman untuk melihat bangunan dan bernavigasi
+// -------------------------------------
+class BuildingViewerPage extends StatefulWidget {
+  final Directory buildingDirectory;
+
+  const BuildingViewerPage({super.key, required this.buildingDirectory});
+
+  @override
+  State<BuildingViewerPage> createState() => _BuildingViewerPageState();
+}
+
+class _BuildingViewerPageState extends State<BuildingViewerPage> {
+  late File _jsonFile;
+  Map<String, dynamic> _buildingData = {'rooms': []};
+  bool _isLoading = true;
+  String? _error;
+  Map<String, dynamic>? _currentRoom;
+
+  List<dynamic> get _rooms => _buildingData['rooms'] as List? ?? [];
+
+  @override
+  void initState() {
+    super.initState();
+    _jsonFile = File(p.join(widget.buildingDirectory.path, 'data.json'));
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      if (!await _jsonFile.exists()) {
+        throw Exception('File data.json tidak ditemukan.');
+      }
+      final content = await _jsonFile.readAsString();
+      _buildingData = json.decode(content);
+
+      // Pastikan semua room punya list 'connections'
+      for (var room in _rooms) {
+        room['connections'] ??= [];
+      }
+
+      if (_rooms.isNotEmpty) {
+        // Mulai dari ruangan pertama
+        _currentRoom = _rooms[0];
+      } else {
+        _error = 'Bangunan ini belum memiliki ruangan.';
+      }
+    } catch (e) {
+      _error = 'Gagal memuat data: $e';
+    }
+
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
+  void _navigateToRoom(String targetRoomId) {
+    try {
+      final targetRoom = _rooms.firstWhere((r) => r['id'] == targetRoomId);
+      setState(() {
+        _currentRoom = targetRoom;
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ruangan tujuan tidak ditemukan!'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(p.basename(widget.buildingDirectory.path))),
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Text(
+            _error!,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.red),
+          ),
+        ),
+      );
+    }
+
+    if (_currentRoom == null) {
+      return const Center(child: Text('Tidak ada ruangan untuk ditampilkan.'));
+    }
+
+    // Jika data ada, tampilkan viewer
+    return _buildRoomViewer(_currentRoom!);
+  }
+
+  Widget _buildRoomViewer(Map<String, dynamic> room) {
+    final roomName = room['name'] ?? 'Tanpa Nama';
+    final roomImage = room['image'];
+    final connections = (room['connections'] as List? ?? []);
+
+    Widget imageWidget;
+    if (roomImage != null) {
+      final imageFile = File(p.join(widget.buildingDirectory.path, roomImage));
+      imageWidget = Image.file(
+        imageFile,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return const Center(
+            child: Icon(
+              Icons.image_not_supported,
+              size: 100,
+              color: Colors.grey,
+            ),
+          );
+        },
+      );
+    } else {
+      imageWidget = const Center(
+        child: Icon(Icons.sensor_door, size: 100, color: Colors.grey),
+      );
+    }
+
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Gambar
+            Container(
+              height: 250,
+              width: double.infinity,
+              color: Colors.black12,
+              child: imageWidget,
+            ),
+            const SizedBox(height: 16.0),
+            // Nama Ruangan
+            Text(roomName, style: Theme.of(context).textTheme.headlineMedium),
+            const Divider(height: 24.0),
+            // Navigasi
+            Text(
+              'Pintu Keluar:',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8.0),
+            if (connections.isEmpty)
+              const Text('Tidak ada navigasi dari ruangan ini.'),
+            // Tampilkan tombol navigasi
+            ...connections.map((conn) {
+              final String label = conn['label'] ?? 'Pindah';
+              final String targetRoomId = conn['targetRoomId'];
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.exit_to_app),
+                  label: Text(label),
+                  onPressed: () => _navigateToRoom(targetRoomId),
+                ),
+              );
+            }).toList(),
+          ],
+        ),
+      ),
     );
   }
 }
