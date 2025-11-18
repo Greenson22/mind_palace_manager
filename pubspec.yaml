@@ -16,6 +16,7 @@ dependencies:
   permission_handler: ^12.0.1 # Untuk meminta izin akses penyimpanan
   shared_preferences: ^2.5.3
   device_info_plus: ^12.2.0
+  flutter_launcher_icons: ^0.14.4
 
 dev_dependencies:
   flutter_test:
@@ -25,3 +26,13 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+# TAMBAHKAN BLOK KONFIGURASI DI BAWAH INI
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/icon.png" # Sesuaikan dengan path gambar Anda
+
+  # (Opsional tapi direkomendasikan untuk Android 8+)
+  # adaptive_icon_background: "#FFFFFF" # Ganti dengan warna latar belakang
+  # adaptive_icon_foreground: "assets/icon/icon-foreground.png" # Ganti dengan gambar foreground (jika ikon Anda tidak transparan)
