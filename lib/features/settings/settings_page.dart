@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import 'package:mind_palace_manager/app_settings.dart';
-// --- BARU: Import About Page ---
 import 'package:mind_palace_manager/features/settings/about_page.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -15,6 +14,7 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   late TextEditingController _folderController;
+  // ... variable lama ...
   late String _currentMapPinShape;
   late String _currentListIconShape;
   late bool _currentShowRegionOutline;
@@ -22,8 +22,6 @@ class _SettingsPageState extends State<SettingsPage> {
   late double _currentRegionOutlineWidth;
   late double _currentRegionShapeStrokeWidth;
   late bool _currentShowRegionDistrictNames;
-
-  // State Warna
   late Color _currentRegionPinColor;
   late Color _currentRegionOutlineColor;
   late Color _currentRegionNameColor;
@@ -54,6 +52,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _pickAndCreateFolder() async {
+    // ... kode lama ...
     String? selectedPath = await FilePicker.platform.getDirectoryPath();
     if (selectedPath != null) {
       try {
@@ -81,12 +80,12 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  // Helper Dialog Color Picker
   void _showColorPickerDialog(
     String title,
     Color currentColor,
     Function(Color) onColorSelected,
   ) {
+    // ... kode lama (daftar warna dll) ...
     final List<Color> colors = [
       Colors.red,
       Colors.pink,
@@ -110,7 +109,6 @@ class _SettingsPageState extends State<SettingsPage> {
       Colors.black,
       Colors.white,
     ];
-
     showDialog(
       context: context,
       builder: (context) {
@@ -169,6 +167,45 @@ class _SettingsPageState extends State<SettingsPage> {
         padding: const EdgeInsets.all(16.0),
         child: ListView(
           children: [
+            // --- BARU: Pengaturan Tema ---
+            Text(
+              'Tampilan Aplikasi',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8.0),
+            ListTile(
+              leading: const Icon(Icons.brightness_6),
+              title: const Text('Tema (Mode Gelap/Terang)'),
+              subtitle: Text(_getThemeModeLabel(AppSettings.themeMode.value)),
+              trailing: DropdownButton<ThemeMode>(
+                value: AppSettings.themeMode.value,
+                underline: const SizedBox(), // Hilangkan garis bawah
+                onChanged: (ThemeMode? newValue) {
+                  if (newValue != null) {
+                    setState(() {
+                      AppSettings.saveThemeMode(newValue);
+                    });
+                  }
+                },
+                items: const [
+                  DropdownMenuItem(
+                    value: ThemeMode.system,
+                    child: Text('Ikuti Sistem'),
+                  ),
+                  DropdownMenuItem(
+                    value: ThemeMode.light,
+                    child: Text('Terang (Light)'),
+                  ),
+                  DropdownMenuItem(
+                    value: ThemeMode.dark,
+                    child: Text('Gelap (Dark)'),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 32.0),
+
+            // ... (Kode lama di bawah ini tetap sama) ...
             Text(
               'Atur Lokasi Folder Utama',
               style: Theme.of(context).textTheme.titleLarge,
@@ -260,7 +297,6 @@ class _SettingsPageState extends State<SettingsPage> {
                   ],
                 ),
               ),
-              // Pemilih Warna Pin
               ListTile(
                 title: const Text('Warna Pin Distrik'),
                 trailing: GestureDetector(
@@ -318,7 +354,6 @@ class _SettingsPageState extends State<SettingsPage> {
                   ],
                 ),
               ),
-              // Pemilih Warna Outline
               ListTile(
                 title: const Text('Warna Outline'),
                 trailing: GestureDetector(
@@ -353,7 +388,6 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
 
             if (_currentShowRegionDistrictNames)
-              // Pemilih Warna Nama
               ListTile(
                 title: const Text('Warna Teks Nama'),
                 trailing: GestureDetector(
@@ -401,7 +435,6 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
 
-            // --- BARU: Bagian Tentang Aplikasi ---
             const Divider(height: 32.0),
             ListTile(
               leading: const Icon(Icons.info_outline),
@@ -418,5 +451,17 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       ),
     );
+  }
+
+  // Helper untuk teks subtitle tema
+  String _getThemeModeLabel(ThemeMode mode) {
+    switch (mode) {
+      case ThemeMode.system:
+        return 'Mengikuti Pengaturan Sistem';
+      case ThemeMode.light:
+        return 'Terang';
+      case ThemeMode.dark:
+        return 'Gelap';
+    }
   }
 }

@@ -1,8 +1,9 @@
 // lib/app_settings.dart
-import 'package:flutter/material.dart'; // Perlu material untuk Colors default
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AppSettings {
+  // ... keys yang sudah ada ...
   static const String _basePathKey = 'baseBuildingsPath';
   static const String _mapPinShapeKey = 'mapPinShape';
   static const String _listIconShapeKey = 'listIconShape';
@@ -12,12 +13,14 @@ class AppSettings {
   static const String _regionPinShapeStrokeWidthKey =
       'regionPinShapeStrokeWidth';
   static const String _showRegionDistrictNamesKey = 'showRegionDistrictNames';
-
-  // --- BARU: Kunci Warna ---
   static const String _regionPinColorKey = 'regionPinColor';
   static const String _regionOutlineColorKey = 'regionOutlineColor';
   static const String _regionNameColorKey = 'regionNameColor';
 
+  // --- BARU: Key untuk Tema ---
+  static const String _themeModeKey = 'themeMode';
+
+  // ... variabel statis yang sudah ada ...
   static String? baseBuildingsPath;
   static String mapPinShape = 'Bulat';
   static String listIconShape = 'Bulat';
@@ -26,11 +29,13 @@ class AppSettings {
   static double regionPinOutlineWidth = 2.0;
   static double regionPinShapeStrokeWidth = 0.0;
   static bool showRegionDistrictNames = true;
-
-  // --- BARU: Variabel Warna (Default) ---
   static int regionPinColor = Colors.blue.value;
   static int regionOutlineColor = Colors.white.value;
   static int regionNameColor = Colors.white.value;
+
+  // --- BARU: Notifier untuk Tema ---
+  // Menggunakan ValueNotifier agar UI bisa mendengar perubahan
+  static ValueNotifier<ThemeMode> themeMode = ValueNotifier(ThemeMode.system);
 
   static Future<void> loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
@@ -45,15 +50,39 @@ class AppSettings {
     showRegionDistrictNames =
         prefs.getBool(_showRegionDistrictNamesKey) ?? true;
 
-    // --- BARU: Load Warna ---
     regionPinColor = prefs.getInt(_regionPinColorKey) ?? Colors.blue.value;
     regionOutlineColor =
         prefs.getInt(_regionOutlineColorKey) ?? Colors.white.value;
     regionNameColor = prefs.getInt(_regionNameColorKey) ?? Colors.white.value;
+
+    // --- BARU: Load Tema ---
+    final themeString = prefs.getString(_themeModeKey) ?? 'system';
+    themeMode.value = _getThemeModeFromString(themeString);
   }
 
-  // ... (Fungsi save lama tetap sama) ...
+  // ... fungsi save yang lama ...
 
+  // --- BARU: Fungsi Save Tema ---
+  static Future<void> saveThemeMode(ThemeMode mode) async {
+    final prefs = await SharedPreferences.getInstance();
+    themeMode.value = mode; // Update notifier
+    await prefs.setString(_themeModeKey, mode.toString().split('.').last);
+  }
+
+  // Helper konversi String ke ThemeMode
+  static ThemeMode _getThemeModeFromString(String themeString) {
+    switch (themeString) {
+      case 'light':
+        return ThemeMode.light;
+      case 'dark':
+        return ThemeMode.dark;
+      case 'system':
+      default:
+        return ThemeMode.system;
+    }
+  }
+
+  // ... (sisa fungsi save lainnya biarkan saja) ...
   static Future<void> saveBaseBuildingsPath(String path) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_basePathKey, path);
@@ -102,7 +131,6 @@ class AppSettings {
     showRegionDistrictNames = value;
   }
 
-  // --- BARU: Fungsi Save Warna ---
   static Future<void> saveRegionPinColor(int colorValue) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_regionPinColorKey, colorValue);
