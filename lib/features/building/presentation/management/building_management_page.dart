@@ -1,19 +1,13 @@
 // lib/features/building/presentation/management/building_management_page.dart
-// --- FILE INI DIUBAH TOTAL ---
-
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'dart:io';
-import 'dart:convert'; // <-- TAMBAHAN IMPORT
+import 'dart:convert';
 import 'package:mind_palace_manager/app_settings.dart';
-// Import halaman baru yang kita buat
 import 'package:mind_palace_manager/features/building/presentation/management/district_building_management_page.dart';
-// --- TAMBAHAN ---
 import 'package:mind_palace_manager/features/building/presentation/map/district_map_editor_page.dart';
-// --- SELESAI TAMBAHAN ---
 import 'package:mind_palace_manager/permission_helper.dart';
 
-// Nama kelas tetap, tapi fungsinya berubah
 class BuildingManagementPage extends StatefulWidget {
   const BuildingManagementPage({super.key});
 
@@ -22,10 +16,8 @@ class BuildingManagementPage extends StatefulWidget {
 }
 
 class _BuildingManagementPageState extends State<BuildingManagementPage> {
-  // Variabel ini sekarang menyimpan folder Distrik
   List<Directory> _districtFolders = [];
   bool _isLoading = false;
-  // Controller untuk membuat distrik baru
   final TextEditingController _newDistrictController = TextEditingController();
 
   @override
@@ -40,7 +32,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
     super.dispose();
   }
 
-  // Fungsi ini sekarang memuat Distrik dari AppSettings.baseBuildingsPath
   Future<void> _loadDistricts() async {
     setState(() {
       _isLoading = true;
@@ -100,7 +91,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
     });
   }
 
-  // Dialog untuk membuat Distrik baru
   Future<void> _showCreateDistrictDialog() async {
     _newDistrictController.clear();
     return showDialog<void>(
@@ -128,7 +118,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
     );
   }
 
-  // Logika untuk membuat folder Distrik baru
   Future<void> _createNewDistrict() async {
     if (AppSettings.baseBuildingsPath == null) {
       Navigator.of(context).pop();
@@ -147,16 +136,10 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
       final newDir = Directory(newDistrictPath);
       await newDir.create(recursive: true);
 
-      // --- TAMBAHAN: Buat district_data.json ---
       final dataJsonFile = File(p.join(newDistrictPath, 'district_data.json'));
-      // Inisialisasi data peta
       await dataJsonFile.writeAsString(
-        json.encode({
-          "map_image": null, // Path ke gambar peta
-          "building_placements": [], // List penempatan bangunan
-        }),
+        json.encode({"map_image": null, "building_placements": []}),
       );
-      // --- SELESAI TAMBAHAN ---
 
       if (mounted) {
         Navigator.of(context).pop();
@@ -178,7 +161,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
     }
   }
 
-  // Navigasi ke halaman detail distrik (daftar bangunan)
   void _viewDistrict(Directory districtDir) {
     Navigator.push(
       context,
@@ -189,7 +171,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
     );
   }
 
-  // --- TAMBAHAN: Navigasi ke Editor Peta ---
   void _editDistrictMap(Directory districtDir) {
     Navigator.push(
       context,
@@ -199,9 +180,7 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
       ),
     );
   }
-  // --- SELESAI TAMBAHAN ---
 
-  // Logika menghapus Distrik
   Future<void> _deleteDistrict(Directory districtDir) async {
     final districtName = p.basename(districtDir.path);
 
@@ -257,7 +236,7 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Manajemen Distrik'), // AppBar diubah
+        title: const Text('Manajemen Distrik'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -270,7 +249,7 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
       floatingActionButton: FloatingActionButton(
         onPressed: _showCreateDistrictDialog,
         tooltip: 'Buat Distrik Baru',
-        child: const Icon(Icons.add_location_alt), // Ikon diubah
+        child: const Icon(Icons.add_location_alt),
       ),
     );
   }
@@ -303,34 +282,67 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
       );
     }
 
-    // Ini adalah daftar Distrik
     return ListView.builder(
       itemCount: _districtFolders.length,
       itemBuilder: (context, index) {
         final folder = _districtFolders[index];
         final folderName = p.basename(folder.path);
         return ListTile(
-          leading: const Icon(Icons.holiday_village, size: 40), // Ikon diubah
+          leading: const Icon(Icons.holiday_village, size: 40),
           title: Text(folderName, style: const TextStyle(fontSize: 18)),
           subtitle: Text(folder.path, style: const TextStyle(fontSize: 12)),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // --- TAMBAHAN: Tombol Edit Peta ---
-              IconButton(
-                icon: const Icon(Icons.map, color: Colors.blue),
-                tooltip: 'Edit Peta Distrik',
-                onPressed: () => _editDistrictMap(folder),
+          // --- PERUBAHAN: Mengganti Row dengan PopupMenuButton ---
+          trailing: PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            tooltip: 'Opsi Distrik',
+            onSelected: (String value) {
+              switch (value) {
+                case 'view':
+                  _viewDistrict(folder);
+                  break;
+                case 'edit_map':
+                  _editDistrictMap(folder);
+                  break;
+                case 'delete':
+                  _deleteDistrict(folder);
+                  break;
+              }
+            },
+            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+              const PopupMenuItem<String>(
+                value: 'view',
+                child: Row(
+                  children: [
+                    Icon(Icons.visibility, color: Colors.grey),
+                    SizedBox(width: 8),
+                    Text('Lihat'),
+                  ],
+                ),
               ),
-              // --- SELESAI TAMBAHAN ---
-              IconButton(
-                icon: const Icon(Icons.delete, color: Colors.red),
-                tooltip: 'Hapus Distrik',
-                onPressed: () => _deleteDistrict(folder),
+              const PopupMenuItem<String>(
+                value: 'edit_map',
+                child: Row(
+                  children: [
+                    Icon(Icons.map, color: Colors.blue),
+                    SizedBox(width: 8),
+                    Text('Edit Peta'),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem<String>(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('Hapus', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
               ),
             ],
           ),
-          // Aksi utama adalah masuk ke dalam distrik
+          // --- SELESAI PERUBAHAN ---
           onTap: () => _viewDistrict(folder),
         );
       },

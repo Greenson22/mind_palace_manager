@@ -725,7 +725,7 @@ class _DistrictBuildingManagementPageState
         final folder = _buildingFolders[index];
         final folderName = p.basename(folder.path);
 
-        // --- Widget Ikon Dinamis (DIPERBARUI) ---
+        // --- Widget Ikon Dinamis ---
         final Widget leadingIcon = FutureBuilder<Map<String, dynamic>>(
           future: _getBuildingIconData(folder),
           key: ValueKey(folder.path),
@@ -778,32 +778,72 @@ class _DistrictBuildingManagementPageState
           leading: leadingIcon,
           title: Text(folderName, style: const TextStyle(fontSize: 18)),
           subtitle: Text(folder.path, style: const TextStyle(fontSize: 12)),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.palette_outlined, color: Colors.blue),
-                tooltip: 'Ganti Ikon',
-                onPressed: () => _showEditIconDialog(folder),
+          // --- PERUBAHAN UTAMA: Mengganti Row dengan PopupMenuButton ---
+          trailing: PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            tooltip: 'Opsi Bangunan',
+            onSelected: (String value) {
+              switch (value) {
+                case 'view':
+                  _viewBuilding(folder);
+                  break;
+                case 'edit_room':
+                  _editBuilding(folder);
+                  break;
+                case 'change_icon':
+                  _showEditIconDialog(folder);
+                  break;
+                case 'delete':
+                  _deleteBuilding(folder);
+                  break;
+              }
+            },
+            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+              const PopupMenuItem<String>(
+                value: 'view',
+                child: Row(
+                  children: [
+                    Icon(Icons.visibility, color: Colors.grey),
+                    SizedBox(width: 8),
+                    Text('Lihat'),
+                  ],
+                ),
               ),
-              IconButton(
-                icon: const Icon(Icons.visibility),
-                tooltip: 'Lihat',
-                onPressed: () => _viewBuilding(folder),
+              const PopupMenuItem<String>(
+                value: 'edit_room',
+                child: Row(
+                  children: [
+                    Icon(Icons.edit, color: Colors.grey),
+                    SizedBox(width: 8),
+                    Text('Edit Ruangan'),
+                  ],
+                ),
               ),
-              IconButton(
-                icon: const Icon(Icons.edit),
-                tooltip: 'Edit Ruangan',
-                onPressed: () => _editBuilding(folder),
+              const PopupMenuItem<String>(
+                value: 'change_icon',
+                child: Row(
+                  children: [
+                    Icon(Icons.palette_outlined, color: Colors.blue),
+                    SizedBox(width: 8),
+                    Text('Ganti Ikon'),
+                  ],
+                ),
               ),
-              IconButton(
-                icon: const Icon(Icons.delete, color: Colors.red),
-                tooltip: 'Hapus',
-                onPressed: () => _deleteBuilding(folder),
+              const PopupMenuDivider(),
+              const PopupMenuItem<String>(
+                value: 'delete',
+                child: Row(
+                  children: [
+                    Icon(Icons.delete, color: Colors.red),
+                    SizedBox(width: 8),
+                    Text('Hapus', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
               ),
             ],
           ),
-          onTap: null,
+          // --- SELESAI PERUBAHAN ---
+          onTap: () => _viewBuilding(folder),
         );
       },
     );
