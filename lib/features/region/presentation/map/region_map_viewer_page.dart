@@ -79,8 +79,10 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
   // --- HELPER: Build Pin Widget (Sama seperti Editor) ---
   Widget _buildMapPinWidget(Map<String, dynamic> iconData) {
     final type = iconData['type'];
+    final shape = AppSettings.regionPinShape; // Gunakan setting Region
 
-    if (AppSettings.mapPinShape == 'Tidak Ada (Tanpa Latar)') {
+    // --- Opsi Tidak Ada ---
+    if (shape == 'Tidak Ada (Tanpa Latar)') {
       if (type == 'image') {
         final File? imageFile = iconData['file'];
         if (imageFile != null) {
@@ -96,8 +98,22 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
           );
         }
       }
+      if (type == 'text' && iconData['data'] != null) {
+        return Text(
+          iconData['data'].toString(),
+          style: const TextStyle(
+            fontSize: 16,
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            shadows: [Shadow(blurRadius: 2, color: Colors.black)],
+          ),
+          textAlign: TextAlign.center,
+        );
+      }
+      return const Icon(Icons.holiday_village, size: 24, color: Colors.red);
     }
 
+    // --- Opsi Bulat / Kotak ---
     Widget pinContent;
     if (type == 'text' && iconData['data'] != null) {
       pinContent = Text(
@@ -112,19 +128,23 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
     } else if (type == 'image') {
       final File? imageFile = iconData['file'];
       if (imageFile != null) {
-        pinContent = ClipOval(
-          child: Image.file(
+        if (shape == 'Kotak') {
+          pinContent = Image.file(
             imageFile,
             width: 24,
             height: 24,
             fit: BoxFit.cover,
-            errorBuilder: (c, e, s) => const Icon(
-              Icons.holiday_village,
-              size: 14,
-              color: Colors.white,
+          );
+        } else {
+          pinContent = ClipOval(
+            child: Image.file(
+              imageFile,
+              width: 24,
+              height: 24,
+              fit: BoxFit.cover,
             ),
-          ),
-        );
+          );
+        }
       } else {
         pinContent = const Icon(
           Icons.holiday_village,
@@ -141,7 +161,7 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
     }
 
     BoxDecoration pinDecoration;
-    Color pinColor = Colors.red; // Warna Merah untuk Viewer
+    Color pinColor = Colors.red; // Warna Viewer
 
     // Logika Outline
     Border? borderDeco;
@@ -149,7 +169,7 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
       borderDeco = Border.all(color: Colors.white, width: 2);
     }
 
-    if (AppSettings.mapPinShape == 'Kotak') {
+    if (shape == 'Kotak') {
       pinDecoration = BoxDecoration(
         color: pinColor,
         borderRadius: BorderRadius.circular(4),

@@ -15,8 +15,9 @@ class _SettingsPageState extends State<SettingsPage> {
   late TextEditingController _folderController;
   late String _currentMapPinShape;
   late String _currentListIconShape;
-  // --- BARU ---
   late bool _currentShowRegionOutline;
+  // --- BARU ---
+  late String _currentRegionPinShape;
 
   @override
   void initState() {
@@ -26,8 +27,9 @@ class _SettingsPageState extends State<SettingsPage> {
     );
     _currentMapPinShape = AppSettings.mapPinShape;
     _currentListIconShape = AppSettings.listIconShape;
-    // --- BARU ---
     _currentShowRegionOutline = AppSettings.showRegionPinOutline;
+    // --- BARU ---
+    _currentRegionPinShape = AppSettings.regionPinShape;
   }
 
   @override
@@ -37,22 +39,20 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _pickAndCreateFolder() async {
+    // ... (Kode _pickAndCreateFolder tetap sama)
     String? selectedPath = await FilePicker.platform.getDirectoryPath();
-
     if (selectedPath != null) {
       try {
         final rootDir = Directory(selectedPath);
         await AppSettings.saveBaseBuildingsPath(rootDir.path);
-
         setState(() {
           _folderController.text = AppSettings.baseBuildingsPath!;
         });
-
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Folder utama berhasil diatur di: ${AppSettings.baseBuildingsPath}',
+                'Folder utama berhasil diatur: ${AppSettings.baseBuildingsPath}',
               ),
             ),
           );
@@ -63,12 +63,6 @@ class _SettingsPageState extends State<SettingsPage> {
             context,
           ).showSnackBar(SnackBar(content: Text('Gagal mengatur folder: $e')));
         }
-      }
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Pemilihan folder dibatalkan')),
-        );
       }
     }
   }
@@ -99,56 +93,72 @@ class _SettingsPageState extends State<SettingsPage> {
               onPressed: _pickAndCreateFolder,
               child: const Text('Pilih Lokasi...'),
             ),
-            const SizedBox(height: 8.0),
-            Text(
-              'Ini adalah lokasi utama tempat semua data Anda akan disimpan.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-
             const Divider(height: 32.0),
+
+            // --- SETTING PETA DISTRIK (Bangunan) ---
             Text(
-              'Tampilan Peta',
+              'Tampilan Peta Distrik (Bangunan)',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 8.0),
-
-            // --- PENGATURAN BENTUK PIN ---
             ListTile(
-              title: const Text('Bentuk Pin Peta (Umum)'),
-              subtitle: const Text('Bulat, Kotak, atau Tanpa Latar'),
+              title: const Text('Bentuk Pin Bangunan'),
+              subtitle: const Text('Untuk item di dalam Distrik'),
               trailing: DropdownButton<String>(
                 value: _currentMapPinShape,
                 onChanged: (String? newValue) async {
                   if (newValue != null) {
                     await AppSettings.saveMapPinShape(newValue);
-                    setState(() {
-                      _currentMapPinShape = newValue;
-                    });
+                    setState(() => _currentMapPinShape = newValue);
                   }
                 },
                 items: ['Bulat', 'Kotak', 'Tidak Ada (Tanpa Latar)']
                     .map(
-                      (String value) => DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value),
-                      ),
+                      (val) => DropdownMenuItem(value: val, child: Text(val)),
                     )
                     .toList(),
               ),
             ),
 
-            // --- BARU: TOGGLE OUTLINE WILAYAH ---
+            const Divider(height: 32.0),
+
+            // --- SETTING PETA WILAYAH (Distrik) ---
+            Text(
+              'Tampilan Peta Wilayah (Distrik)',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8.0),
+
+            // 1. Pilihan Bentuk
+            ListTile(
+              title: const Text('Bentuk Pin Distrik'),
+              subtitle: const Text('Untuk item di dalam Wilayah'),
+              trailing: DropdownButton<String>(
+                value: _currentRegionPinShape,
+                onChanged: (String? newValue) async {
+                  if (newValue != null) {
+                    await AppSettings.saveRegionPinShape(newValue);
+                    setState(() => _currentRegionPinShape = newValue);
+                  }
+                },
+                items: ['Bulat', 'Kotak', 'Tidak Ada (Tanpa Latar)']
+                    .map(
+                      (val) => DropdownMenuItem(value: val, child: Text(val)),
+                    )
+                    .toList(),
+              ),
+            ),
+
+            // 2. Toggle Outline
             SwitchListTile(
-              title: const Text('Outline Ikon Distrik (Peta Wilayah)'),
+              title: const Text('Outline Ikon Distrik'),
               subtitle: const Text(
-                'Tampilkan garis tepi putih pada ikon distrik di peta wilayah.',
+                'Garis tepi putih agar ikon terlihat jelas (Hanya aktif jika bentuk Bulat/Kotak).',
               ),
               value: _currentShowRegionOutline,
               onChanged: (bool value) async {
                 await AppSettings.saveShowRegionPinOutline(value);
-                setState(() {
-                  _currentShowRegionOutline = value;
-                });
+                setState(() => _currentShowRegionOutline = value);
               },
             ),
 
@@ -165,17 +175,12 @@ class _SettingsPageState extends State<SettingsPage> {
                 onChanged: (String? newValue) async {
                   if (newValue != null) {
                     await AppSettings.saveListIconShape(newValue);
-                    setState(() {
-                      _currentListIconShape = newValue;
-                    });
+                    setState(() => _currentListIconShape = newValue);
                   }
                 },
                 items: ['Bulat', 'Kotak', 'Tidak Ada (Tanpa Latar)']
                     .map(
-                      (String value) => DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value),
-                      ),
+                      (val) => DropdownMenuItem(value: val, child: Text(val)),
                     )
                     .toList(),
               ),
