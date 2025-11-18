@@ -136,19 +136,40 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
     if (result != null && result.files.single.path != null) {
       try {
         final sourceFile = File(result.files.single.path!);
-        final imageName = p.basename(sourceFile.path);
+        final extension = p.extension(sourceFile.path);
+
+        // --- BARU: Gunakan nama file tetap ---
+        const baseName = 'district_map';
+        final newFixedFileName = '$baseName$extension';
+
+        final String? oldMapImageName = _mapImageName;
+
+        // 1. Copy file baru ke nama tetap. Ini akan menimpa jika nama sama.
         final destinationPath = p.join(
           widget.districtDirectory.path,
-          imageName,
+          newFixedFileName,
         );
-
         await sourceFile.copy(destinationPath);
         final newImageFile = File(destinationPath);
+
+        // 2. Hapus file lama jika namanya berbeda
+        if (oldMapImageName != null && oldMapImageName != newFixedFileName) {
+          try {
+            final oldFile = File(
+              p.join(widget.districtDirectory.path, oldMapImageName),
+            );
+            if (await oldFile.exists()) {
+              await oldFile.delete();
+            }
+          } catch (e) {
+            print("Failed to delete old district map image: $e");
+          }
+        }
 
         await _updateImageAspectRatio(newImageFile);
 
         setState(() {
-          _mapImageName = imageName;
+          _mapImageName = newFixedFileName;
           _mapImageFile = newImageFile;
         });
         await _saveData();
@@ -390,8 +411,7 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
             setState(() {
               _selectedBuildingToPlace = dir;
               if (dir != null) {
-                // --- PERBAIKAN DI SINI ---
-                // Mengganti variabel (p) menjadi (item) untuk menghindari konflik dengan library path (p)
+                // --- PERBAIKAN DI SINI (Variabel item) ---
                 final existing = _placements.firstWhere(
                   (item) =>
                       item['building_folder_name'] == p.basename(dir.path),

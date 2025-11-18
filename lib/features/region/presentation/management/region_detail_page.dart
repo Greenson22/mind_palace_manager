@@ -119,7 +119,7 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
     }
   }
 
-  // --- HELPER IKON ---
+  // --- HELPER IKON (DIPERBARUI) ---
   Future<Map<String, dynamic>> _getDistrictIconData(
     Directory districtDir,
   ) async {
@@ -128,7 +128,25 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
       if (!await jsonFile.exists()) return {'type': null, 'data': null};
       final content = await jsonFile.readAsString();
       final data = json.decode(content);
-      return {'type': data['icon_type'], 'data': data['icon_data']};
+
+      final iconType = data['icon_type'];
+      final iconData = data['icon_data'];
+
+      if (iconType == 'image' && iconData != null) {
+        final imageFile = File(p.join(districtDir.path, iconData.toString()));
+
+        // --- PERBAIKAN: Cek apakah file gambar benar-benar ada ---
+        if (await imageFile.exists()) {
+          // Jika ada, kembalikan File object.
+          return {'type': 'image', 'data': iconData, 'file': imageFile};
+        } else {
+          // Jika file tidak ada, kembalikan ke default.
+          return {'type': null, 'data': null};
+        }
+        // --- SELESAI PERBAIKAN ---
+      }
+      // Untuk Teks atau Default
+      return {'type': iconType, 'data': iconData};
     } catch (e) {
       return {'type': null, 'data': null};
     }
@@ -215,7 +233,15 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
             String currentImageText = '...';
             if (_editIconType == 'Gambar') {
               if (_editIconImagePath != null) {
-                currentImageText = 'Baru: ${p.basename(_editIconImagePath!)}';
+                // Periksa apakah ini referensi peta untuk teks yang berbeda
+                if (_editIconImagePath!.startsWith('MAP_IMAGE_REF:')) {
+                  // --- PERBAIKAN SUBSTRING UNTUK DISPLAY ---
+                  currentImageText =
+                      'Referensi Peta: ${p.basename(_editIconImagePath!.substring(14))}';
+                  // --- SELESAI PERBAIKAN ---
+                } else {
+                  currentImageText = 'Baru: ${p.basename(_editIconImagePath!)}';
+                }
               } else if (currentType == 'image' && currentData != null) {
                 currentImageText = 'Saat ini: $currentData';
               } else {
@@ -276,32 +302,26 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
                               icon: const Icon(Icons.map),
                               label: const Text('Gunakan Peta Distrik'),
                               onPressed: () async {
-                                try {
-                                  final mapFile = File(
-                                    p.join(
-                                      districtDir.path,
-                                      currentMapImageName,
-                                    ),
+                                final mapFile = File(
+                                  p.join(districtDir.path, currentMapImageName),
+                                );
+                                if (await mapFile.exists()) {
+                                  // --- PERUBAHAN: Set path ke marker referensi ---
+                                  setDialogState(
+                                    () => _editIconImagePath =
+                                        'MAP_IMAGE_REF:$currentMapImageName',
                                   );
-                                  if (await mapFile.exists()) {
-                                    // Copy ke temp
-                                    final tempDir = Directory.systemTemp;
-                                    final ext = p.extension(
-                                      currentMapImageName!,
-                                    );
-                                    final tempFile = File(
-                                      p.join(
-                                        tempDir.path,
-                                        'temp_dist_icon_${DateTime.now().millisecondsSinceEpoch}$ext',
+                                  // --- SELESAI PERUBAHAN ---
+                                } else {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'File peta distrik tidak ditemukan.',
+                                        ),
                                       ),
                                     );
-                                    await mapFile.copy(tempFile.path);
-                                    setDialogState(
-                                      () => _editIconImagePath = tempFile.path,
-                                    );
                                   }
-                                } catch (e) {
-                                  print("Gagal salin peta: $e");
                                 }
                               },
                             ),
@@ -355,18 +375,39 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
       String? finalIconType;
       dynamic finalIconData;
 
+      // Variabel untuk menampung nama file icon fixed lama yang perlu dihapus
+      String? oldFixedIconName;
+      if (oldType == 'image' &&
+          oldData.toString().startsWith('district_icon.')) {
+        oldFixedIconName = oldData.toString();
+      }
+
       if (_editIconType == 'Teks') {
         finalIconType = 'text';
         finalIconData = _editIconTextController.text.trim();
       } else if (_editIconType == 'Gambar') {
         if (_editIconImagePath != null) {
           finalIconType = 'image';
-          finalIconData = p.basename(_editIconImagePath!);
-          final destPath = p.join(currentDir.path, finalIconData);
-          // Hindari copy ke diri sendiri
-          if (File(_editIconImagePath!).absolute.path !=
-              File(destPath).absolute.path) {
-            await File(_editIconImagePath!).copy(destPath);
+
+          if (_editIconImagePath!.startsWith('MAP_IMAGE_REF:')) {
+            // Referensi Peta Distrik: Gunakan nama file peta
+            // --- PERBAIKAN SUBSTRING UNTUK SAVE ---
+            finalIconData = _editIconImagePath!.substring(14);
+            // --- SELESAI PERBAIKAN ---
+          } else {
+            // File baru dipilih (bukan peta) - Lakukan copy ke fixed name
+
+            final extension = p.extension(_editIconImagePath!);
+            final fixedIconName = 'district_icon$extension';
+            finalIconData = fixedIconName;
+
+            final destPath = p.join(currentDir.path, finalIconData);
+
+            // Hindari copy ke diri sendiri
+            if (File(_editIconImagePath!).absolute.path !=
+                File(destPath).absolute.path) {
+              await File(_editIconImagePath!).copy(destPath);
+            }
           }
         } else if (oldType == 'image') {
           finalIconType = 'image';
@@ -377,7 +418,27 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
         finalIconData = null;
       }
 
-      // 3. Update JSON
+      // 3. Bersihkan file ikon lama yang tersimpan (hanya 'district_icon.ext')
+      if (oldFixedIconName != null) {
+        // Hapus jika tipe ikon diubah ke Teks/Default, ATAU diganti ke file peta, ATAU diganti ke file ikon baru dengan ekstensi berbeda.
+        // Note: Jika diganti ke file peta, finalIconData akan berupa 'district_map.ext'
+        if (finalIconType != 'image' ||
+            (finalIconData != oldFixedIconName &&
+                !finalIconData.toString().startsWith('district_map.'))) {
+          try {
+            final oldImageFile = File(
+              p.join(currentDir.path, oldFixedIconName),
+            );
+            if (await oldImageFile.exists()) {
+              await oldImageFile.delete();
+            }
+          } catch (e) {
+            print('Gagal menghapus gambar ikon fixed lama: $e');
+          }
+        }
+      }
+
+      // 4. Update JSON
       final jsonFile = File(p.join(currentDir.path, 'district_data.json'));
       Map<String, dynamic> jsonData = {};
       if (await jsonFile.exists()) {
@@ -525,11 +586,24 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
           leading: FutureBuilder<Map<String, dynamic>>(
             future: _getDistrictIconData(dir),
             builder: (context, snapshot) {
-              if (!snapshot.hasData) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return _buildIconContainer(
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                );
+              }
+
+              if (!snapshot.hasData || snapshot.hasError) {
                 return _buildIconContainer(const Icon(Icons.holiday_village));
               }
+
               final type = snapshot.data!['type'];
               final data = snapshot.data!['data'];
+              // Ambil File object yang sudah diverifikasi eksistensinya oleh _getDistrictIconData
+              final imageFile = snapshot.data!['file'] as File?;
 
               if (type == 'text' && data != null) {
                 return _buildIconContainer(
@@ -540,10 +614,12 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
                   ),
                 );
               }
-              if (type == 'image' && data != null) {
-                final imageFile = File(p.join(dir.path, data.toString()));
+              // Jika tipe gambar dan file sudah diverifikasi ada
+              if (type == 'image' && imageFile != null) {
                 return _buildIconContainer(null, imageFile: imageFile);
               }
+
+              // Fallback untuk semua kasus lain (termasuk file gambar yang hilang)
               return _buildIconContainer(const Icon(Icons.holiday_village));
             },
           ),

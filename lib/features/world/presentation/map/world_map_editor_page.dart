@@ -107,12 +107,38 @@ class _WorldMapEditorPageState extends State<WorldMapEditorPage> {
     var res = await FilePicker.platform.pickFiles(type: FileType.image);
     if (res != null) {
       final src = File(res.files.single.path!);
-      final name = p.basename(src.path);
-      // Salin ke root folder
-      await src.copy(p.join(widget.worldDirectory.path, name));
-      _mapImageName = name;
-      _mapImageFile = File(p.join(widget.worldDirectory.path, name));
+      final extension = p.extension(src.path);
+
+      // --- BARU: Gunakan nama file tetap ---
+      const baseName = 'world_map';
+      final newFixedFileName = '$baseName$extension';
+
+      final String? oldMapImageName = _mapImageName;
+
+      // 1. Copy file baru ke nama tetap. Ini akan menimpa jika nama sama.
+      final destPath = p.join(widget.worldDirectory.path, newFixedFileName);
+      await src.copy(destPath);
+
+      // 2. Hapus file lama jika namanya berbeda (mencegah penumpukan file dengan ekstensi berbeda)
+      if (oldMapImageName != null && oldMapImageName != newFixedFileName) {
+        try {
+          final oldFile = File(
+            p.join(widget.worldDirectory.path, oldMapImageName),
+          );
+          if (await oldFile.exists()) {
+            await oldFile.delete();
+          }
+        } catch (e) {
+          print("Failed to delete old world map image: $e");
+        }
+      }
+
+      // 3. Update state variables
+      _mapImageName = newFixedFileName;
+      _mapImageFile = File(destPath);
       await _updateImageAspectRatio(_mapImageFile!);
+
+      // 4. Save data dan refresh UI
       _saveData();
       setState(() {});
     }

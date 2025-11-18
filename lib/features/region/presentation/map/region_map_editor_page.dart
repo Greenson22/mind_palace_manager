@@ -97,11 +97,38 @@ class _RegionMapEditorPageState extends State<RegionMapEditorPage> {
     var res = await FilePicker.platform.pickFiles(type: FileType.image);
     if (res != null) {
       final src = File(res.files.single.path!);
-      final name = p.basename(src.path);
-      await src.copy(p.join(widget.regionDirectory.path, name));
-      _mapImageName = name;
-      _mapImageFile = File(p.join(widget.regionDirectory.path, name));
+      final extension = p.extension(src.path);
+
+      // --- BARU: Gunakan nama file tetap (fixed name) ---
+      const baseName = 'region_map';
+      final newFixedFileName = '$baseName$extension';
+
+      final String? oldMapImageName = _mapImageName;
+
+      // 1. Copy file baru ke nama tetap. Ini akan menimpa jika nama sama.
+      final destPath = p.join(widget.regionDirectory.path, newFixedFileName);
+      await src.copy(destPath);
+
+      // 2. Hapus file lama jika namanya berbeda (mencegah penumpukan file dengan ekstensi berbeda)
+      if (oldMapImageName != null && oldMapImageName != newFixedFileName) {
+        try {
+          final oldFile = File(
+            p.join(widget.regionDirectory.path, oldMapImageName),
+          );
+          if (await oldFile.exists()) {
+            await oldFile.delete();
+          }
+        } catch (e) {
+          print("Failed to delete old region map image: $e");
+        }
+      }
+
+      // 3. Update state variables
+      _mapImageName = newFixedFileName;
+      _mapImageFile = File(destPath);
       await _updateImageAspectRatio(_mapImageFile!);
+
+      // 4. Save data dan refresh UI
       _saveData();
       setState(() {});
     }

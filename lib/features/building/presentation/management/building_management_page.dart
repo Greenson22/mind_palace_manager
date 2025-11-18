@@ -456,12 +456,20 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
       } else if (_editIconType == 'Gambar') {
         if (_editIconImagePath != null) {
           finalIconType = 'image';
-          finalIconData = p.basename(_editIconImagePath!);
+
+          // --- BARU: Gunakan nama file ikon tetap ---
+          final extension = p.extension(_editIconImagePath!);
+          final fixedIconName = 'region_icon$extension';
+          finalIconData = fixedIconName;
+
           final sourceFile = File(_editIconImagePath!);
-          final destPath = p.join(currentDir.path, finalIconData);
+          final destPath = p.join(currentDir.path, fixedIconName);
+
+          // Copy file baru
           if (sourceFile.absolute.path != File(destPath).absolute.path) {
             await sourceFile.copy(destPath);
           }
+          // --- SELESAI BARU ---
         } else if (oldType == 'image') {
           finalIconType = 'image';
           finalIconData = oldData;
@@ -469,6 +477,23 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
       } else {
         finalIconType = null;
         finalIconData = null;
+      }
+
+      // 2. Bersihkan file gambar lama yang tidak terpakai
+      if (oldType == 'image' &&
+          (finalIconType != 'image' || finalIconData != oldData)) {
+        // Jika sebelumnya adalah gambar dan sekarang bukan gambar ATAU namanya berubah
+        try {
+          // Coba hapus file lama (menggunakan nama lama yang tersimpan di oldData)
+          final oldImageFile = File(
+            p.join(currentDir.path, oldData.toString()),
+          );
+          if (await oldImageFile.exists()) {
+            await oldImageFile.delete();
+          }
+        } catch (e) {
+          print('Gagal menghapus gambar ikon lama: $e');
+        }
       }
 
       final jsonFile = File(p.join(currentDir.path, 'region_data.json'));
