@@ -1,17 +1,16 @@
 // lib/features/building/presentation/management/building_management_page.dart
+// --- FILE INI DIUBAH TOTAL ---
+
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'dart:io';
-import 'dart:convert';
+// 'dart:convert' tidak dipakai di sini
 import 'package:mind_palace_manager/app_settings.dart';
-import 'package:mind_palace_manager/features/building/presentation/editor/room_editor_page.dart';
-import 'package:mind_palace_manager/features/building/presentation/viewer/building_viewer_page.dart';
-
-// --- TAMBAHAN ---
-// Impor helper izin
+// Import halaman baru yang kita buat
+import 'package:mind_palace_manager/features/building/presentation/management/district_building_management_page.dart';
 import 'package:mind_palace_manager/permission_helper.dart';
-// --- SELESAI TAMBAHAN ---
 
+// Nama kelas tetap, tapi fungsinya berubah
 class BuildingManagementPage extends StatefulWidget {
   const BuildingManagementPage({super.key});
 
@@ -20,37 +19,37 @@ class BuildingManagementPage extends StatefulWidget {
 }
 
 class _BuildingManagementPageState extends State<BuildingManagementPage> {
-  List<Directory> _buildingFolders = [];
+  // Variabel ini sekarang menyimpan folder Distrik
+  List<Directory> _districtFolders = [];
   bool _isLoading = false;
-  final TextEditingController _newBuildingController = TextEditingController();
+  // Controller untuk membuat distrik baru
+  final TextEditingController _newDistrictController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadBuildings());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadDistricts());
   }
 
   @override
   void dispose() {
-    _newBuildingController.dispose();
+    _newDistrictController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadBuildings() async {
+  // Fungsi ini sekarang memuat Distrik dari AppSettings.baseBuildingsPath
+  Future<void> _loadDistricts() async {
     setState(() {
       _isLoading = true;
     });
 
-    // --- TAMBAHAN: Pengecekan Izin ---
-    // Tambahkan pengecekan di sini sebagai pengaman jika pengguna
-    // mencabut izin saat aplikasi berjalan.
     bool hasPermission = await checkAndRequestPermissions();
     if (!hasPermission) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Izin penyimpanan ditolak. Tidak dapat memuat bangunan.',
+              'Izin penyimpanan ditolak. Tidak dapat memuat distrik.',
             ),
             backgroundColor: Colors.red,
           ),
@@ -59,7 +58,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
       setState(() => _isLoading = false);
       return;
     }
-    // --- SELESAI TAMBAHAN ---
 
     if (AppSettings.baseBuildingsPath == null) {
       if (mounted) {
@@ -77,20 +75,20 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
     }
 
     try {
-      final buildingsDir = Directory(AppSettings.baseBuildingsPath!);
-      if (!await buildingsDir.exists()) {
-        await buildingsDir.create(recursive: true);
+      final rootDir = Directory(AppSettings.baseBuildingsPath!);
+      if (!await rootDir.exists()) {
+        await rootDir.create(recursive: true);
       }
 
-      final entities = await buildingsDir.list().toList();
+      final entities = await rootDir.list().toList();
       setState(() {
-        _buildingFolders = entities.whereType<Directory>().toList();
+        _districtFolders = entities.whereType<Directory>().toList();
       });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Gagal memuat bangunan: $e')));
+        ).showSnackBar(SnackBar(content: Text('Gagal memuat distrik: $e')));
       }
     }
 
@@ -99,16 +97,17 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
     });
   }
 
-  Future<void> _showCreateBuildingDialog() async {
-    _newBuildingController.clear();
+  // Dialog untuk membuat Distrik baru
+  Future<void> _showCreateDistrictDialog() async {
+    _newDistrictController.clear();
     return showDialog<void>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Buat Bangunan Baru'),
+          title: const Text('Buat Distrik Baru'),
           content: TextField(
-            controller: _newBuildingController,
-            decoration: const InputDecoration(hintText: 'Nama Bangunan'),
+            controller: _newDistrictController,
+            decoration: const InputDecoration(hintText: 'Nama Distrik'),
             autofocus: true,
           ),
           actions: <Widget>[
@@ -118,7 +117,7 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
             ),
             ElevatedButton(
               child: const Text('Buat'),
-              onPressed: _createNewBuilding,
+              onPressed: _createNewDistrict,
             ),
           ],
         );
@@ -126,35 +125,35 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
     );
   }
 
-  Future<void> _createNewBuilding() async {
+  // Logika untuk membuat folder Distrik baru
+  Future<void> _createNewDistrict() async {
     if (AppSettings.baseBuildingsPath == null) {
       Navigator.of(context).pop();
-      _loadBuildings();
+      _loadDistricts();
       return;
     }
 
-    final String buildingName = _newBuildingController.text.trim();
-    if (buildingName.isEmpty) return;
+    final String districtName = _newDistrictController.text.trim();
+    if (districtName.isEmpty) return;
 
     try {
-      final newBuildingPath = p.join(
+      final newDistrictPath = p.join(
         AppSettings.baseBuildingsPath!,
-        buildingName,
+        districtName,
       );
-      final newDir = Directory(newBuildingPath);
+      final newDir = Directory(newDistrictPath);
       await newDir.create(recursive: true);
 
-      final dataJsonFile = File(p.join(newBuildingPath, 'data.json'));
-      await dataJsonFile.writeAsString(json.encode({"rooms": []}));
+      // Distrik TIDAK perlu file data.json, hanya folder
 
       if (mounted) {
         Navigator.of(context).pop();
       }
-      await _loadBuildings();
+      await _loadDistricts();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Bangunan "$buildingName" berhasil dibuat')),
+          SnackBar(content: Text('Distrik "$districtName" berhasil dibuat')),
         );
       }
     } catch (e) {
@@ -162,43 +161,34 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Gagal membuat bangunan: $e')));
+        ).showSnackBar(SnackBar(content: Text('Gagal membuat distrik: $e')));
       }
     }
   }
 
-  void _viewBuilding(Directory buildingDir) {
+  // Navigasi ke halaman detail distrik (daftar bangunan)
+  void _viewDistrict(Directory districtDir) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        // Arahkan ke Viewer
         builder: (context) =>
-            BuildingViewerPage(buildingDirectory: buildingDir),
+            DistrictBuildingManagementPage(districtDirectory: districtDir),
       ),
     );
   }
 
-  void _editBuilding(Directory buildingDir) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        // Arahkan ke Editor
-        builder: (context) => RoomEditorPage(buildingDirectory: buildingDir),
-      ),
-    );
-  }
-
-  Future<void> _deleteBuilding(Directory buildingDir) async {
-    final buildingName = p.basename(buildingDir.path);
+  // Logika menghapus Distrik
+  Future<void> _deleteDistrict(Directory districtDir) async {
+    final districtName = p.basename(districtDir.path);
 
     final bool? didConfirm = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Hapus Bangunan'),
+          title: const Text('Hapus Distrik'),
           content: Text(
-            'Apakah Anda yakin ingin menghapus "$buildingName"?\n\n'
-            'Tindakan ini akan menghapus semua folder, ruangan, dan gambar di dalamnya secara permanen.',
+            'Apakah Anda yakin ingin menghapus distrik "$districtName"?\n\n'
+            'PERINGATAN: Tindakan ini akan menghapus SEMUA bangunan di dalamnya secara permanen.',
           ),
           actions: <Widget>[
             TextButton(
@@ -220,19 +210,19 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
 
     if (didConfirm == true) {
       try {
-        await buildingDir.delete(recursive: true);
+        await districtDir.delete(recursive: true);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Bangunan "$buildingName" berhasil dihapus.'),
+              content: Text('Distrik "$districtName" berhasil dihapus.'),
             ),
           );
         }
-        await _loadBuildings();
+        await _loadDistricts();
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Gagal menghapus bangunan: $e')),
+            SnackBar(content: Text('Gagal menghapus distrik: $e')),
           );
         }
       }
@@ -243,20 +233,20 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Manajemen Bangunan'),
+        title: const Text('Manajemen Distrik'), // AppBar diubah
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _loadBuildings,
+            onPressed: _loadDistricts,
             tooltip: 'Muat Ulang Daftar',
           ),
         ],
       ),
       body: _buildBody(),
       floatingActionButton: FloatingActionButton(
-        onPressed: _showCreateBuildingDialog,
-        tooltip: 'Buat Bangunan Baru',
-        child: const Icon(Icons.add_business),
+        onPressed: _showCreateDistrictDialog,
+        tooltip: 'Buat Distrik Baru',
+        child: const Icon(Icons.add_location_alt), // Ikon diubah
       ),
     );
   }
@@ -279,46 +269,38 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (_buildingFolders.isEmpty) {
+    if (_districtFolders.isEmpty) {
       return const Center(
         child: Text(
-          'Belum ada bangunan.\nKlik tombol + untuk membuat yang baru.',
+          'Belum ada distrik.\nKlik tombol + untuk membuat yang baru.',
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 16, color: Colors.grey),
         ),
       );
     }
 
+    // Ini adalah daftar Distrik
     return ListView.builder(
-      itemCount: _buildingFolders.length,
+      itemCount: _districtFolders.length,
       itemBuilder: (context, index) {
-        final folder = _buildingFolders[index];
+        final folder = _districtFolders[index];
         final folderName = p.basename(folder.path);
         return ListTile(
-          leading: const Icon(Icons.location_city, size: 40),
+          leading: const Icon(Icons.holiday_village, size: 40), // Ikon diubah
           title: Text(folderName, style: const TextStyle(fontSize: 18)),
           subtitle: Text(folder.path, style: const TextStyle(fontSize: 12)),
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
-                icon: const Icon(Icons.visibility),
-                tooltip: 'Lihat',
-                onPressed: () => _viewBuilding(folder),
-              ),
-              IconButton(
-                icon: const Icon(Icons.edit),
-                tooltip: 'Edit Ruangan',
-                onPressed: () => _editBuilding(folder),
-              ),
-              IconButton(
                 icon: const Icon(Icons.delete, color: Colors.red),
-                tooltip: 'Hapus',
-                onPressed: () => _deleteBuilding(folder),
+                tooltip: 'Hapus Distrik',
+                onPressed: () => _deleteDistrict(folder),
               ),
             ],
           ),
-          onTap: null,
+          // Aksi utama adalah masuk ke dalam distrik
+          onTap: () => _viewDistrict(folder),
         );
       },
     );

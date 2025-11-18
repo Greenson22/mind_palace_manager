@@ -1,6 +1,5 @@
 // lib/app_shell.dart
 import 'package:flutter/material.dart';
-// Ganti 'nama_proyek_anda' dengan nama proyek Anda di pubspec.yaml
 import 'package:mind_palace_manager/features/building/presentation/management/building_management_page.dart';
 import 'package:mind_palace_manager/features/settings/settings_page.dart';
 
@@ -9,7 +8,6 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // MaterialApp sekarang ada di sini
     return const MaterialApp(home: DashboardPage());
   }
 }
@@ -30,22 +28,20 @@ class DashboardPage extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    // Arahkan ke halaman manajemen yang baru
                     builder: (context) => const BuildingManagementPage(),
                   ),
                 );
               },
-              child: const Text('Kelola Bangunan'),
+              // --- PERUBAHAN ---
+              child: const Text('Kelola Distrik & Bangunan'), // <-- Teks diubah
+              // --- SELESAI PERUBAHAN ---
             ),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    // Arahkan ke halaman pengaturan yang baru
-                    builder: (context) => const SettingsPage(),
-                  ),
+                  MaterialPageRoute(builder: (context) => const SettingsPage()),
                 );
               },
               child: const Text('Buka Pengaturan'),

@@ -1,11 +1,9 @@
 // lib/features/settings/settings_page.dart
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:path/path.dart' as p;
+// 'path' tidak lagi digunakan di sini
 import 'dart:io';
-import 'package:mind_palace_manager/app_settings.dart'; // <-- Impor AppSettings
-
-// Ganti 'nama_proyek_anda' dengan nama proyek Anda
+import 'package:mind_palace_manager/app_settings.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -20,8 +18,6 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void initState() {
     super.initState();
-    // AppSettings.baseBuildingsPath sekarang sudah terisi (atau null)
-    // berkat pemanggilan di main.dart
     _folderController = TextEditingController(
       text: AppSettings.baseBuildingsPath ?? 'Belum diatur',
     );
@@ -38,24 +34,24 @@ class _SettingsPageState extends State<SettingsPage> {
 
     if (selectedPath != null) {
       try {
-        final buildingsPath = p.join(selectedPath, 'buildings');
-        final buildingsDir = Directory(buildingsPath);
-        await buildingsDir.create(recursive: true);
+        // --- PERUBAHAN ---
+        // Kita tidak lagi membuat sub-folder 'buildings'.
+        // Kita gunakan path yang dipilih pengguna secara langsung.
+        final rootDir = Directory(selectedPath);
 
-        // Simpan ke AppSettings (menggunakan SharedPreferences)
-        await AppSettings.saveBaseBuildingsPath(
-          buildingsDir.path,
-        ); // <-- Diubah
+        // Simpan ke AppSettings
+        await AppSettings.saveBaseBuildingsPath(rootDir.path); // <-- Diubah
 
         setState(() {
           _folderController.text = AppSettings.baseBuildingsPath!;
         });
+        // --- SELESAI PERUBAHAN ---
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Folder "buildings" berhasil diatur di: ${AppSettings.baseBuildingsPath}',
+                'Folder utama berhasil diatur di: ${AppSettings.baseBuildingsPath}',
               ),
             ),
           );
@@ -64,7 +60,7 @@ class _SettingsPageState extends State<SettingsPage> {
         if (mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text('Gagal membuat folder: $e')));
+          ).showSnackBar(SnackBar(content: Text('Gagal mengatur folder: $e')));
         }
       }
     } else {
@@ -86,7 +82,7 @@ class _SettingsPageState extends State<SettingsPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Atur Lokasi Folder Utama',
+              'Atur Lokasi Folder Utama', // <-- Teks diubah
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 16.0),
@@ -94,7 +90,7 @@ class _SettingsPageState extends State<SettingsPage> {
               controller: _folderController,
               readOnly: true,
               decoration: const InputDecoration(
-                labelText: 'Path Folder "buildings"',
+                labelText: 'Path Folder Utama (Root)', // <-- Teks diubah
                 border: OutlineInputBorder(),
               ),
             ),
@@ -105,7 +101,8 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             const SizedBox(height: 8.0),
             Text(
-              'Folder "buildings" akan otomatis dibuat di dalam lokasi yang Anda pilih.',
+              // <-- Teks diubah
+              'Ini adalah lokasi utama tempat semua distrik dan bangunan Anda akan disimpan.',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
