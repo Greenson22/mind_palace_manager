@@ -20,6 +20,10 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
   String? _error;
   Map<String, dynamic>? _currentRoom;
 
+  // Variabel ini tidak lagi diperlukan untuk state,
+  // tapi kita bisa biarkan (atau hapus)
+  String? _selectedConnectionTargetId;
+
   List<dynamic> get _rooms => _buildingData['rooms'] as List? ?? [];
 
   @override
@@ -33,6 +37,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
     setState(() {
       _isLoading = true;
       _error = null;
+      _selectedConnectionTargetId = null;
     });
 
     try {
@@ -65,6 +70,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
       final targetRoom = _rooms.firstWhere((r) => r['id'] == targetRoomId);
       setState(() {
         _currentRoom = targetRoom;
+        _selectedConnectionTargetId = null; // Reset pilihan dropdown
       });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -120,7 +126,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
       imageWidget = Image.file(
         imageFile,
         width: double.infinity,
-        fit: BoxFit.cover,
+        fit: BoxFit.contain,
         errorBuilder: (context, error, stackTrace) {
           return const Center(
             child: Icon(
@@ -137,43 +143,70 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
       );
     }
 
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              height: 250,
-              width: double.infinity,
-              color: Colors.black12,
-              child: imageWidget,
-            ),
-            const SizedBox(height: 16.0),
-            Text(roomName, style: Theme.of(context).textTheme.headlineMedium),
-            const Divider(height: 24.0),
-            Text(
-              'Pintu Keluar:',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8.0),
-            if (connections.isEmpty)
-              const Text('Tidak ada navigasi dari ruangan ini.'),
-            ...connections.map((conn) {
-              final String label = conn['label'] ?? 'Pindah';
-              final String targetRoomId = conn['targetRoomId'];
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4.0),
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.exit_to_app),
-                  label: Text(label),
-                  onPressed: () => _navigateToRoom(targetRoomId),
+    // Tentukan item dropdown
+    List<DropdownMenuItem<String>> dropdownItems = connections
+        .map<DropdownMenuItem<String>>((conn) {
+          final String label = conn['label'] ?? 'Pindah';
+          final String targetRoomId = conn['targetRoomId'];
+          return DropdownMenuItem<String>(
+            value: targetRoomId,
+            child: Text(label),
+          );
+        })
+        .toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Center(
+            child: AspectRatio(
+              aspectRatio: 16 / 9,
+              child: Container(
+                color: Colors.black12,
+                // TAMBAHAN: Bungkus dengan InteractiveViewer untuk zoom
+                child: InteractiveViewer(
+                  panEnabled: true,
+                  minScale: 1.0,
+                  maxScale: 4.0, // Izinkan zoom hingga 4x
+                  child: imageWidget,
                 ),
-              );
-            }).toList(),
-          ],
+              ),
+            ),
+          ),
         ),
-      ),
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(roomName, style: Theme.of(context).textTheme.headlineMedium),
+              const Divider(height: 24.0),
+              Text(
+                'Pintu:', // <-- DIUBAH: dari "Pintu Keluar:"
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8.0),
+              if (connections.isEmpty)
+                const Text('Tidak ada navigasi dari ruangan ini.'),
+              if (connections.isNotEmpty)
+                DropdownButton<String>(
+                  // value: _selectedConnectionTargetId, // Selalu null agar 'hint' muncul
+                  hint: const Text('Pilih ruangan untuk dijelajahi'),
+                  isExpanded: true,
+                  items: dropdownItems,
+                  onChanged: (String? newValue) {
+                    // DIUBAH: Langsung navigasi jika ada nilai baru
+                    if (newValue != null) {
+                      _navigateToRoom(newValue);
+                    }
+                  },
+                ),
+              // DIHAPUS: Tombol "Jelajahi" dan SizedBox sebelumnya dihapus
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

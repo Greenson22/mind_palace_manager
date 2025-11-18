@@ -20,6 +20,8 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void initState() {
     super.initState();
+    // AppSettings.baseBuildingsPath sekarang sudah terisi (atau null)
+    // berkat pemanggilan di main.dart
     _folderController = TextEditingController(
       text: AppSettings.baseBuildingsPath ?? 'Belum diatur',
     );
@@ -40,8 +42,10 @@ class _SettingsPageState extends State<SettingsPage> {
         final buildingsDir = Directory(buildingsPath);
         await buildingsDir.create(recursive: true);
 
-        // Simpan ke AppSettings
-        AppSettings.baseBuildingsPath = buildingsDir.path;
+        // Simpan ke AppSettings (menggunakan SharedPreferences)
+        await AppSettings.saveBaseBuildingsPath(
+          buildingsDir.path,
+        ); // <-- Diubah
 
         setState(() {
           _folderController.text = AppSettings.baseBuildingsPath!;
