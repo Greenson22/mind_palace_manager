@@ -5,8 +5,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:mind_palace_manager/app_settings.dart';
-// Import Detail Wilayah untuk navigasi
-import 'package:mind_palace_manager/features/region/presentation/management/region_detail_page.dart';
+// --- UBAH: Import Viewer Peta Wilayah ---
+import 'package:mind_palace_manager/features/region/presentation/map/region_map_viewer_page.dart';
 
 class WorldMapViewerPage extends StatefulWidget {
   final Directory worldDirectory;
@@ -198,12 +198,16 @@ class _WorldMapViewerPageState extends State<WorldMapViewerPage> {
     return pinContainer;
   }
 
-  void _goToRegion(String name) {
+  // --- UBAH: Navigasi ke Peta Wilayah ---
+  void _goToRegionMap(String name) {
     final d = Directory(p.join(widget.worldDirectory.path, name));
     if (d.existsSync()) {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (c) => RegionDetailPage(regionDirectory: d)),
+        MaterialPageRoute(
+          // Membuka Peta Wilayah, BUKAN Detail (Daftar)
+          builder: (c) => RegionMapViewerPage(regionDirectory: d),
+        ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -215,7 +219,20 @@ class _WorldMapViewerPageState extends State<WorldMapViewerPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Peta Dunia Ingatan')),
+      appBar: AppBar(
+        title: const Text('Peta Dunia Ingatan'),
+        actions: [
+          // --- TAMBAHAN: Tombol Navigasi ke Daftar Wilayah ---
+          IconButton(
+            icon: const Icon(Icons.list_alt),
+            tooltip: 'Lihat Daftar Wilayah',
+            onPressed: () {
+              // Kembali ke halaman sebelumnya (biasanya BuildingManagementPage/Daftar)
+              Navigator.pop(context);
+            },
+          ),
+        ],
+      ),
       body: _mapImageFile == null
           ? const Center(child: Text('Tidak ada peta dunia.'))
           : InteractiveViewer(
@@ -240,7 +257,7 @@ class _WorldMapViewerPageState extends State<WorldMapViewerPage> {
                               left: pl['map_x'] * cons.maxWidth - 20,
                               top: pl['map_y'] * cons.maxHeight - 20,
                               child: GestureDetector(
-                                onTap: () => _goToRegion(name),
+                                onTap: () => _goToRegionMap(name), // Ke MAP
                                 child: Tooltip(
                                   message: name,
                                   child: FutureBuilder<Map<String, dynamic>>(

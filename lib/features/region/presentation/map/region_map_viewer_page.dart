@@ -5,8 +5,9 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:mind_palace_manager/app_settings.dart';
-// Import Viewer Distrik untuk Navigasi
 import 'package:mind_palace_manager/features/building/presentation/map/district_map_viewer_page.dart';
+// --- TAMBAHAN: Import Daftar Distrik ---
+import 'package:mind_palace_manager/features/region/presentation/management/region_detail_page.dart';
 
 class RegionMapViewerPage extends StatefulWidget {
   final Directory regionDirectory;
@@ -51,7 +52,6 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
     }
   }
 
-  // --- HELPER: AMBIL IKON ---
   Future<Map<String, dynamic>> _getDistrictIconData(
     String districtFolderName,
   ) async {
@@ -77,21 +77,16 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
     }
   }
 
-  // --- BUILD PIN WIDGET (Sama dengan Editor) ---
   Widget _buildMapPinWidget(
     Map<String, dynamic> iconData,
     String districtName,
   ) {
     final type = iconData['type'];
     final shape = AppSettings.regionPinShape;
-
-    // --- AMBIL WARNA DARI SETTING ---
     final Color pinBaseColor = Color(AppSettings.regionPinColor);
     final Color outlineColor = Color(AppSettings.regionOutlineColor);
     final Color nameColor = Color(AppSettings.regionNameColor);
-    // --------------------------------
 
-    // --- Content Ikon ---
     Widget pinContent;
     if (shape == 'Tidak Ada (Tanpa Latar)') {
       if (type == 'image' && iconData['file'] != null) {
@@ -105,7 +100,7 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
           iconData['data'],
           style: TextStyle(
             fontSize: 16,
-            color: nameColor, // Custom
+            color: nameColor,
             fontWeight: FontWeight.bold,
             shadows: const [Shadow(blurRadius: 2, color: Colors.black)],
           ),
@@ -115,7 +110,6 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
         pinContent = Icon(Icons.holiday_village, size: 24, color: pinBaseColor);
       }
     } else {
-      // Bulat/Kotak
       if (type == 'text' && iconData['data'] != null) {
         pinContent = Text(
           iconData['data'],
@@ -153,15 +147,13 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
       }
     }
 
-    // --- Container Pin Utama ---
     Widget pinContainer = pinContent;
 
     if (shape != 'Tidak Ada (Tanpa Latar)') {
-      // Outline luar
       Border? borderDeco;
       if (AppSettings.showRegionPinOutline) {
         borderDeco = Border.all(
-          color: outlineColor, // Custom
+          color: outlineColor,
           width: AppSettings.regionPinOutlineWidth,
         );
       }
@@ -169,14 +161,13 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
       pinContainer = Container(
         width: 32 + AppSettings.regionPinShapeStrokeWidth * 2,
         height: 32 + AppSettings.regionPinShapeStrokeWidth * 2,
-        // Padding untuk ketebalan stroke
         padding: EdgeInsets.all(
           AppSettings.regionPinShapeStrokeWidth > 0
               ? AppSettings.regionPinShapeStrokeWidth
               : 0,
         ),
         decoration: BoxDecoration(
-          color: pinBaseColor, // Custom
+          color: pinBaseColor,
           shape: shape == 'Kotak' ? BoxShape.rectangle : BoxShape.circle,
           borderRadius: shape == 'Kotak' ? BorderRadius.circular(4) : null,
           border: borderDeco,
@@ -187,7 +178,6 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
       );
     }
 
-    // --- Nama Distrik ---
     if (AppSettings.showRegionDistrictNames) {
       return Column(
         mainAxisSize: MainAxisSize.min,
@@ -202,7 +192,7 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
             ),
             child: Text(
               districtName,
-              style: TextStyle(color: nameColor, fontSize: 10), // Custom
+              style: TextStyle(color: nameColor, fontSize: 10),
             ),
           ),
         ],
@@ -212,7 +202,6 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
     return pinContainer;
   }
 
-  // --- NAVIGASI KE MAP DISTRIK ---
   void _goToDistrictMap(String name) {
     final d = Directory(p.join(widget.regionDirectory.path, name));
     if (d.existsSync()) {
@@ -229,10 +218,31 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
     }
   }
 
+  // --- TAMBAHAN: Navigasi ke Daftar Distrik ---
+  void _openDistrictList() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (c) =>
+            RegionDetailPage(regionDirectory: widget.regionDirectory),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Peta Wilayah')),
+      appBar: AppBar(
+        title: const Text('Peta Wilayah'),
+        actions: [
+          // --- TAMBAHAN: Tombol Navigasi ke Daftar Distrik ---
+          IconButton(
+            icon: const Icon(Icons.list_alt),
+            tooltip: 'Lihat Daftar Distrik',
+            onPressed: _openDistrictList,
+          ),
+        ],
+      ),
       body: _mapImageFile == null
           ? const Center(child: Text('Tidak ada peta.'))
           : InteractiveViewer(
