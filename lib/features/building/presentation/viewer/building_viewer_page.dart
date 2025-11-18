@@ -20,8 +20,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
   String? _error;
   Map<String, dynamic>? _currentRoom;
 
-  // Variabel ini tidak lagi diperlukan untuk state,
-  // tapi kita bisa biarkan (atau hapus)
   String? _selectedConnectionTargetId;
 
   List<dynamic> get _rooms => _buildingData['rooms'] as List? ?? [];
@@ -160,17 +158,15 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
       children: [
         Expanded(
           child: Center(
-            child: AspectRatio(
-              aspectRatio: 16 / 9,
-              child: Container(
-                color: Colors.black12,
-                // TAMBAHAN: Bungkus dengan InteractiveViewer untuk zoom
-                child: InteractiveViewer(
-                  panEnabled: true,
-                  minScale: 1.0,
-                  maxScale: 4.0, // Izinkan zoom hingga 4x
-                  child: imageWidget,
-                ),
+            // DIUBAH: Widget AspectRatio dihapus dari sini.
+            child: Container(
+              color: Colors.black12,
+              // InteractiveViewer sekarang akan mengisi ruang Expanded
+              child: InteractiveViewer(
+                panEnabled: true,
+                minScale: 1.0,
+                maxScale: 4.0,
+                child: imageWidget,
               ),
             ),
           ),
@@ -182,27 +178,21 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
             children: [
               Text(roomName, style: Theme.of(context).textTheme.headlineMedium),
               const Divider(height: 24.0),
-              Text(
-                'Pintu:', // <-- DIUBAH: dari "Pintu Keluar:"
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
+              Text('Pintu:', style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 8.0),
               if (connections.isEmpty)
                 const Text('Tidak ada navigasi dari ruangan ini.'),
               if (connections.isNotEmpty)
                 DropdownButton<String>(
-                  // value: _selectedConnectionTargetId, // Selalu null agar 'hint' muncul
                   hint: const Text('Pilih ruangan untuk dijelajahi'),
                   isExpanded: true,
                   items: dropdownItems,
                   onChanged: (String? newValue) {
-                    // DIUBAH: Langsung navigasi jika ada nilai baru
                     if (newValue != null) {
                       _navigateToRoom(newValue);
                     }
                   },
                 ),
-              // DIHAPUS: Tombol "Jelajahi" dan SizedBox sebelumnya dihapus
             ],
           ),
         ),

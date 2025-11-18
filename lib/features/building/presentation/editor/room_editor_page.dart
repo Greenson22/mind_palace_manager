@@ -245,7 +245,7 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
                       TextField(
                         controller: labelController,
                         decoration: const InputDecoration(
-                          labelText: 'Label Tombol',
+                          labelText: 'Label Tombol (Kosongkan = Nama Ruangan)',
                         ),
                       ),
                       DropdownButton<String>(
@@ -275,23 +275,126 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
                 ),
                 ElevatedButton(
                   child: const Text('Tambah'),
-                  onPressed: () {
-                    if (labelController.text.isNotEmpty &&
-                        selectedTargetRoomId != null) {
-                      final newConnection = {
-                        'id': DateTime.now().millisecondsSinceEpoch.toString(),
-                        'label': labelController.text,
-                        'targetRoomId': selectedTargetRoomId,
-                      };
-                      setDialogState(() {
-                        connections.add(newConnection);
-                      });
-                      _saveData(); // Simpan perubahan
-                      // Reset form
-                      labelController.clear();
-                      selectedTargetRoomId = null;
+                  // --- PERUBAHAN DIMULAI DI SINI ---
+                  onPressed: () async {
+                    if (selectedTargetRoomId == null)
+                      return; // Wajib pilih tujuan
+
+                    Map<String, dynamic> targetRoom;
+                    String targetRoomName;
+
+                    // 1. Dapatkan data ruangan tujuan
+                    try {
+                      targetRoom = otherRooms.firstWhere(
+                        (r) => r['id'] == selectedTargetRoomId,
+                      );
+                      targetRoomName =
+                          targetRoom['name'] ?? 'Ruangan Tanpa Nama';
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Error: Ruangan tujuan tidak valid'),
+                          ),
+                        );
+                      }
+                      return;
+                    }
+
+                    // 2. PERMINTAAN 1: Tentukan label otomatis
+                    String label = labelController.text.trim();
+                    if (label.isEmpty) {
+                      label =
+                          targetRoomName; // Otomatis pakai nama ruangan tujuan
+                    }
+
+                    // 3. Buat koneksi (A -> B)
+                    final newConnection = {
+                      'id': DateTime.now().millisecondsSinceEpoch.toString(),
+                      'label': label,
+                      'targetRoomId': selectedTargetRoomId,
+                    };
+
+                    setDialogState(() {
+                      connections.add(newConnection);
+                    });
+                    await _saveData(); // Simpan koneksi A -> B
+
+                    // Simpan nama label untuk dialog konfirmasi
+                    String addedLabel = label;
+                    // Reset form di dialog
+                    labelController.clear();
+                    selectedTargetRoomId = null;
+
+                    // 4. PERMINTAAN 2: Dialog konfirmasi navigasi balik (B -> A)
+                    final bool? createReturn = await showDialog<bool>(
+                      context: context, // Gunakan context dari StatefulBuilder
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Navigasi Balik Otomatis'),
+                        content: Text(
+                          'Berhasil menambah: "${fromRoom['name']}" -> "$addedLabel" -> "$targetRoomName".\n\n'
+                          'Buat navigasi balik dari "$targetRoomName" kembali ke "${fromRoom['name']}"?',
+                        ),
+                        actions: [
+                          TextButton(
+                            child: const Text('Tidak'),
+                            onPressed: () => Navigator.of(ctx).pop(false),
+                          ),
+                          ElevatedButton(
+                            child: const Text('Ya, Buat'),
+                            onPressed: () => Navigator.of(ctx).pop(true),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    // 5. Jika dikonfirmasi, buat koneksi B -> A
+                    if (createReturn == true) {
+                      try {
+                        // Temukan data lengkap ruangan target dari list utama
+                        final fullTargetRoom = (_rooms as List).firstWhere(
+                          (r) => r['id'] == targetRoom['id'],
+                        );
+
+                        fullTargetRoom['connections'] ??= [];
+
+                        // Buat koneksi balik (B -> A)
+                        final returnConnection = {
+                          'id': DateTime.now().millisecondsSinceEpoch
+                              .toString(),
+                          'label': fromRoom['name'] ?? 'Ruangan Awal',
+                          'targetRoomId': fromRoom['id'],
+                        };
+
+                        // Tambahkan koneksi balik ke ruangan B
+                        (fullTargetRoom['connections'] as List).add(
+                          returnConnection,
+                        );
+
+                        await _saveData(); // Simpan lagi data (termasuk B -> A)
+
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Navigasi balik dari "$targetRoomName" berhasil dibuat.',
+                              ),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Gagal membuat navigasi balik: $e'),
+                            ),
+                          );
+                        }
+                      }
                     }
                   },
+                  // --- PERUBAHAN BERAKHIR DI SINI ---
                 ),
               ],
             );
