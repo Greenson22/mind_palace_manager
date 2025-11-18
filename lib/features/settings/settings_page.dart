@@ -14,7 +14,6 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   late TextEditingController _folderController;
-  // ... variable lama ...
   late String _currentMapPinShape;
   late String _currentListIconShape;
   late bool _currentShowRegionOutline;
@@ -22,6 +21,7 @@ class _SettingsPageState extends State<SettingsPage> {
   late double _currentRegionOutlineWidth;
   late double _currentRegionShapeStrokeWidth;
   late bool _currentShowRegionDistrictNames;
+
   late Color _currentRegionPinColor;
   late Color _currentRegionOutlineColor;
   late Color _currentRegionNameColor;
@@ -52,7 +52,6 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _pickAndCreateFolder() async {
-    // ... kode lama ...
     String? selectedPath = await FilePicker.platform.getDirectoryPath();
     if (selectedPath != null) {
       try {
@@ -63,18 +62,20 @@ class _SettingsPageState extends State<SettingsPage> {
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Folder utama berhasil diatur: ${AppSettings.baseBuildingsPath}',
-              ),
+            const SnackBar(
+              content: Text('Folder penyimpanan berhasil diperbarui'),
+              backgroundColor: Colors.green,
             ),
           );
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Gagal mengatur folder: $e')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Gagal mengatur folder: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
         }
       }
     }
@@ -85,7 +86,6 @@ class _SettingsPageState extends State<SettingsPage> {
     Color currentColor,
     Function(Color) onColorSelected,
   ) {
-    // ... kode lama (daftar warna dll) ...
     final List<Color> colors = [
       Colors.red,
       Colors.pink,
@@ -109,6 +109,7 @@ class _SettingsPageState extends State<SettingsPage> {
       Colors.black,
       Colors.white,
     ];
+
     showDialog(
       context: context,
       builder: (context) {
@@ -116,8 +117,8 @@ class _SettingsPageState extends State<SettingsPage> {
           title: Text(title),
           content: SingleChildScrollView(
             child: Wrap(
-              spacing: 10,
-              runSpacing: 10,
+              spacing: 12,
+              runSpacing: 12,
               children: colors.map((color) {
                 return GestureDetector(
                   onTap: () {
@@ -125,17 +126,19 @@ class _SettingsPageState extends State<SettingsPage> {
                     Navigator.of(context).pop();
                   },
                   child: Container(
-                    width: 40,
-                    height: 40,
+                    width: 44,
+                    height: 44,
                     decoration: BoxDecoration(
                       color: color,
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.grey.shade300),
                       boxShadow: [
                         if (color.value == currentColor.value)
-                          const BoxShadow(
-                            color: Colors.black45,
-                            blurRadius: 5,
+                          BoxShadow(
+                            color: Theme.of(
+                              context,
+                            ).primaryColor.withOpacity(0.4),
+                            blurRadius: 8,
                             spreadRadius: 2,
                           ),
                       ],
@@ -161,25 +164,24 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Pengaturan')),
-      body: Padding(
+      appBar: AppBar(title: const Text('Pengaturan'), elevation: 0),
+      body: ListView(
         padding: const EdgeInsets.all(16.0),
-        child: ListView(
-          children: [
-            // --- BARU: Pengaturan Tema ---
-            Text(
-              'Tampilan Aplikasi',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8.0),
+        children: [
+          // --- 1. Tampilan Umum ---
+          _buildSectionHeader('Umum'),
+          _buildSettingsCard([
             ListTile(
-              leading: const Icon(Icons.brightness_6),
-              title: const Text('Tema (Mode Gelap/Terang)'),
+              leading: Icon(Icons.brightness_6, color: primaryColor),
+              title: const Text('Tema Aplikasi'),
               subtitle: Text(_getThemeModeLabel(AppSettings.themeMode.value)),
               trailing: DropdownButton<ThemeMode>(
                 value: AppSettings.themeMode.value,
-                underline: const SizedBox(), // Hilangkan garis bawah
+                underline: const SizedBox(),
+                icon: const Icon(Icons.arrow_drop_down_circle_outlined),
                 onChanged: (ThemeMode? newValue) {
                   if (newValue != null) {
                     setState(() {
@@ -190,256 +192,215 @@ class _SettingsPageState extends State<SettingsPage> {
                 items: const [
                   DropdownMenuItem(
                     value: ThemeMode.system,
-                    child: Text('Ikuti Sistem'),
+                    child: Text('Sistem'),
                   ),
                   DropdownMenuItem(
                     value: ThemeMode.light,
-                    child: Text('Terang (Light)'),
+                    child: Text('Terang'),
                   ),
-                  DropdownMenuItem(
-                    value: ThemeMode.dark,
-                    child: Text('Gelap (Dark)'),
-                  ),
+                  DropdownMenuItem(value: ThemeMode.dark, child: Text('Gelap')),
                 ],
               ),
             ),
-            const Divider(height: 32.0),
-
-            // ... (Kode lama di bawah ini tetap sama) ...
-            Text(
-              'Atur Lokasi Folder Utama',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16.0),
-            TextField(
-              controller: _folderController,
-              readOnly: true,
-              decoration: const InputDecoration(
-                labelText: 'Path Folder Utama (Root)',
-                border: OutlineInputBorder(),
+            const Divider(indent: 56),
+            ListTile(
+              leading: Icon(Icons.folder_open, color: primaryColor),
+              title: const Text('Lokasi Penyimpanan'),
+              subtitle: Text(
+                _folderController.text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: IconButton(
+                // --- PERBAIKAN DI SINI (Ganti Icon) ---
+                icon: const Icon(Icons.drive_file_move_outline),
+                onPressed: _pickAndCreateFolder,
+                tooltip: 'Ubah Folder',
               ),
             ),
-            const SizedBox(height: 16.0),
-            ElevatedButton(
-              onPressed: _pickAndCreateFolder,
-              child: const Text('Pilih Lokasi...'),
-            ),
+          ]),
 
-            const Divider(height: 32.0),
-            Text(
-              'Tampilan Peta Distrik (Bangunan)',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8.0),
+          const SizedBox(height: 24),
+
+          // --- 2. Visualisasi Peta (Distrik & Bangunan) ---
+          _buildSectionHeader('Visualisasi Peta'),
+          _buildSettingsCard([
             ListTile(
-              title: const Text('Bentuk Pin Bangunan'),
-              trailing: DropdownButton<String>(
+              leading: Icon(Icons.location_city, color: Colors.orange),
+              title: const Text('Pin Bangunan'),
+              trailing: _buildDropdown(
                 value: _currentMapPinShape,
-                onChanged: (String? newValue) async {
-                  if (newValue != null) {
-                    await AppSettings.saveMapPinShape(newValue);
-                    setState(() => _currentMapPinShape = newValue);
+                onChanged: (val) async {
+                  if (val != null) {
+                    await AppSettings.saveMapPinShape(val);
+                    setState(() => _currentMapPinShape = val);
                   }
                 },
-                items: ['Bulat', 'Kotak', 'Tidak Ada (Tanpa Latar)']
-                    .map(
-                      (val) => DropdownMenuItem(value: val, child: Text(val)),
-                    )
-                    .toList(),
               ),
             ),
-
-            const Divider(height: 32.0),
-            Text(
-              'Tampilan Peta Wilayah (Distrik)',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8.0),
-
+            const Divider(indent: 56),
             ListTile(
-              title: const Text('Bentuk Pin Distrik'),
-              trailing: DropdownButton<String>(
+              leading: Icon(Icons.map, color: Colors.green),
+              title: const Text('Pin Wilayah (Distrik)'),
+              trailing: _buildDropdown(
                 value: _currentRegionPinShape,
-                onChanged: (String? newValue) async {
-                  if (newValue != null) {
-                    await AppSettings.saveRegionPinShape(newValue);
-                    setState(() => _currentRegionPinShape = newValue);
+                onChanged: (val) async {
+                  if (val != null) {
+                    await AppSettings.saveRegionPinShape(val);
+                    setState(() => _currentRegionPinShape = val);
                   }
                 },
-                items: ['Bulat', 'Kotak', 'Tidak Ada (Tanpa Latar)']
-                    .map(
-                      (val) => DropdownMenuItem(value: val, child: Text(val)),
-                    )
-                    .toList(),
               ),
             ),
 
             if (_currentRegionPinShape != 'Tidak Ada (Tanpa Latar)') ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Ketebalan Bentuk: ${_currentRegionShapeStrokeWidth.toStringAsFixed(1)}',
-                    ),
-                    Slider(
-                      value: _currentRegionShapeStrokeWidth,
-                      min: 0.0,
-                      max: 10.0,
-                      divisions: 20,
-                      label: _currentRegionShapeStrokeWidth.toStringAsFixed(1),
-                      onChanged: (val) async {
-                        setState(() => _currentRegionShapeStrokeWidth = val);
-                        await AppSettings.saveRegionPinShapeStrokeWidth(val);
-                      },
-                    ),
-                  ],
-                ),
+              const Divider(indent: 56),
+              _buildSliderTile(
+                icon: Icons.line_weight,
+                color: Colors.green,
+                title: 'Ketebalan Pin',
+                value: _currentRegionShapeStrokeWidth,
+                min: 0.0,
+                max: 10.0,
+                divisions: 20,
+                onChanged: (val) async {
+                  setState(() => _currentRegionShapeStrokeWidth = val);
+                  await AppSettings.saveRegionPinShapeStrokeWidth(val);
+                },
               ),
+              const Divider(indent: 56),
               ListTile(
-                title: const Text('Warna Pin Distrik'),
-                trailing: GestureDetector(
-                  onTap: () => _showColorPickerDialog(
+                leading: const Icon(Icons.color_lens, color: Colors.green),
+                title: const Text('Warna Pin'),
+                trailing: _buildColorCircle(
+                  _currentRegionPinColor,
+                  () => _showColorPickerDialog(
                     'Pilih Warna Pin',
                     _currentRegionPinColor,
-                    (color) async {
-                      setState(() => _currentRegionPinColor = color);
-                      await AppSettings.saveRegionPinColor(color.value);
+                    (c) async {
+                      setState(() => _currentRegionPinColor = c);
+                      await AppSettings.saveRegionPinColor(c.value);
                     },
-                  ),
-                  child: Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      color: _currentRegionPinColor,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.grey),
-                    ),
                   ),
                 ),
               ),
             ],
+          ]),
 
+          const SizedBox(height: 24),
+
+          // --- 3. Detail & Outline ---
+          _buildSectionHeader('Detail Tampilan'),
+          _buildSettingsCard([
             SwitchListTile(
-              title: const Text('Outline Ikon Distrik'),
-              subtitle: const Text('Garis tepi luar.'),
+              secondary: Icon(
+                Icons.check_circle_outline,
+                color: Colors.blueGrey,
+              ),
+              title: const Text('Outline Pin Wilayah'),
               value: _currentShowRegionOutline,
               onChanged: (bool value) async {
                 await AppSettings.saveShowRegionPinOutline(value);
                 setState(() => _currentShowRegionOutline = value);
               },
             ),
-
             if (_currentShowRegionOutline) ...[
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                padding: const EdgeInsets.only(left: 16, right: 16, bottom: 8),
+                child: Row(
                   children: [
-                    Text(
-                      'Ketebalan Outline: ${_currentRegionOutlineWidth.toStringAsFixed(1)}',
+                    const SizedBox(width: 40),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Ketebalan Garis',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                          Slider(
+                            value: _currentRegionOutlineWidth,
+                            min: 1.0,
+                            max: 6.0,
+                            divisions: 10,
+                            label: _currentRegionOutlineWidth.toStringAsFixed(
+                              1,
+                            ),
+                            onChanged: (val) async {
+                              setState(() => _currentRegionOutlineWidth = val);
+                              await AppSettings.saveRegionPinOutlineWidth(val);
+                            },
+                          ),
+                        ],
+                      ),
                     ),
-                    Slider(
-                      value: _currentRegionOutlineWidth,
-                      min: 1.0,
-                      max: 6.0,
-                      divisions: 10,
-                      label: _currentRegionOutlineWidth.toStringAsFixed(1),
-                      onChanged: (val) async {
-                        setState(() => _currentRegionOutlineWidth = val);
-                        await AppSettings.saveRegionPinOutlineWidth(val);
-                      },
+                    const SizedBox(width: 16),
+                    _buildColorCircle(
+                      _currentRegionOutlineColor,
+                      () => _showColorPickerDialog(
+                        'Warna Outline',
+                        _currentRegionOutlineColor,
+                        (c) async {
+                          setState(() => _currentRegionOutlineColor = c);
+                          await AppSettings.saveRegionOutlineColor(c.value);
+                        },
+                      ),
                     ),
                   ],
                 ),
               ),
-              ListTile(
-                title: const Text('Warna Outline'),
-                trailing: GestureDetector(
-                  onTap: () => _showColorPickerDialog(
-                    'Pilih Warna Outline',
-                    _currentRegionOutlineColor,
-                    (color) async {
-                      setState(() => _currentRegionOutlineColor = color);
-                      await AppSettings.saveRegionOutlineColor(color.value);
-                    },
-                  ),
-                  child: Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      color: _currentRegionOutlineColor,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.grey),
-                    ),
-                  ),
-                ),
-              ),
             ],
-
+            const Divider(indent: 56),
             SwitchListTile(
-              title: const Text('Tampilkan Nama Distrik'),
+              secondary: Icon(Icons.text_fields, color: Colors.blueGrey),
+              title: const Text('Label Nama Distrik'),
               value: _currentShowRegionDistrictNames,
               onChanged: (bool value) async {
                 await AppSettings.saveShowRegionDistrictNames(value);
                 setState(() => _currentShowRegionDistrictNames = value);
               },
             ),
-
             if (_currentShowRegionDistrictNames)
               ListTile(
-                title: const Text('Warna Teks Nama'),
-                trailing: GestureDetector(
-                  onTap: () => _showColorPickerDialog(
+                contentPadding: const EdgeInsets.only(left: 72, right: 16),
+                title: const Text('Warna Teks Label'),
+                trailing: _buildColorCircle(
+                  _currentRegionNameColor,
+                  () => _showColorPickerDialog(
                     'Pilih Warna Teks',
                     _currentRegionNameColor,
-                    (color) async {
-                      setState(() => _currentRegionNameColor = color);
-                      await AppSettings.saveRegionNameColor(color.value);
+                    (c) async {
+                      setState(() => _currentRegionNameColor = c);
+                      await AppSettings.saveRegionNameColor(c.value);
                     },
-                  ),
-                  child: Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      color: _currentRegionNameColor,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.grey),
-                    ),
                   ),
                 ),
               ),
+          ]),
 
-            const Divider(height: 32.0),
-            Text(
-              'Tampilan Daftar',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8.0),
+          const SizedBox(height: 24),
+
+          // --- 4. Lainnya ---
+          _buildSectionHeader('Lainnya'),
+          _buildSettingsCard([
             ListTile(
+              leading: Icon(Icons.format_list_bulleted, color: Colors.purple),
               title: const Text('Bentuk Ikon Daftar'),
-              trailing: DropdownButton<String>(
+              trailing: _buildDropdown(
                 value: _currentListIconShape,
-                onChanged: (String? newValue) async {
-                  if (newValue != null) {
-                    await AppSettings.saveListIconShape(newValue);
-                    setState(() => _currentListIconShape = newValue);
+                onChanged: (val) async {
+                  if (val != null) {
+                    await AppSettings.saveListIconShape(val);
+                    setState(() => _currentListIconShape = val);
                   }
                 },
-                items: ['Bulat', 'Kotak', 'Tidak Ada (Tanpa Latar)']
-                    .map(
-                      (val) => DropdownMenuItem(value: val, child: Text(val)),
-                    )
-                    .toList(),
               ),
             ),
-
-            const Divider(height: 32.0),
+            const Divider(indent: 56),
             ListTile(
-              leading: const Icon(Icons.info_outline),
+              leading: const Icon(Icons.info_outline, color: Colors.teal),
               title: const Text('Tentang Aplikasi'),
-              subtitle: const Text('Versi, Fitur, dan Pengembang'),
+              subtitle: const Text('Versi & Pengembang'),
               onTap: () {
                 Navigator.push(
                   context,
@@ -447,21 +408,131 @@ class _SettingsPageState extends State<SettingsPage> {
                 );
               },
             ),
+          ]),
+
+          const SizedBox(height: 40),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 8, bottom: 8),
+      child: Text(
+        title.toUpperCase(),
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.bold,
+          color: Theme.of(context).colorScheme.primary,
+          letterSpacing: 1.2,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingsCard(List<Widget> children) {
+    return Card(
+      elevation: 2,
+      shadowColor: Colors.black12,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Column(children: children),
+    );
+  }
+
+  Widget _buildDropdown({
+    required String value,
+    required Function(String?) onChanged,
+  }) {
+    return DropdownButtonHideUnderline(
+      child: DropdownButton<String>(
+        value: value,
+        isDense: true,
+        icon: const Icon(Icons.arrow_drop_down_circle_outlined, size: 20),
+        style: TextStyle(
+          color: Theme.of(context).textTheme.bodyMedium?.color,
+          fontWeight: FontWeight.w500,
+        ),
+        onChanged: onChanged,
+        items: ['Bulat', 'Kotak', 'Tidak Ada (Tanpa Latar)']
+            .map(
+              (val) => DropdownMenuItem(
+                value: val,
+                child: Text(
+                  val == 'Tidak Ada (Tanpa Latar)' ? 'Tanpa Latar' : val,
+                ),
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+
+  Widget _buildSliderTile({
+    required IconData icon,
+    required Color color,
+    required String title,
+    required double value,
+    required double min,
+    required double max,
+    required int divisions,
+    required Function(double) onChanged,
+  }) {
+    return Column(
+      children: [
+        ListTile(
+          leading: Icon(icon, color: color),
+          title: Text(title),
+          trailing: Text(
+            value.toStringAsFixed(1),
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Slider(
+            value: value,
+            min: min,
+            max: max,
+            divisions: divisions,
+            label: value.toStringAsFixed(1),
+            onChanged: onChanged,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildColorCircle(Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.grey.shade400),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 4,
+              offset: Offset(0, 2),
+            ),
           ],
         ),
       ),
     );
   }
 
-  // Helper untuk teks subtitle tema
   String _getThemeModeLabel(ThemeMode mode) {
     switch (mode) {
       case ThemeMode.system:
-        return 'Mengikuti Pengaturan Sistem';
+        return 'Mengikuti Sistem';
       case ThemeMode.light:
-        return 'Terang';
+        return 'Mode Terang';
       case ThemeMode.dark:
-        return 'Gelap';
+        return 'Mode Gelap';
     }
   }
 }
