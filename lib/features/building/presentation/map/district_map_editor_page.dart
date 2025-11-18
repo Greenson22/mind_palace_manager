@@ -1,7 +1,7 @@
 // lib/features/building/presentation/map/district_map_editor_page.dart
 import 'dart:convert';
 import 'dart:io';
-import 'dart:ui' as ui; // Tambahan import untuk membaca dimensi gambar
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
@@ -32,8 +32,11 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
   Directory? _selectedBuildingToPlace;
   Offset? _tappedRelativeCoords;
 
-  // --- TAMBAHAN: Variabel untuk rasio aspek gambar ---
   double _imageAspectRatio = 1.0;
+
+  // --- TAMBAHAN: Controller untuk Zoom ---
+  final TransformationController _transformationController =
+      TransformationController();
 
   @override
   void initState() {
@@ -42,6 +45,13 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
       p.join(widget.districtDirectory.path, 'district_data.json'),
     );
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    // --- TAMBAHAN: Dispose controller ---
+    _transformationController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -60,7 +70,6 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
           _mapImageFile = File(
             p.join(widget.districtDirectory.path, _mapImageName!),
           );
-          // --- TAMBAHAN: Muat dimensi gambar ---
           await _updateImageAspectRatio(_mapImageFile!);
         }
       }
@@ -79,7 +88,6 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
     }
   }
 
-  // --- TAMBAHAN: Fungsi untuk membaca rasio aspek gambar asli ---
   Future<void> _updateImageAspectRatio(File imageFile) async {
     try {
       final data = await imageFile.readAsBytes();
@@ -91,7 +99,6 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
       });
     } catch (e) {
       print("Gagal membaca dimensi gambar: $e");
-      // Fallback ke 1.0 jika gagal
       setState(() {
         _imageAspectRatio = 1.0;
       });
@@ -137,7 +144,6 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
         await sourceFile.copy(destinationPath);
         final newImageFile = File(destinationPath);
 
-        // --- TAMBAHAN: Update rasio saat ganti gambar ---
         await _updateImageAspectRatio(newImageFile);
 
         setState(() {
@@ -181,6 +187,24 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
     });
     _saveData();
   }
+
+  // --- TAMBAHAN: Fungsi Zoom ---
+  void _zoomIn() {
+    final Matrix4 matrix = _transformationController.value.clone();
+    matrix.scale(1.2); // Zoom in factor
+    _transformationController.value = matrix;
+  }
+
+  void _zoomOut() {
+    final Matrix4 matrix = _transformationController.value.clone();
+    matrix.scale(1 / 1.2); // Zoom out factor
+    _transformationController.value = matrix;
+  }
+
+  void _resetZoom() {
+    _transformationController.value = Matrix4.identity();
+  }
+  // ------------------------------
 
   Future<Map<String, dynamic>> _getBuildingIconData(
     String buildingFolderName,
@@ -381,91 +405,130 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
               ? const Center(child: Text('Pilih gambar peta terlebih dahulu'))
               : LayoutBuilder(
                   builder: (context, constraints) {
-                    return InteractiveViewer(
-                      panEnabled: true,
-                      minScale: 1.0,
-                      maxScale: 4.0,
-                      // --- PERUBAHAN UTAMA DI SINI ---
-                      // Kita menggunakan Center dan AspectRatio untuk memastikan
-                      // Stack "memeluk" gambar dengan pas.
-                      child: Center(
-                        child: AspectRatio(
-                          aspectRatio: _imageAspectRatio,
-                          child: LayoutBuilder(
-                            builder: (context, imageConstraints) {
-                              // imageConstraints sekarang berisi ukuran PETA sebenarnya
-                              return GestureDetector(
-                                onTapDown: (details) {
-                                  final localPos = details.localPosition;
-                                  setState(() {
-                                    // Koordinat relatif terhadap UKURAN GAMBAR, bukan container
-                                    _tappedRelativeCoords = Offset(
-                                      localPos.dx / imageConstraints.maxWidth,
-                                      localPos.dy / imageConstraints.maxHeight,
-                                    );
-                                  });
-                                },
-                                child: Stack(
-                                  children: [
-                                    // Gambar mengisi AspectRatio box sepenuhnya
-                                    Image.file(
-                                      _mapImageFile!,
-                                      width: imageConstraints.maxWidth,
-                                      height: imageConstraints.maxHeight,
-                                      fit: BoxFit.cover,
-                                    ),
-                                    ..._placements.map((p) {
-                                      return Positioned(
-                                        left:
-                                            p['map_x'] *
-                                                imageConstraints.maxWidth -
-                                            15,
-                                        top:
-                                            p['map_y'] *
-                                                imageConstraints.maxHeight -
-                                            15,
-                                        child:
-                                            FutureBuilder<Map<String, dynamic>>(
-                                              future: _getBuildingIconData(
-                                                p['building_folder_name'],
-                                              ),
-                                              builder: (context, snapshot) {
-                                                if (!snapshot.hasData) {
-                                                  return _buildMapPinWidget({
-                                                    'type': null,
-                                                    'data': null,
-                                                  });
-                                                }
-                                                return _buildMapPinWidget(
-                                                  snapshot.data!,
-                                                );
-                                              },
-                                            ),
-                                      );
-                                    }),
-                                    if (_tappedRelativeCoords != null)
-                                      Positioned(
-                                        left:
-                                            _tappedRelativeCoords!.dx *
-                                                imageConstraints.maxWidth -
-                                            12,
-                                        top:
-                                            _tappedRelativeCoords!.dy *
-                                                imageConstraints.maxHeight -
-                                            24,
-                                        child: const Icon(
-                                          Icons.add_location,
-                                          color: Colors.red,
-                                          size: 24,
+                    // --- PERUBAHAN: Stack untuk menumpuk tombol zoom ---
+                    return Stack(
+                      children: [
+                        InteractiveViewer(
+                          // Menggunakan controller
+                          transformationController: _transformationController,
+                          panEnabled: true,
+                          minScale: 1.0,
+                          maxScale:
+                              6.0, // Ditingkatkan agar bisa zoom lebih dalam
+                          child: Center(
+                            child: AspectRatio(
+                              aspectRatio: _imageAspectRatio,
+                              child: LayoutBuilder(
+                                builder: (context, imageConstraints) {
+                                  return GestureDetector(
+                                    onTapDown: (details) {
+                                      final localPos = details.localPosition;
+                                      setState(() {
+                                        _tappedRelativeCoords = Offset(
+                                          localPos.dx /
+                                              imageConstraints.maxWidth,
+                                          localPos.dy /
+                                              imageConstraints.maxHeight,
+                                        );
+                                      });
+                                    },
+                                    child: Stack(
+                                      children: [
+                                        Image.file(
+                                          _mapImageFile!,
+                                          width: imageConstraints.maxWidth,
+                                          height: imageConstraints.maxHeight,
+                                          fit: BoxFit.cover,
                                         ),
-                                      ),
-                                  ],
-                                ),
-                              );
-                            },
+                                        ..._placements.map((p) {
+                                          return Positioned(
+                                            left:
+                                                p['map_x'] *
+                                                    imageConstraints.maxWidth -
+                                                15,
+                                            top:
+                                                p['map_y'] *
+                                                    imageConstraints.maxHeight -
+                                                15,
+                                            child:
+                                                FutureBuilder<
+                                                  Map<String, dynamic>
+                                                >(
+                                                  future: _getBuildingIconData(
+                                                    p['building_folder_name'],
+                                                  ),
+                                                  builder: (context, snapshot) {
+                                                    if (!snapshot.hasData) {
+                                                      return _buildMapPinWidget(
+                                                        {
+                                                          'type': null,
+                                                          'data': null,
+                                                        },
+                                                      );
+                                                    }
+                                                    return _buildMapPinWidget(
+                                                      snapshot.data!,
+                                                    );
+                                                  },
+                                                ),
+                                          );
+                                        }),
+                                        if (_tappedRelativeCoords != null)
+                                          Positioned(
+                                            left:
+                                                _tappedRelativeCoords!.dx *
+                                                    imageConstraints.maxWidth -
+                                                12,
+                                            top:
+                                                _tappedRelativeCoords!.dy *
+                                                    imageConstraints.maxHeight -
+                                                24,
+                                            child: const Icon(
+                                              Icons.add_location,
+                                              color: Colors.red,
+                                              size: 24,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                        // --- Widget Tombol Zoom ---
+                        Positioned(
+                          right: 8,
+                          bottom: 8,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              FloatingActionButton.small(
+                                heroTag: 'zoom_in',
+                                onPressed: _zoomIn,
+                                child: const Icon(Icons.add),
+                              ),
+                              const SizedBox(height: 8),
+                              FloatingActionButton.small(
+                                heroTag: 'zoom_out',
+                                onPressed: _zoomOut,
+                                child: const Icon(Icons.remove),
+                              ),
+                              const SizedBox(height: 8),
+                              FloatingActionButton.small(
+                                heroTag: 'reset_zoom',
+                                backgroundColor: Colors.grey.shade200,
+                                onPressed: _resetZoom,
+                                child: const Icon(
+                                  Icons.center_focus_strong,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     );
                   },
                 ),
