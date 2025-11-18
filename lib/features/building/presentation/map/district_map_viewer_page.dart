@@ -1,12 +1,9 @@
 // lib/features/building/presentation/map/district_map_viewer_page.dart
-// --- FILE DIPERBARUI ---
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
-// --- TAMBAHAN ---
 import 'package:mind_palace_manager/app_settings.dart';
-// --- SELESAI TAMBAHAN ---
 import 'package:mind_palace_manager/features/building/presentation/viewer/building_viewer_page.dart';
 
 class DistrictMapViewerPage extends StatefulWidget {
@@ -71,12 +68,10 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
   }
 
   void _navigateToBuilding(String buildingFolderName) {
-    // Bangun path lengkap ke folder bangunan
     final buildingDir = Directory(
       p.join(widget.districtDirectory.path, buildingFolderName),
     );
 
-    // Cek apakah folder itu ada (sebagai pengaman)
     if (!buildingDir.existsSync()) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -98,8 +93,6 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
     );
   }
 
-  // --- FUNGSI HELPER BARU (diambil dari management_page) ---
-  /// Membaca data.json dari folder bangunan untuk mendapatkan info ikon.
   Future<Map<String, dynamic>> _getBuildingIconData(
     String buildingFolderName,
   ) async {
@@ -118,10 +111,9 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
       final iconType = data.containsKey('icon_type') ? data['icon_type'] : null;
       final iconData = data.containsKey('icon_data') ? data['icon_data'] : null;
 
-      // Untuk gambar, kita butuh path lengkap
       if (iconType == 'image' && iconData != null) {
         final imageFile = File(p.join(buildingDir.path, iconData.toString()));
-        return {'type': 'image', 'file': imageFile}; // Kembalikan File
+        return {'type': 'image', 'file': imageFile};
       }
 
       return {'type': iconType, 'data': iconData};
@@ -131,7 +123,6 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
     }
   }
 
-  // --- FUNGSI HELPER BARU ---
   /// Membuat widget pin kustom
   Widget _buildMapPinWidget(Map<String, dynamic> iconData) {
     final type = iconData['type'];
@@ -156,7 +147,6 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
       final File? imageFile = iconData['file'];
       if (imageFile != null) {
         pinContent = ClipOval(
-          // Gambar di dalam pin selalu bulat agar rapi
           child: Image.file(
             imageFile,
             width: 24,
@@ -181,13 +171,12 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
       );
     }
 
-    // Tentukan warna pin
     const Color pinColor = Colors.red; // Merah untuk viewer
 
-    // Tentukan dekorasi berdasarkan AppSettings
     BoxDecoration pinDecoration;
 
-    if (AppSettings.iconShape == 'Bulat') {
+    // --- BACA PENGATURAN PETA ---
+    if (AppSettings.mapPinShape == 'Bulat') {
       pinDecoration = BoxDecoration(
         color: pinColor,
         shape: BoxShape.circle,
@@ -195,7 +184,7 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
         boxShadow: const [BoxShadow(color: Colors.black, blurRadius: 4.0)],
       );
     } else {
-      // 'Kotak' atau 'Tidak Ada' (default ke Kotak di peta agar terlihat)
+      // 'Kotak' (atau fallback 'Tidak Ada')
       pinDecoration = BoxDecoration(
         color: pinColor,
         borderRadius: BorderRadius.circular(4), // Menjadi kotak
@@ -203,17 +192,16 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
         boxShadow: const [BoxShadow(color: Colors.black, blurRadius: 4.0)],
       );
     }
+    // --- SELESAI BACA PENGATURAN ---
 
-    // Container pin
     return Container(
       width: 30,
       height: 30,
-      clipBehavior: Clip.antiAlias, // Selalu potong
+      clipBehavior: Clip.antiAlias,
       decoration: pinDecoration,
       child: Center(child: pinContent),
     );
   }
-  // --- SELESAI FUNGSI HELPER ---
 
   @override
   Widget build(BuildContext context) {
@@ -251,28 +239,20 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
           maxScale: 5.0,
           child: Stack(
             children: [
-              // Gambar Peta
               Image.file(
                 _mapImageFile!,
                 width: constraints.maxWidth,
                 height: constraints.maxHeight,
                 fit: BoxFit.contain,
               ),
-
-              // --- PERUBAHAN RENDER PIN ---
-              // Pin Bangunan
               ..._placements.map((p) {
                 final String name = p['building_folder_name'];
                 final double x = p['map_x'];
                 final double y = p['map_y'];
 
                 return Positioned(
-                  // Pusatkan pin di koordinat x/y
-                  left:
-                      x * constraints.maxWidth - 15, // 15 = setengah lebar pin
-                  top:
-                      y * constraints.maxHeight -
-                      15, // 15 = setengah tinggi pin
+                  left: x * constraints.maxWidth - 15,
+                  top: y * constraints.maxHeight - 15,
                   child: Tooltip(
                     message: name,
                     child: GestureDetector(
@@ -281,13 +261,11 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
                         future: _getBuildingIconData(name),
                         builder: (context, snapshot) {
                           if (!snapshot.hasData) {
-                            // Pin default saat loading
                             return _buildMapPinWidget({
                               'type': null,
                               'data': null,
                             });
                           }
-                          // Pin kustom
                           return _buildMapPinWidget(snapshot.data!);
                         },
                       ),
@@ -295,7 +273,6 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
                   ),
                 );
               }),
-              // --- SELESAI PERUBAHAN RENDER PIN ---
             ],
           ),
         );

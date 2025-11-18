@@ -1,13 +1,10 @@
 // lib/features/building/presentation/map/district_map_editor_page.dart
-// --- FILE DIPERBARUI ---
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
-// --- TAMBAHAN ---
 import 'package:mind_palace_manager/app_settings.dart';
-// --- SELESAI TAMBAHAN ---
 
 class DistrictMapEditorPage extends StatefulWidget {
   final Directory districtDirectory;
@@ -140,10 +137,8 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
 
     final buildingName = p.basename(_selectedBuildingToPlace!.path);
 
-    // Cek apakah sudah ada (LOGIKA INI OTOMATIS MENANGANI EDIT)
     _placements.removeWhere((p) => p['building_folder_name'] == buildingName);
 
-    // Tambahkan yang baru
     _placements.add({
       'building_folder_name': buildingName,
       'map_x': _tappedRelativeCoords!.dx,
@@ -166,8 +161,6 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
     _saveData();
   }
 
-  // --- FUNGSI HELPER BARU (diambil dari management_page) ---
-  /// Membaca data.json dari folder bangunan untuk mendapatkan info ikon.
   Future<Map<String, dynamic>> _getBuildingIconData(
     String buildingFolderName,
   ) async {
@@ -186,7 +179,6 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
       final iconType = data.containsKey('icon_type') ? data['icon_type'] : null;
       final iconData = data.containsKey('icon_data') ? data['icon_data'] : null;
 
-      // Untuk gambar, kita butuh path lengkap
       if (iconType == 'image' && iconData != null) {
         final imageFile = File(p.join(buildingDir.path, iconData.toString()));
         return {'type': 'image', 'file': imageFile}; // Kembalikan File
@@ -199,7 +191,6 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
     }
   }
 
-  // --- FUNGSI HELPER BARU ---
   /// Membuat widget pin kustom
   Widget _buildMapPinWidget(Map<String, dynamic> iconData) {
     final type = iconData['type'];
@@ -224,7 +215,6 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
       final File? imageFile = iconData['file'];
       if (imageFile != null) {
         pinContent = ClipOval(
-          // Gambar di dalam pin selalu bulat agar rapi
           child: Image.file(
             imageFile,
             width: 24,
@@ -249,13 +239,12 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
       );
     }
 
-    // Tentukan warna pin
     const Color pinColor = Colors.blue; // Biru untuk editor
 
-    // Tentukan dekorasi berdasarkan AppSettings
     BoxDecoration pinDecoration;
 
-    if (AppSettings.iconShape == 'Bulat') {
+    // --- BACA PENGATURAN PETA ---
+    if (AppSettings.mapPinShape == 'Bulat') {
       pinDecoration = BoxDecoration(
         color: pinColor,
         shape: BoxShape.circle,
@@ -263,7 +252,7 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
         boxShadow: const [BoxShadow(color: Colors.black, blurRadius: 4.0)],
       );
     } else {
-      // 'Kotak' atau 'Tidak Ada' (default ke Kotak di peta agar terlihat)
+      // 'Kotak' (atau fallback 'Tidak Ada')
       pinDecoration = BoxDecoration(
         color: pinColor,
         borderRadius: BorderRadius.circular(4), // Menjadi kotak
@@ -271,17 +260,16 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
         boxShadow: const [BoxShadow(color: Colors.black, blurRadius: 4.0)],
       );
     }
+    // --- SELESAI BACA PENGATURAN ---
 
-    // Container pin
     return Container(
       width: 30,
       height: 30,
-      clipBehavior: Clip.antiAlias, // Selalu potong
+      clipBehavior: Clip.antiAlias,
       decoration: pinDecoration,
       child: Center(child: pinContent),
     );
   }
-  // --- SELESAI FUNGSI HELPER ---
 
   @override
   Widget build(BuildContext context) {
@@ -335,14 +323,10 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
           style: Theme.of(context).textTheme.titleLarge,
         ),
         const SizedBox(height: 16),
-
-        // --- PERUBAHAN DROPDOWN ---
-        // 1. Dropdown pilih bangunan
         DropdownButton<Directory>(
           value: _selectedBuildingToPlace,
           hint: const Text('1. Pilih bangunan... (untuk ditempatkan / diedit)'),
           isExpanded: true,
-          // Gunakan _buildingFolders (semua) BUKAN _unplacedBuildings
           items: _buildingFolders.map((dir) {
             return DropdownMenuItem(
               value: dir,
@@ -355,16 +339,12 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
             });
           },
         ),
-
-        // --- SELESAI PERUBAHAN DROPDOWN ---
         const SizedBox(height: 16),
         Text(
           '2. Ketuk (tap) lokasi pada peta di bawah:',
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         const SizedBox(height: 8),
-
-        // 2. Peta Interaktif
         Container(
           height: 400,
           width: double.infinity,
@@ -382,7 +362,6 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
                       minScale: 1.0,
                       maxScale: 4.0,
                       child: GestureDetector(
-                        // HITUNG KOORDINAT RELATIF (0.0 - 1.0)
                         onTapDown: (details) {
                           final localPos = details.localPosition;
                           setState(() {
@@ -394,45 +373,32 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
                         },
                         child: Stack(
                           children: [
-                            // Gambar Peta
                             Image.file(
                               _mapImageFile!,
                               fit: BoxFit.contain,
                               width: constraints.maxWidth,
                               height: constraints.maxHeight,
                             ),
-
-                            // --- PERUBAHAN RENDER PIN ---
-                            // Pin yang sudah ada
                             ..._placements.map((p) {
                               return Positioned(
-                                left:
-                                    p['map_x'] * constraints.maxWidth -
-                                    15, // 15 = setengah lebar pin
-                                top:
-                                    p['map_y'] * constraints.maxHeight -
-                                    15, // 15 = setengah tinggi pin
+                                left: p['map_x'] * constraints.maxWidth - 15,
+                                top: p['map_y'] * constraints.maxHeight - 15,
                                 child: FutureBuilder<Map<String, dynamic>>(
                                   future: _getBuildingIconData(
                                     p['building_folder_name'],
                                   ),
                                   builder: (context, snapshot) {
                                     if (!snapshot.hasData) {
-                                      // Pin default saat loading
                                       return _buildMapPinWidget({
                                         'type': null,
                                         'data': null,
                                       });
                                     }
-                                    // Pin kustom
                                     return _buildMapPinWidget(snapshot.data!);
                                   },
                                 ),
                               );
                             }),
-                            // --- SELESAI PERUBAHAN RENDER PIN ---
-
-                            // Pin baru yang akan ditempatkan
                             if (_tappedRelativeCoords != null)
                               Positioned(
                                 left:

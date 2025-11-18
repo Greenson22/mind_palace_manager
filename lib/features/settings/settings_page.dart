@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
-import 'package:mind_palace_manager/app_settings.dart'; // <-- Impor AppSettings
+import 'package:mind_palace_manager/app_settings.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -13,9 +13,10 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   late TextEditingController _folderController;
-  // --- TAMBAHAN ---
-  late String _currentIconShape;
-  // --- SELESAI TAMBAHAN ---
+  // --- DIPERBARUI ---
+  late String _currentMapPinShape; // <-- Diganti nama
+  late String _currentListIconShape; // <-- Baru
+  // --- SELESAI DIPERBARUI ---
 
   @override
   void initState() {
@@ -23,9 +24,10 @@ class _SettingsPageState extends State<SettingsPage> {
     _folderController = TextEditingController(
       text: AppSettings.baseBuildingsPath ?? 'Belum diatur',
     );
-    // --- TAMBAHAN ---
-    _currentIconShape = AppSettings.iconShape;
-    // --- SELESAI TAMBAHAN ---
+    // --- DIPERBARUI ---
+    _currentMapPinShape = AppSettings.mapPinShape; // <-- Diganti nama
+    _currentListIconShape = AppSettings.listIconShape; // <-- Baru
+    // --- SELESAI DIPERBARUI ---
   }
 
   @override
@@ -77,9 +79,7 @@ class _SettingsPageState extends State<SettingsPage> {
       appBar: AppBar(title: const Text('Pengaturan')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        // --- UBAH Column menjadi ListView ---
         child: ListView(
-          // --- SELESAI UBAHAN ---
           children: [
             Text(
               'Atur Lokasi Folder Utama',
@@ -105,20 +105,57 @@ class _SettingsPageState extends State<SettingsPage> {
               style: Theme.of(context).textTheme.bodySmall,
             ),
 
-            // --- TAMBAHAN: Pengaturan Bentuk Ikon ---
+            // --- PENGATURAN BENTUK PIN PETA (DIPERBARUI) ---
             const Divider(height: 32.0),
             Text(
-              'Tampilan Ikon Bangunan',
+              'Tampilan Pin Peta', // <-- Judul diubah
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 8.0),
             Text(
-              'Atur bentuk bingkai (outline) untuk semua ikon bangunan di daftar dan peta.',
+              'Atur bentuk pin bangunan di Peta Distrik.', // <-- Teks diubah
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 8.0),
             DropdownButton<String>(
-              value: _currentIconShape,
+              value: _currentMapPinShape, // <-- Variabel diubah
+              isExpanded: true,
+              // Opsi 'Tidak Ada' dihapus untuk Peta
+              items: ['Bulat', 'Kotak']
+                  .map(
+                    (String value) => DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (String? newValue) async {
+                if (newValue != null) {
+                  await AppSettings.saveMapPinShape(
+                    newValue,
+                  ); // <-- Fungsi diubah
+                  setState(() {
+                    _currentMapPinShape = newValue; // <-- Variabel diubah
+                  });
+                }
+              },
+            ),
+            // --- SELESAI DIPERBARUI ---
+
+            // --- TAMBAHAN: Pengaturan Bentuk Ikon Daftar ---
+            const Divider(height: 32.0),
+            Text(
+              'Tampilan Ikon Daftar',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8.0),
+            Text(
+              'Atur bentuk bingkai (outline) untuk ikon di Daftar Bangunan.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8.0),
+            DropdownButton<String>(
+              value: _currentListIconShape,
               isExpanded: true,
               items: ['Bulat', 'Kotak', 'Tidak Ada (Tanpa Latar)']
                   .map(
@@ -130,9 +167,9 @@ class _SettingsPageState extends State<SettingsPage> {
                   .toList(),
               onChanged: (String? newValue) async {
                 if (newValue != null) {
-                  await AppSettings.saveIconShape(newValue);
+                  await AppSettings.saveListIconShape(newValue);
                   setState(() {
-                    _currentIconShape = newValue;
+                    _currentListIconShape = newValue;
                   });
                 }
               },

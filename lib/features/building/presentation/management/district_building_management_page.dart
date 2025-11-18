@@ -4,9 +4,7 @@ import 'package:path/path.dart' as p;
 import 'dart:io';
 import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
-// --- TAMBAHAN ---
 import 'package:mind_palace_manager/app_settings.dart';
-// --- SELESAI TAMBAHAN ---
 import 'package:mind_palace_manager/features/building/presentation/editor/room_editor_page.dart';
 import 'package:mind_palace_manager/features/building/presentation/viewer/building_viewer_page.dart';
 import 'package:mind_palace_manager/permission_helper.dart';
@@ -32,13 +30,11 @@ class _DistrictBuildingManagementPageState
   bool _isLoading = false;
 
   // --- State untuk dialog Buat / Edit ---
-  // (State ini akan di-reset setiap kali dialog dibuka)
   final TextEditingController _buildingNameController = TextEditingController();
   final TextEditingController _buildingIconTextController =
       TextEditingController();
   String _buildingIconType = 'Default'; // Tipe: 'Default', 'Teks', 'Gambar'
   String? _buildingIconImagePath;
-  // --- SELESAI ---
 
   @override
   void initState() {
@@ -99,7 +95,6 @@ class _DistrictBuildingManagementPageState
     });
   }
 
-  // --- MODIFIKASI: _showCreateBuildingDialog ---
   Future<void> _showCreateBuildingDialog() async {
     // Reset state dialog untuk 'Buat Baru'
     _buildingNameController.clear();
@@ -218,7 +213,6 @@ class _DistrictBuildingManagementPageState
     );
   }
 
-  // --- MODIFIKASI: _createNewBuilding ---
   Future<void> _createNewBuilding() async {
     final String buildingName = _buildingNameController.text.trim();
     if (buildingName.isEmpty) return;
@@ -286,7 +280,6 @@ class _DistrictBuildingManagementPageState
     }
   }
 
-  // --- FUNGSI BARU: _showEditIconDialog ---
   Future<void> _showEditIconDialog(Directory buildingDir) async {
     // 1. Muat data ikon saat ini
     final iconData = await _getBuildingIconData(buildingDir);
@@ -301,8 +294,6 @@ class _DistrictBuildingManagementPageState
     } else if (currentType == 'image') {
       _buildingIconType = 'Gambar';
       _buildingIconTextController.clear();
-      // Kita tidak tahu path sumber, hanya nama file, jadi set ke null
-      // Pengguna harus memilih ulang jika ingin mengganti gambar
       _buildingIconImagePath = null;
     } else {
       _buildingIconType = 'Default';
@@ -426,9 +417,7 @@ class _DistrictBuildingManagementPageState
       });
     }
   }
-  // --- SELESAI FUNGSI BARU ---
 
-  // --- FUNGSI BARU: _updateBuildingIcon ---
   Future<void> _updateBuildingIcon(Directory buildingDir) async {
     final jsonFile = File(p.join(buildingDir.path, 'data.json'));
     Map<String, dynamic> jsonData;
@@ -439,7 +428,6 @@ class _DistrictBuildingManagementPageState
         final content = await jsonFile.readAsString();
         jsonData = json.decode(content);
       } else {
-        // File tidak ada (seharusnya tidak terjadi, tapi sebagai pengaman)
         jsonData = {"rooms": []};
       }
     } catch (e) {
@@ -484,8 +472,6 @@ class _DistrictBuildingManagementPageState
         iconType = 'image';
         iconData = oldImageName;
       } else {
-        // Tipe 'Gambar' dipilih tapi tidak ada gambar lama DAN tidak ada gambar baru
-        // Reset ke default
         iconType = null;
         iconData = null;
       }
@@ -495,9 +481,6 @@ class _DistrictBuildingManagementPageState
       iconData = null;
     }
 
-    // Hapus gambar lama JIKA:
-    // 1. Dulu tipenya 'image' (oldImageName != null)
-    // 2. DAN (Tipe baru BUKAN 'image' ATAU nama file barunya berbeda)
     if (oldImageName != null &&
         (iconType != 'image' || iconData != oldImageName)) {
       try {
@@ -533,7 +516,6 @@ class _DistrictBuildingManagementPageState
       }
     }
   }
-  // --- SELESAI FUNGSI BARU ---
 
   void _viewBuilding(Directory buildingDir) {
     Navigator.push(
@@ -646,7 +628,6 @@ class _DistrictBuildingManagementPageState
   }
 
   /// Membaca data.json dari folder bangunan untuk mendapatkan info ikon.
-  /// Mengembalikan Map {'type': ..., 'data': ...}
   Future<Map<String, dynamic>> _getBuildingIconData(
     Directory buildingDir,
   ) async {
@@ -659,49 +640,45 @@ class _DistrictBuildingManagementPageState
       final content = await jsonFile.readAsString();
       final data = json.decode(content);
 
-      // Pastikan key ada sebelum diakses
       final iconType = data.containsKey('icon_type') ? data['icon_type'] : null;
       final iconData = data.containsKey('icon_data') ? data['icon_data'] : null;
 
       return {'type': iconType, 'data': iconData};
     } catch (e) {
-      // Gagal membaca file, kembalikan default
       print('Gagal membaca ikon: $e');
       return {'type': null, 'data': null};
     }
   }
 
-  // --- FUNGSI HELPER BARU ---
+  // --- FUNGSI HELPER DIPERBARUI ---
   /// Membangun kontainer ikon berdasarkan pengaturan global
   Widget _buildIconContainer(Widget? child, {File? imageFile}) {
     double size = 40.0; // Ukuran standar leading ListTile
 
-    switch (AppSettings.iconShape) {
+    // --- BACA PENGATURAN BARU ---
+    switch (AppSettings.listIconShape) {
       case 'Bulat':
         return CircleAvatar(
           radius: size / 2,
           backgroundImage: imageFile != null ? FileImage(imageFile) : null,
-          // Tampilkan ikon error jika file gambar tidak ada
           onBackgroundImageError: imageFile != null
               ? (e, s) => const Icon(Icons.image_not_supported)
               : null,
-          // Tampilkan child (teks/ikon) HANYA jika tidak ada gambar
           child: imageFile == null ? child : null,
         );
       case 'Kotak':
         return Container(
           width: size,
           height: size,
-          clipBehavior: Clip.antiAlias, // Penting untuk memotong gambar
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
-            // Beri latar belakang abu-abu jika itu ikon/teks
             color: imageFile == null ? Colors.grey.shade200 : null,
             borderRadius: BorderRadius.circular(4),
           ),
           child: imageFile != null
               ? Image.file(
                   imageFile,
-                  fit: BoxFit.cover, // Penuhi kotak
+                  fit: BoxFit.cover,
                   errorBuilder: (c, e, s) =>
                       const Center(child: Icon(Icons.image_not_supported)),
                 )
@@ -709,24 +686,24 @@ class _DistrictBuildingManagementPageState
         );
       case 'Tidak Ada (Tanpa Latar)':
       default:
-        // Hanya Sizedbox untuk menjaga alignment
+        // Sesuai permintaan: "benar-benar hanya foto sendiri"
+        // Kita gunakan SizedBox untuk memastikan alignment daftar tetap rapi
         return SizedBox(
           width: size,
           height: size,
           child: imageFile != null
               ? Image.file(
                   imageFile,
-                  fit: BoxFit.contain, // Tampilkan seluruh gambar
+                  fit: BoxFit.contain, // Contain agar gambar tidak terpotong
                   errorBuilder: (c, e, s) =>
                       const Center(child: Icon(Icons.image_not_supported)),
                 )
-              : Center(child: child),
+              : Center(child: child), // Teks/Ikon tetap di tengah
         );
     }
   }
-  // --- SELESAI FUNGSI HELPER BARU ---
+  // --- SELESAI FUNGSI HELPER ---
 
-  // --- PERUBAHAN BESAR DI _buildBody ---
   Widget _buildBody() {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -751,7 +728,7 @@ class _DistrictBuildingManagementPageState
         // --- Widget Ikon Dinamis (DIPERBARUI) ---
         final Widget leadingIcon = FutureBuilder<Map<String, dynamic>>(
           future: _getBuildingIconData(folder),
-          key: ValueKey(folder.path), // Key penting untuk refresh
+          key: ValueKey(folder.path),
           builder: (context, snapshot) {
             // Saat memuat
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -788,7 +765,6 @@ class _DistrictBuildingManagementPageState
             // Tipe Gambar
             if (type == 'image' && data != null) {
               final imageFile = File(p.join(folder.path, data.toString()));
-              // Kirim file ke helper, child = null
               return _buildIconContainer(null, imageFile: imageFile);
             }
 
@@ -799,19 +775,17 @@ class _DistrictBuildingManagementPageState
         // --- Selesai Widget Ikon ---
 
         return ListTile(
-          leading: leadingIcon, // Gunakan widget yang sudah dibuat
+          leading: leadingIcon,
           title: Text(folderName, style: const TextStyle(fontSize: 18)),
           subtitle: Text(folder.path, style: const TextStyle(fontSize: 12)),
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // --- TOMBOL BARU: GANTI IKON ---
               IconButton(
                 icon: const Icon(Icons.palette_outlined, color: Colors.blue),
                 tooltip: 'Ganti Ikon',
                 onPressed: () => _showEditIconDialog(folder),
               ),
-              // --- SELESAI TOMBOL BARU ---
               IconButton(
                 icon: const Icon(Icons.visibility),
                 tooltip: 'Lihat',

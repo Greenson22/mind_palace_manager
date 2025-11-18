@@ -7,19 +7,23 @@ class AppSettings {
   /// Kunci untuk menyimpan path di SharedPreferences
   static const String _basePathKey = 'baseBuildingsPath';
 
-  // --- TAMBAHAN ---
-  /// Kunci untuk menyimpan bentuk ikon
-  static const String _iconShapeKey = 'iconShape';
-  // --- SELESAI TAMBAHAN ---
+  // --- DIPERBARUI ---
+  /// Kunci untuk menyimpan bentuk pin Peta
+  static const String _mapPinShapeKey = 'mapPinShape'; // <-- Diganti nama
+  /// Kunci untuk menyimpan bentuk ikon Daftar
+  static const String _listIconShapeKey = 'listIconShape'; // <-- Baru
+  // --- SELESAI DIPERBARUI ---
 
   /// Path lengkap ke folder 'buildings' (cth: /home/user/Dokumen/buildings)
   /// Ini akan diisi saat aplikasi dimulai.
   static String? baseBuildingsPath;
 
-  // --- TAMBAHAN ---
-  /// Bentuk ikon global: 'Bulat', 'Kotak', 'Tidak Ada (Tanpa Latar)'
-  static String iconShape = 'Bulat'; // Default
-  // --- SELESAI TAMBAHAN ---
+  // --- DIPERBARUI ---
+  /// Bentuk pin Peta: 'Bulat', 'Kotak'
+  static String mapPinShape = 'Bulat'; // <-- Diganti nama
+  /// Bentuk ikon Daftar: 'Bulat', 'Kotak', 'Tidak Ada (Tanpa Latar)'
+  static String listIconShape = 'Bulat'; // <-- Baru
+  // --- SELESAI DIPERBARUI ---
 
   /// Memuat path yang tersimpan dari SharedPreferences ke variabel statis.
   /// Panggil ini saat aplikasi dimulai.
@@ -27,10 +31,12 @@ class AppSettings {
     final prefs = await SharedPreferences.getInstance();
     baseBuildingsPath = prefs.getString(_basePathKey);
 
-    // --- TAMBAHAN ---
-    // Muat pengaturan bentuk ikon, default ke 'Bulat'
-    iconShape = prefs.getString(_iconShapeKey) ?? 'Bulat';
-    // --- SELESAI TAMBAHAN ---
+    // --- DIPERBARUI ---
+    // Muat pengaturan bentuk pin Peta, default ke 'Bulat'
+    mapPinShape = prefs.getString(_mapPinShapeKey) ?? 'Bulat';
+    // Muat pengaturan bentuk ikon Daftar, default ke 'Bulat'
+    listIconShape = prefs.getString(_listIconShapeKey) ?? 'Bulat';
+    // --- SELESAI DIPERBARUI ---
   }
 
   /// Menyimpan path baru ke SharedPreferences dan memperbarui variabel statis.
@@ -40,12 +46,23 @@ class AppSettings {
     baseBuildingsPath = path; // Perbarui juga variabel statis saat ini
   }
 
-  // --- FUNGSI BARU ---
-  /// Menyimpan bentuk ikon baru ke SharedPreferences
-  static Future<void> saveIconShape(String shape) async {
+  // --- FUNGSI DIPERBARUI ---
+  /// Menyimpan bentuk pin Peta baru ke SharedPreferences
+  static Future<void> saveMapPinShape(String shape) async {
+    // <-- Diganti nama
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_iconShapeKey, shape);
-    iconShape = shape; // Perbarui variabel statis
+    await prefs.setString(_mapPinShapeKey, shape);
+    mapPinShape = shape; // Perbarui variabel statis
   }
+  // --- SELESAI DIPERBARUI ---
+
+  // --- FUNGSI BARU ---
+  /// Menyimpan bentuk ikon Daftar baru ke SharedPreferences
+  static Future<void> saveListIconShape(String shape) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_listIconShapeKey, shape);
+    listIconShape = shape; // Perbarui variabel statis
+  }
+
   // --- SELESAI FUNGSI BARU ---
 }
