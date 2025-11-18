@@ -17,6 +17,7 @@ class _AboutPageState extends State<AboutPage>
   @override
   void initState() {
     super.initState();
+    // Tab Controller untuk 2 tab: Fitur dan Pengembang
     _tabController = TabController(length: 2, vsync: this);
     _initPackageInfo();
   }
@@ -32,7 +33,7 @@ class _AboutPageState extends State<AboutPage>
       final info = await PackageInfo.fromPlatform();
       if (mounted) {
         setState(() {
-          _version = 'Versi ${info.version} (Build ${info.buildNumber})';
+          _version = 'Versi ${info.version} (${info.buildNumber})';
         });
       }
     } catch (e) {
@@ -55,8 +56,8 @@ class _AboutPageState extends State<AboutPage>
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(text: 'Fitur Utama'),
-            Tab(text: 'Info'),
+            Tab(text: 'Fitur Aplikasi'),
+            Tab(text: 'Pengembang'),
           ],
         ),
       ),
@@ -64,12 +65,13 @@ class _AboutPageState extends State<AboutPage>
         controller: _tabController,
         children: [
           _buildFeaturesTab(context),
-          _buildAppInfoTab(context, textTheme),
+          _buildDeveloperTab(context, textTheme),
         ],
       ),
     );
   }
 
+  // Tab 1: Fitur Aplikasi (Spesifik Mind Palace Manager)
   Widget _buildFeaturesTab(BuildContext context) {
     final features = [
       {
@@ -125,7 +127,8 @@ class _AboutPageState extends State<AboutPage>
     );
   }
 
-  Widget _buildAppInfoTab(BuildContext context, TextTheme textTheme) {
+  // Tab 2: Informasi Pengembang (Dari file yang diupload)
+  Widget _buildDeveloperTab(BuildContext context, TextTheme textTheme) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
       child: Column(
@@ -144,31 +147,30 @@ class _AboutPageState extends State<AboutPage>
                 end: Alignment.bottomRight,
               ),
             ),
-            // --- PERUBAHAN DI SINI ---
-            // Menggunakan aset gambar profil
             child: const CircleAvatar(
-              radius: 60, // Ukuran radius disesuaikan
+              radius: 60,
               backgroundColor: Colors.white,
+              // Pastikan file ini ada di pubspec.yaml
               backgroundImage: AssetImage('assets/pictures/profile.jpg'),
             ),
-            // -------------------------
           ),
           const SizedBox(height: 24),
           Text(
-            'Mind Palace Manager',
+            'Frendy Rikal Gerung, S.Kom.',
             style: textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.bold,
             ),
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
           Text(
-            'Kelola Istana Pikiran Anda',
+            'Lulusan Sarjana Komputer dari Universitas Negeri Manado',
             textAlign: TextAlign.center,
-            style: textTheme.titleMedium?.copyWith(color: Colors.grey[600]),
+            style: textTheme.titleMedium?.copyWith(color: Colors.grey[700]),
           ),
           const SizedBox(height: 24),
           Text(
-            'Aplikasi ini dirancang untuk membantu Anda membangun, mengelola, dan memvisualisasikan teknik "Method of Loci" atau Istana Pikiran secara digital. Tingkatkan daya ingat Anda dengan struktur spasial yang terorganisir.',
+            'Dibuat dengan semangat untuk menyediakan alat bantu belajar yang personal, cerdas, dan sepenuhnya offline untuk menjaga privasi data Anda.',
             textAlign: TextAlign.center,
             style: textTheme.bodyMedium,
           ),
@@ -176,24 +178,26 @@ class _AboutPageState extends State<AboutPage>
           const Divider(),
           const SizedBox(height: 16),
 
-          Text('Hubungi Pengembang', style: textTheme.titleSmall),
-          const SizedBox(height: 16),
+          // Kontak
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              OutlinedButton.icon(
+              TextButton.icon(
+                icon: const Icon(Icons.link),
+                label: const Text('LinkedIn'),
+                onPressed: () => launchUrl(
+                  Uri.parse(
+                    'https://linkedin.com/in/frendy-rikal-gerung-bb450b38a/',
+                  ),
+                  mode: LaunchMode.externalApplication,
+                ),
+              ),
+              const SizedBox(width: 16),
+              TextButton.icon(
                 icon: const Icon(Icons.email_outlined),
                 label: const Text('Email'),
-                onPressed: () async {
-                  final Uri emailLaunchUri = Uri(
-                    scheme: 'mailto',
-                    path: 'developer@example.com', // Ganti dengan email Anda
-                    query: 'subject=Feedback Mind Palace App',
-                  );
-                  if (await canLaunchUrl(emailLaunchUri)) {
-                    await launchUrl(emailLaunchUri);
-                  }
-                },
+                onPressed: () =>
+                    launchUrl(Uri.parse('mailto:frendydev1@gmail.com')),
               ),
             ],
           ),
