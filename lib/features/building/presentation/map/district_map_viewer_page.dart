@@ -1,11 +1,13 @@
 // lib/features/building/presentation/map/district_map_viewer_page.dart
 import 'dart:convert';
 import 'dart:io';
-import 'dart:ui' as ui; // Tambahan import
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:mind_palace_manager/app_settings.dart';
 import 'package:mind_palace_manager/features/building/presentation/viewer/building_viewer_page.dart';
+// --- PERUBAHAN: Import halaman daftar bangunan ---
+import 'package:mind_palace_manager/features/building/presentation/management/district_building_management_page.dart';
 
 class DistrictMapViewerPage extends StatefulWidget {
   final Directory districtDirectory;
@@ -23,7 +25,6 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
 
   File? _mapImageFile;
   List<Map<String, dynamic>> _placements = [];
-  // --- TAMBAHAN: Rasio Aspek ---
   double _imageAspectRatio = 1.0;
 
   @override
@@ -62,7 +63,6 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
         throw Exception('File gambar peta "$mapImageName" tidak ditemukan.');
       }
 
-      // --- TAMBAHAN: Baca dimensi gambar ---
       await _updateImageAspectRatio(_mapImageFile!);
     } catch (e) {
       _error = 'Gagal memuat data peta: $e';
@@ -73,7 +73,6 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
     });
   }
 
-  // --- TAMBAHAN: Helper ---
   Future<void> _updateImageAspectRatio(File imageFile) async {
     try {
       final data = await imageFile.readAsBytes();
@@ -112,6 +111,18 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
       MaterialPageRoute(
         builder: (context) =>
             BuildingViewerPage(buildingDirectory: buildingDir),
+      ),
+    );
+  }
+
+  // --- TAMBAHAN: Fungsi untuk membuka daftar bangunan ---
+  void _openBuildingList() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DistrictBuildingManagementPage(
+          districtDirectory: widget.districtDirectory,
+        ),
       ),
     );
   }
@@ -237,6 +248,14 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Peta: ${p.basename(widget.districtDirectory.path)}'),
+        // --- PERUBAHAN: Menambahkan tombol daftar di AppBar ---
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.list_alt),
+            tooltip: 'Lihat Daftar Bangunan',
+            onPressed: _openBuildingList,
+          ),
+        ],
       ),
       body: _buildBody(),
     );
@@ -259,7 +278,6 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
       );
     }
 
-    // --- STRUKTUR DIPERBARUI SAMAA SEPERTI EDITOR ---
     return LayoutBuilder(
       builder: (context, constraints) {
         return InteractiveViewer(
@@ -267,26 +285,23 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
           minScale: 1.0,
           maxScale: 5.0,
           child: Center(
-            // Pastikan konten di tengah
             child: AspectRatio(
-              aspectRatio: _imageAspectRatio, // Kunci utamanya
+              aspectRatio: _imageAspectRatio,
               child: LayoutBuilder(
                 builder: (context, imageConstraints) {
-                  // Stack sekarang berukuran PERSIS sama dengan rasio gambar
                   return Stack(
                     children: [
                       Image.file(
                         _mapImageFile!,
                         width: imageConstraints.maxWidth,
                         height: imageConstraints.maxHeight,
-                        fit: BoxFit.cover, // Isi penuh box AspectRatio
+                        fit: BoxFit.cover,
                       ),
                       ..._placements.map((p) {
                         final String name = p['building_folder_name'];
                         final double x = p['map_x'];
                         final double y = p['map_y'];
                         return Positioned(
-                          // Koordinat sekarang akurat terhadap gambar
                           left: x * imageConstraints.maxWidth - 15,
                           top: y * imageConstraints.maxHeight - 15,
                           child: Tooltip(

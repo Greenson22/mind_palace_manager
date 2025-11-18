@@ -1,9 +1,11 @@
+// lib/features/region/presentation/map/region_map_viewer_page.dart
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
-import 'package:mind_palace_manager/features/building/presentation/management/district_building_management_page.dart';
+// --- PERUBAHAN: Import Peta Distrik ---
+import 'package:mind_palace_manager/features/building/presentation/map/district_map_viewer_page.dart';
 
 class RegionMapViewerPage extends StatefulWidget {
   final Directory regionDirectory;
@@ -32,27 +34,37 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
         _mapImageFile = File(
           p.join(widget.regionDirectory.path, d['map_image']),
         );
-        final data = await _mapImageFile!.readAsBytes();
-        final codec = await ui.instantiateImageCodec(data);
-        final frame = await codec.getNextFrame();
-        _imageAspectRatio = frame.image.width / frame.image.height;
+        // Cek eksistensi file gambar
+        if (await _mapImageFile!.exists()) {
+          final data = await _mapImageFile!.readAsBytes();
+          final codec = await ui.instantiateImageCodec(data);
+          final frame = await codec.getNextFrame();
+          _imageAspectRatio = frame.image.width / frame.image.height;
+        } else {
+          _mapImageFile = null; // Reset jika file tidak ditemukan
+        }
       }
       _placements = List<Map<String, dynamic>>.from(
         d['district_placements'] ?? [],
       );
-      setState(() {});
+      if (mounted) setState(() {});
     }
   }
 
-  void _goToDistrict(String name) {
+  void _goToDistrictMap(String name) {
     final d = Directory(p.join(widget.regionDirectory.path, name));
     if (d.existsSync()) {
+      // --- PERUBAHAN: Membuka Peta Distrik (Viewer), bukan Daftar ---
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (c) => DistrictBuildingManagementPage(districtDirectory: d),
+          builder: (c) => DistrictMapViewerPage(districtDirectory: d),
         ),
       );
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Distrik tidak ditemukan')));
     }
   }
 
@@ -83,8 +95,10 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
                               left: pl['map_x'] * cons.maxWidth - 15,
                               top: pl['map_y'] * cons.maxHeight - 15,
                               child: GestureDetector(
-                                onTap: () =>
-                                    _goToDistrict(pl['district_folder_name']),
+                                // Panggil fungsi navigasi ke MAP distrik
+                                onTap: () => _goToDistrictMap(
+                                  pl['district_folder_name'],
+                                ),
                                 child: Column(
                                   children: [
                                     const Icon(
@@ -97,7 +111,10 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
                                         horizontal: 4,
                                         vertical: 2,
                                       ),
-                                      color: Colors.black54,
+                                      decoration: BoxDecoration(
+                                        color: Colors.black54,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
                                       child: Text(
                                         pl['district_folder_name'],
                                         style: const TextStyle(
