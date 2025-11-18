@@ -5,8 +5,11 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:mind_palace_manager/app_settings.dart';
-import 'package:mind_palace_manager/features/region/presentation/management/region_detail_page.dart'; // Pastikan file ini sudah dibuat
+import 'package:mind_palace_manager/features/region/presentation/management/region_detail_page.dart';
 import 'package:mind_palace_manager/permission_helper.dart';
+// --- BARU: Import Peta Dunia ---
+import 'package:mind_palace_manager/features/world/presentation/map/world_map_editor_page.dart';
+import 'package:mind_palace_manager/features/world/presentation/map/world_map_viewer_page.dart';
 
 class BuildingManagementPage extends StatefulWidget {
   const BuildingManagementPage({super.key});
@@ -98,6 +101,34 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
       _isLoading = false;
     });
   }
+
+  // --- FUNGSI PETA DUNIA ---
+  void _openWorldMapEditor() {
+    if (AppSettings.baseBuildingsPath != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (c) => WorldMapEditorPage(
+            worldDirectory: Directory(AppSettings.baseBuildingsPath!),
+          ),
+        ),
+      );
+    }
+  }
+
+  void _openWorldMapViewer() {
+    if (AppSettings.baseBuildingsPath != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (c) => WorldMapViewerPage(
+            worldDirectory: Directory(AppSettings.baseBuildingsPath!),
+          ),
+        ),
+      );
+    }
+  }
+  // -------------------------
 
   Future<void> _showCreateRegionDialog() async {
     _newRegionController.clear();
@@ -243,7 +274,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
     final currentType = iconInfo['type'] ?? 'Default';
     final currentData = iconInfo['data'];
 
-    // Cek gambar peta di region_data.json
     String? currentMapImageName;
     try {
       final jsonFile = File(p.join(regionDir.path, 'region_data.json'));
@@ -347,7 +377,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
                               icon: const Icon(Icons.map),
                               label: const Text('Gunakan Peta Wilayah'),
                               onPressed: () async {
-                                // Salin gambar peta ke temp
                                 try {
                                   final mapFile = File(
                                     p.join(regionDir.path, currentMapImageName),
@@ -413,13 +442,11 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
       final newName = _editNameController.text.trim();
       Directory currentDir = originalDir;
 
-      // 1. Rename Folder
       if (newName != p.basename(originalDir.path)) {
         final newPath = p.join(originalDir.parent.path, newName);
         currentDir = await originalDir.rename(newPath);
       }
 
-      // 2. Icon Logic
       String? finalIconType;
       dynamic finalIconData;
 
@@ -444,7 +471,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
         finalIconData = null;
       }
 
-      // 3. Update JSON
       final jsonFile = File(p.join(currentDir.path, 'region_data.json'));
       Map<String, dynamic> jsonData = {};
       if (await jsonFile.exists()) {
@@ -475,7 +501,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
     await _loadRegions();
   }
 
-  // --- ACTIONS ---
   void _viewRegion(Directory regionDir) {
     Navigator.push(
       context,
@@ -528,6 +553,12 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
       appBar: AppBar(
         title: const Text('Dunia Ingatan (Wilayah)'),
         actions: [
+          // --- BARU: Tombol Viewer Peta Dunia ---
+          IconButton(
+            icon: const Icon(Icons.map_outlined),
+            tooltip: 'Lihat Peta Dunia',
+            onPressed: _openWorldMapViewer,
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadRegions,
@@ -536,10 +567,25 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
         ],
       ),
       body: _buildBody(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showCreateRegionDialog,
-        tooltip: 'Buat Wilayah Baru',
-        child: const Icon(Icons.public), // Ikon Globe untuk Wilayah
+      // --- BARU: Mengubah FAB menjadi Kolom untuk akses Editor dan Create ---
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FloatingActionButton(
+            heroTag: 'world_map_editor',
+            onPressed: _openWorldMapEditor,
+            tooltip: 'Edit Peta Dunia',
+            backgroundColor: Colors.blue.shade100,
+            child: const Icon(Icons.map, color: Colors.black87),
+          ),
+          const SizedBox(height: 16),
+          FloatingActionButton(
+            heroTag: 'add_region',
+            onPressed: _showCreateRegionDialog,
+            tooltip: 'Buat Wilayah Baru',
+            child: const Icon(Icons.public),
+          ),
+        ],
       ),
     );
   }
