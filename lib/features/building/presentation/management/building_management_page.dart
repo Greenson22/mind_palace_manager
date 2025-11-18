@@ -4,10 +4,13 @@
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'dart:io';
-// 'dart:convert' tidak dipakai di sini
+import 'dart:convert'; // <-- TAMBAHAN IMPORT
 import 'package:mind_palace_manager/app_settings.dart';
 // Import halaman baru yang kita buat
 import 'package:mind_palace_manager/features/building/presentation/management/district_building_management_page.dart';
+// --- TAMBAHAN ---
+import 'package:mind_palace_manager/features/building/presentation/map/district_map_editor_page.dart';
+// --- SELESAI TAMBAHAN ---
 import 'package:mind_palace_manager/permission_helper.dart';
 
 // Nama kelas tetap, tapi fungsinya berubah
@@ -144,7 +147,16 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
       final newDir = Directory(newDistrictPath);
       await newDir.create(recursive: true);
 
-      // Distrik TIDAK perlu file data.json, hanya folder
+      // --- TAMBAHAN: Buat district_data.json ---
+      final dataJsonFile = File(p.join(newDistrictPath, 'district_data.json'));
+      // Inisialisasi data peta
+      await dataJsonFile.writeAsString(
+        json.encode({
+          "map_image": null, // Path ke gambar peta
+          "building_placements": [], // List penempatan bangunan
+        }),
+      );
+      // --- SELESAI TAMBAHAN ---
 
       if (mounted) {
         Navigator.of(context).pop();
@@ -176,6 +188,18 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
       ),
     );
   }
+
+  // --- TAMBAHAN: Navigasi ke Editor Peta ---
+  void _editDistrictMap(Directory districtDir) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            DistrictMapEditorPage(districtDirectory: districtDir),
+      ),
+    );
+  }
+  // --- SELESAI TAMBAHAN ---
 
   // Logika menghapus Distrik
   Future<void> _deleteDistrict(Directory districtDir) async {
@@ -292,6 +316,13 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // --- TAMBAHAN: Tombol Edit Peta ---
+              IconButton(
+                icon: const Icon(Icons.map, color: Colors.blue),
+                tooltip: 'Edit Peta Distrik',
+                onPressed: () => _editDistrictMap(folder),
+              ),
+              // --- SELESAI TAMBAHAN ---
               IconButton(
                 icon: const Icon(Icons.delete, color: Colors.red),
                 tooltip: 'Hapus Distrik',

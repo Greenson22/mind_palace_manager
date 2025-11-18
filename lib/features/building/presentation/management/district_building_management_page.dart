@@ -1,5 +1,5 @@
 // lib/features/building/presentation/management/district_building_management_page.dart
-// --- FILE BARU ---
+// --- FILE BARU (hasil refactor) ---
 
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
@@ -9,6 +9,10 @@ import 'dart:convert';
 import 'package:mind_palace_manager/features/building/presentation/editor/room_editor_page.dart';
 import 'package:mind_palace_manager/features/building/presentation/viewer/building_viewer_page.dart';
 import 'package:mind_palace_manager/permission_helper.dart';
+
+// --- TAMBAHAN ---
+import 'package:mind_palace_manager/features/building/presentation/map/district_map_viewer_page.dart';
+// --- SELESAI TAMBAHAN ---
 
 class DistrictBuildingManagementPage extends StatefulWidget {
   // Menerima path distrik yang dipilih
@@ -223,6 +227,18 @@ class _DistrictBuildingManagementPageState
     }
   }
 
+  // --- TAMBAHAN: Navigasi ke Viewer Peta ---
+  void _viewDistrictMap() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            DistrictMapViewerPage(districtDirectory: widget.districtDirectory),
+      ),
+    );
+  }
+  // --- SELESAI TAMBAHAN ---
+
   @override
   Widget build(BuildContext context) {
     // Tampilkan nama distrik di AppBar
@@ -232,6 +248,13 @@ class _DistrictBuildingManagementPageState
       appBar: AppBar(
         title: Text('Distrik: $districtName'),
         actions: [
+          // --- TAMBAHAN: Tombol Lihat Peta ---
+          IconButton(
+            icon: const Icon(Icons.map_outlined),
+            onPressed: _viewDistrictMap,
+            tooltip: 'Lihat Peta Distrik',
+          ),
+          // --- SELESAI TAMBAHAN ---
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadBuildings,
