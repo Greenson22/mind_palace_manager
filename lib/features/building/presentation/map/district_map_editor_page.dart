@@ -1,6 +1,7 @@
 // lib/features/building/presentation/map/district_map_editor_page.dart
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' as ui; // Tambahan import untuk membaca dimensi gambar
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
@@ -21,16 +22,18 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
     "map_image": null,
     "building_placements": [],
   };
-  List<Directory> _buildingFolders = []; // Daftar bangunan di distrik ini
+  List<Directory> _buildingFolders = [];
   bool _isLoading = true;
 
-  // State untuk UI Editor
   String? _mapImageName;
   File? _mapImageFile;
   List<Map<String, dynamic>> _placements = [];
 
   Directory? _selectedBuildingToPlace;
   Offset? _tappedRelativeCoords;
+
+  // --- TAMBAHAN: Variabel untuk rasio aspek gambar ---
+  double _imageAspectRatio = 1.0;
 
   @override
   void initState() {
@@ -57,6 +60,8 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
           _mapImageFile = File(
             p.join(widget.districtDirectory.path, _mapImageName!),
           );
+          // --- TAMBAHAN: Muat dimensi gambar ---
+          await _updateImageAspectRatio(_mapImageFile!);
         }
       }
 
@@ -71,6 +76,25 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
         ).showSnackBar(SnackBar(content: Text('Gagal memuat data peta: $e')));
       }
       setState(() => _isLoading = false);
+    }
+  }
+
+  // --- TAMBAHAN: Fungsi untuk membaca rasio aspek gambar asli ---
+  Future<void> _updateImageAspectRatio(File imageFile) async {
+    try {
+      final data = await imageFile.readAsBytes();
+      final codec = await ui.instantiateImageCodec(data);
+      final frameInfo = await codec.getNextFrame();
+      final image = frameInfo.image;
+      setState(() {
+        _imageAspectRatio = image.width / image.height;
+      });
+    } catch (e) {
+      print("Gagal membaca dimensi gambar: $e");
+      // Fallback ke 1.0 jika gagal
+      setState(() {
+        _imageAspectRatio = 1.0;
+      });
     }
   }
 
@@ -111,10 +135,14 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
         );
 
         await sourceFile.copy(destinationPath);
+        final newImageFile = File(destinationPath);
+
+        // --- TAMBAHAN: Update rasio saat ganti gambar ---
+        await _updateImageAspectRatio(newImageFile);
 
         setState(() {
           _mapImageName = imageName;
-          _mapImageFile = File(destinationPath);
+          _mapImageFile = newImageFile;
         });
         await _saveData();
       } catch (e) {
@@ -131,17 +159,13 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
     if (_selectedBuildingToPlace == null || _tappedRelativeCoords == null) {
       return;
     }
-
     final buildingName = p.basename(_selectedBuildingToPlace!.path);
-
     _placements.removeWhere((p) => p['building_folder_name'] == buildingName);
-
     _placements.add({
       'building_folder_name': buildingName,
       'map_x': _tappedRelativeCoords!.dx,
       'map_y': _tappedRelativeCoords!.dy,
     });
-
     setState(() {
       _selectedBuildingToPlace = null;
       _tappedRelativeCoords = null;
@@ -169,10 +193,8 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
       if (!await jsonFile.exists()) {
         return {'type': null, 'data': null};
       }
-
       final content = await jsonFile.readAsString();
       final data = json.decode(content);
-
       final iconType = data.containsKey('icon_type') ? data['icon_type'] : null;
       final iconData = data.containsKey('icon_data') ? data['icon_data'] : null;
 
@@ -180,45 +202,32 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
         final imageFile = File(p.join(buildingDir.path, iconData.toString()));
         return {'type': 'image', 'file': imageFile};
       }
-
       return {'type': iconType, 'data': iconData};
     } catch (e) {
-      print('Gagal membaca ikon: $e');
       return {'type': null, 'data': null};
     }
   }
 
-  // --- PERUBAHAN DI FUNGSI INI ---
-  /// Membuat widget pin kustom
   Widget _buildMapPinWidget(Map<String, dynamic> iconData) {
     final type = iconData['type'];
-
-    // --- TAMBAHAN: Logika "Tidak Ada" ---
     if (AppSettings.mapPinShape == 'Tidak Ada (Tanpa Latar)') {
       if (type == 'image') {
         final File? imageFile = iconData['file'];
         if (imageFile != null) {
-          // Hanya kembalikan gambar, di dalam SizedBox agar ukurannya pas
           return SizedBox(
-            width: 30, // Ukuran pin
+            width: 30,
             height: 30,
             child: Image.file(
               imageFile,
-              fit: BoxFit.contain, // Gunakan 'contain' agar tidak terpotong
+              fit: BoxFit.contain,
               errorBuilder: (c, e, s) =>
                   const Icon(Icons.image_not_supported, size: 24),
             ),
           );
         }
       }
-      // Jika bukan gambar (Teks atau Default), 'Tidak Ada' tidak praktis.
-      // Kita akan jatuhkan (fall through) ke logika 'Bulat' di bawah.
     }
-    // --- SELESAI TAMBAHAN ---
-
-    // --- Logika yang ada (untuk Bulat, Kotak, atau Fallback Teks/Default) ---
     Widget pinContent;
-
     if (type == 'text' &&
         iconData['data'] != null &&
         iconData['data'].toString().isNotEmpty) {
@@ -260,19 +269,16 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
         color: Colors.white,
       );
     }
-
-    const Color pinColor = Colors.blue; // Biru untuk editor
+    const Color pinColor = Colors.blue;
     BoxDecoration pinDecoration;
-
     if (AppSettings.mapPinShape == 'Kotak') {
       pinDecoration = BoxDecoration(
         color: pinColor,
-        borderRadius: BorderRadius.circular(4), // Menjadi kotak
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(color: Colors.white, width: 2),
         boxShadow: const [BoxShadow(color: Colors.black, blurRadius: 4.0)],
       );
     } else {
-      // Default ke 'Bulat' (mencakup 'Bulat' dan 'Tidak Ada' untuk Teks/Default)
       pinDecoration = BoxDecoration(
         color: pinColor,
         shape: BoxShape.circle,
@@ -280,7 +286,6 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
         boxShadow: const [BoxShadow(color: Colors.black, blurRadius: 4.0)],
       );
     }
-
     return Container(
       width: 30,
       height: 30,
@@ -289,7 +294,6 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
       child: Center(child: pinContent),
     );
   }
-  // --- SELESAI PERUBAHAN ---
 
   @override
   Widget build(BuildContext context) {
@@ -381,61 +385,85 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
                       panEnabled: true,
                       minScale: 1.0,
                       maxScale: 4.0,
-                      child: GestureDetector(
-                        onTapDown: (details) {
-                          final localPos = details.localPosition;
-                          setState(() {
-                            _tappedRelativeCoords = Offset(
-                              localPos.dx / constraints.maxWidth,
-                              localPos.dy / constraints.maxHeight,
-                            );
-                          });
-                        },
-                        child: Stack(
-                          children: [
-                            Image.file(
-                              _mapImageFile!,
-                              fit: BoxFit.contain,
-                              width: constraints.maxWidth,
-                              height: constraints.maxHeight,
-                            ),
-                            ..._placements.map((p) {
-                              return Positioned(
-                                left: p['map_x'] * constraints.maxWidth - 15,
-                                top: p['map_y'] * constraints.maxHeight - 15,
-                                child: FutureBuilder<Map<String, dynamic>>(
-                                  future: _getBuildingIconData(
-                                    p['building_folder_name'],
-                                  ),
-                                  builder: (context, snapshot) {
-                                    if (!snapshot.hasData) {
-                                      return _buildMapPinWidget({
-                                        'type': null,
-                                        'data': null,
-                                      });
-                                    }
-                                    return _buildMapPinWidget(snapshot.data!);
-                                  },
+                      // --- PERUBAHAN UTAMA DI SINI ---
+                      // Kita menggunakan Center dan AspectRatio untuk memastikan
+                      // Stack "memeluk" gambar dengan pas.
+                      child: Center(
+                        child: AspectRatio(
+                          aspectRatio: _imageAspectRatio,
+                          child: LayoutBuilder(
+                            builder: (context, imageConstraints) {
+                              // imageConstraints sekarang berisi ukuran PETA sebenarnya
+                              return GestureDetector(
+                                onTapDown: (details) {
+                                  final localPos = details.localPosition;
+                                  setState(() {
+                                    // Koordinat relatif terhadap UKURAN GAMBAR, bukan container
+                                    _tappedRelativeCoords = Offset(
+                                      localPos.dx / imageConstraints.maxWidth,
+                                      localPos.dy / imageConstraints.maxHeight,
+                                    );
+                                  });
+                                },
+                                child: Stack(
+                                  children: [
+                                    // Gambar mengisi AspectRatio box sepenuhnya
+                                    Image.file(
+                                      _mapImageFile!,
+                                      width: imageConstraints.maxWidth,
+                                      height: imageConstraints.maxHeight,
+                                      fit: BoxFit.cover,
+                                    ),
+                                    ..._placements.map((p) {
+                                      return Positioned(
+                                        left:
+                                            p['map_x'] *
+                                                imageConstraints.maxWidth -
+                                            15,
+                                        top:
+                                            p['map_y'] *
+                                                imageConstraints.maxHeight -
+                                            15,
+                                        child:
+                                            FutureBuilder<Map<String, dynamic>>(
+                                              future: _getBuildingIconData(
+                                                p['building_folder_name'],
+                                              ),
+                                              builder: (context, snapshot) {
+                                                if (!snapshot.hasData) {
+                                                  return _buildMapPinWidget({
+                                                    'type': null,
+                                                    'data': null,
+                                                  });
+                                                }
+                                                return _buildMapPinWidget(
+                                                  snapshot.data!,
+                                                );
+                                              },
+                                            ),
+                                      );
+                                    }),
+                                    if (_tappedRelativeCoords != null)
+                                      Positioned(
+                                        left:
+                                            _tappedRelativeCoords!.dx *
+                                                imageConstraints.maxWidth -
+                                            12,
+                                        top:
+                                            _tappedRelativeCoords!.dy *
+                                                imageConstraints.maxHeight -
+                                            24,
+                                        child: const Icon(
+                                          Icons.add_location,
+                                          color: Colors.red,
+                                          size: 24,
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               );
-                            }),
-                            if (_tappedRelativeCoords != null)
-                              Positioned(
-                                left:
-                                    _tappedRelativeCoords!.dx *
-                                        constraints.maxWidth -
-                                    12,
-                                top:
-                                    _tappedRelativeCoords!.dy *
-                                        constraints.maxHeight -
-                                    24,
-                                child: const Icon(
-                                  Icons.add_location,
-                                  color: Colors.red,
-                                  size: 24,
-                                ),
-                              ),
-                          ],
+                            },
+                          ),
                         ),
                       ),
                     );

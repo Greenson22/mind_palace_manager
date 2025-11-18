@@ -1,6 +1,7 @@
 // lib/features/building/presentation/map/district_map_viewer_page.dart
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui' as ui; // Tambahan import
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:mind_palace_manager/app_settings.dart';
@@ -22,6 +23,8 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
 
   File? _mapImageFile;
   List<Map<String, dynamic>> _placements = [];
+  // --- TAMBAHAN: Rasio Aspek ---
+  double _imageAspectRatio = 1.0;
 
   @override
   void initState() {
@@ -58,6 +61,9 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
       if (!await _mapImageFile!.exists()) {
         throw Exception('File gambar peta "$mapImageName" tidak ditemukan.');
       }
+
+      // --- TAMBAHAN: Baca dimensi gambar ---
+      await _updateImageAspectRatio(_mapImageFile!);
     } catch (e) {
       _error = 'Gagal memuat data peta: $e';
     }
@@ -65,6 +71,23 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
     setState(() {
       _isLoading = false;
     });
+  }
+
+  // --- TAMBAHAN: Helper ---
+  Future<void> _updateImageAspectRatio(File imageFile) async {
+    try {
+      final data = await imageFile.readAsBytes();
+      final codec = await ui.instantiateImageCodec(data);
+      final frameInfo = await codec.getNextFrame();
+      final image = frameInfo.image;
+      setState(() {
+        _imageAspectRatio = image.width / image.height;
+      });
+    } catch (e) {
+      setState(() {
+        _imageAspectRatio = 1.0;
+      });
+    }
   }
 
   void _navigateToBuilding(String buildingFolderName) {
@@ -118,42 +141,30 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
 
       return {'type': iconType, 'data': iconData};
     } catch (e) {
-      print('Gagal membaca ikon: $e');
       return {'type': null, 'data': null};
     }
   }
 
-  // --- PERUBAHAN DI FUNGSI INI ---
-  /// Membuat widget pin kustom
   Widget _buildMapPinWidget(Map<String, dynamic> iconData) {
     final type = iconData['type'];
-
-    // --- TAMBAHAN: Logika "Tidak Ada" ---
     if (AppSettings.mapPinShape == 'Tidak Ada (Tanpa Latar)') {
       if (type == 'image') {
         final File? imageFile = iconData['file'];
         if (imageFile != null) {
-          // Hanya kembalikan gambar, di dalam SizedBox agar ukurannya pas
           return SizedBox(
-            width: 30, // Ukuran pin
+            width: 30,
             height: 30,
             child: Image.file(
               imageFile,
-              fit: BoxFit.contain, // Gunakan 'contain' agar tidak terpotong
+              fit: BoxFit.contain,
               errorBuilder: (c, e, s) =>
                   const Icon(Icons.image_not_supported, size: 24),
             ),
           );
         }
       }
-      // Jika bukan gambar (Teks atau Default), 'Tidak Ada' tidak praktis.
-      // Kita akan jatuhkan (fall through) ke logika 'Bulat' di bawah.
     }
-    // --- SELESAI TAMBAHAN ---
-
-    // --- Logika yang ada (untuk Bulat, Kotak, atau Fallback Teks/Default) ---
     Widget pinContent;
-
     if (type == 'text' &&
         iconData['data'] != null &&
         iconData['data'].toString().isNotEmpty) {
@@ -195,19 +206,16 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
         color: Colors.white,
       );
     }
-
-    const Color pinColor = Colors.red; // Merah untuk viewer
+    const Color pinColor = Colors.red;
     BoxDecoration pinDecoration;
-
     if (AppSettings.mapPinShape == 'Kotak') {
       pinDecoration = BoxDecoration(
         color: pinColor,
-        borderRadius: BorderRadius.circular(4), // Menjadi kotak
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(color: Colors.white, width: 2),
         boxShadow: const [BoxShadow(color: Colors.black, blurRadius: 4.0)],
       );
     } else {
-      // Default ke 'Bulat' (mencakup 'Bulat' dan 'Tidak Ada' untuk Teks/Default)
       pinDecoration = BoxDecoration(
         color: pinColor,
         shape: BoxShape.circle,
@@ -215,7 +223,6 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
         boxShadow: const [BoxShadow(color: Colors.black, blurRadius: 4.0)],
       );
     }
-
     return Container(
       width: 30,
       height: 30,
@@ -224,7 +231,6 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
       child: Center(child: pinContent),
     );
   }
-  // --- SELESAI PERUBAHAN ---
 
   @override
   Widget build(BuildContext context) {
@@ -240,7 +246,6 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
-
     if (_error != null) {
       return Center(
         child: Padding(
@@ -254,49 +259,61 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
       );
     }
 
+    // --- STRUKTUR DIPERBARUI SAMAA SEPERTI EDITOR ---
     return LayoutBuilder(
       builder: (context, constraints) {
         return InteractiveViewer(
           panEnabled: true,
           minScale: 1.0,
           maxScale: 5.0,
-          child: Stack(
-            children: [
-              Image.file(
-                _mapImageFile!,
-                width: constraints.maxWidth,
-                height: constraints.maxHeight,
-                fit: BoxFit.contain,
-              ),
-              ..._placements.map((p) {
-                final String name = p['building_folder_name'];
-                final double x = p['map_x'];
-                final double y = p['map_y'];
-
-                return Positioned(
-                  left: x * constraints.maxWidth - 15,
-                  top: y * constraints.maxHeight - 15,
-                  child: Tooltip(
-                    message: name,
-                    child: GestureDetector(
-                      onTap: () => _navigateToBuilding(name),
-                      child: FutureBuilder<Map<String, dynamic>>(
-                        future: _getBuildingIconData(name),
-                        builder: (context, snapshot) {
-                          if (!snapshot.hasData) {
-                            return _buildMapPinWidget({
-                              'type': null,
-                              'data': null,
-                            });
-                          }
-                          return _buildMapPinWidget(snapshot.data!);
-                        },
+          child: Center(
+            // Pastikan konten di tengah
+            child: AspectRatio(
+              aspectRatio: _imageAspectRatio, // Kunci utamanya
+              child: LayoutBuilder(
+                builder: (context, imageConstraints) {
+                  // Stack sekarang berukuran PERSIS sama dengan rasio gambar
+                  return Stack(
+                    children: [
+                      Image.file(
+                        _mapImageFile!,
+                        width: imageConstraints.maxWidth,
+                        height: imageConstraints.maxHeight,
+                        fit: BoxFit.cover, // Isi penuh box AspectRatio
                       ),
-                    ),
-                  ),
-                );
-              }),
-            ],
+                      ..._placements.map((p) {
+                        final String name = p['building_folder_name'];
+                        final double x = p['map_x'];
+                        final double y = p['map_y'];
+                        return Positioned(
+                          // Koordinat sekarang akurat terhadap gambar
+                          left: x * imageConstraints.maxWidth - 15,
+                          top: y * imageConstraints.maxHeight - 15,
+                          child: Tooltip(
+                            message: name,
+                            child: GestureDetector(
+                              onTap: () => _navigateToBuilding(name),
+                              child: FutureBuilder<Map<String, dynamic>>(
+                                future: _getBuildingIconData(name),
+                                builder: (context, snapshot) {
+                                  if (!snapshot.hasData) {
+                                    return _buildMapPinWidget({
+                                      'type': null,
+                                      'data': null,
+                                    });
+                                  }
+                                  return _buildMapPinWidget(snapshot.data!);
+                                },
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    ],
+                  );
+                },
+              ),
+            ),
           ),
         );
       },
