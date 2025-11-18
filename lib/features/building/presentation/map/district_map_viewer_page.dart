@@ -123,10 +123,35 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
     }
   }
 
+  // --- PERUBAHAN DI FUNGSI INI ---
   /// Membuat widget pin kustom
   Widget _buildMapPinWidget(Map<String, dynamic> iconData) {
     final type = iconData['type'];
 
+    // --- TAMBAHAN: Logika "Tidak Ada" ---
+    if (AppSettings.mapPinShape == 'Tidak Ada (Tanpa Latar)') {
+      if (type == 'image') {
+        final File? imageFile = iconData['file'];
+        if (imageFile != null) {
+          // Hanya kembalikan gambar, di dalam SizedBox agar ukurannya pas
+          return SizedBox(
+            width: 30, // Ukuran pin
+            height: 30,
+            child: Image.file(
+              imageFile,
+              fit: BoxFit.contain, // Gunakan 'contain' agar tidak terpotong
+              errorBuilder: (c, e, s) =>
+                  const Icon(Icons.image_not_supported, size: 24),
+            ),
+          );
+        }
+      }
+      // Jika bukan gambar (Teks atau Default), 'Tidak Ada' tidak praktis.
+      // Kita akan jatuhkan (fall through) ke logika 'Bulat' di bawah.
+    }
+    // --- SELESAI TAMBAHAN ---
+
+    // --- Logika yang ada (untuk Bulat, Kotak, atau Fallback Teks/Default) ---
     Widget pinContent;
 
     if (type == 'text' &&
@@ -172,27 +197,24 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
     }
 
     const Color pinColor = Colors.red; // Merah untuk viewer
-
     BoxDecoration pinDecoration;
 
-    // --- BACA PENGATURAN PETA ---
-    if (AppSettings.mapPinShape == 'Bulat') {
-      pinDecoration = BoxDecoration(
-        color: pinColor,
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 2),
-        boxShadow: const [BoxShadow(color: Colors.black, blurRadius: 4.0)],
-      );
-    } else {
-      // 'Kotak' (atau fallback 'Tidak Ada')
+    if (AppSettings.mapPinShape == 'Kotak') {
       pinDecoration = BoxDecoration(
         color: pinColor,
         borderRadius: BorderRadius.circular(4), // Menjadi kotak
         border: Border.all(color: Colors.white, width: 2),
         boxShadow: const [BoxShadow(color: Colors.black, blurRadius: 4.0)],
       );
+    } else {
+      // Default ke 'Bulat' (mencakup 'Bulat' dan 'Tidak Ada' untuk Teks/Default)
+      pinDecoration = BoxDecoration(
+        color: pinColor,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 2),
+        boxShadow: const [BoxShadow(color: Colors.black, blurRadius: 4.0)],
+      );
     }
-    // --- SELESAI BACA PENGATURAN ---
 
     return Container(
       width: 30,
@@ -202,6 +224,7 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
       child: Center(child: pinContent),
     );
   }
+  // --- SELESAI PERUBAHAN ---
 
   @override
   Widget build(BuildContext context) {

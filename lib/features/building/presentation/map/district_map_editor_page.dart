@@ -45,7 +45,6 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
     setState(() => _isLoading = true);
 
     try {
-      // 1. Muat data JSON distrik
       if (await _jsonFile.exists()) {
         final content = await _jsonFile.readAsString();
         _districtData = json.decode(content);
@@ -61,7 +60,6 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
         }
       }
 
-      // 2. Muat daftar folder bangunan
       final entities = await widget.districtDirectory.list().toList();
       _buildingFolders = entities.whereType<Directory>().toList();
 
@@ -112,7 +110,6 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
           imageName,
         );
 
-        // Salin gambar ke folder distrik
         await sourceFile.copy(destinationPath);
 
         setState(() {
@@ -181,7 +178,7 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
 
       if (iconType == 'image' && iconData != null) {
         final imageFile = File(p.join(buildingDir.path, iconData.toString()));
-        return {'type': 'image', 'file': imageFile}; // Kembalikan File
+        return {'type': 'image', 'file': imageFile};
       }
 
       return {'type': iconType, 'data': iconData};
@@ -191,10 +188,35 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
     }
   }
 
+  // --- PERUBAHAN DI FUNGSI INI ---
   /// Membuat widget pin kustom
   Widget _buildMapPinWidget(Map<String, dynamic> iconData) {
     final type = iconData['type'];
 
+    // --- TAMBAHAN: Logika "Tidak Ada" ---
+    if (AppSettings.mapPinShape == 'Tidak Ada (Tanpa Latar)') {
+      if (type == 'image') {
+        final File? imageFile = iconData['file'];
+        if (imageFile != null) {
+          // Hanya kembalikan gambar, di dalam SizedBox agar ukurannya pas
+          return SizedBox(
+            width: 30, // Ukuran pin
+            height: 30,
+            child: Image.file(
+              imageFile,
+              fit: BoxFit.contain, // Gunakan 'contain' agar tidak terpotong
+              errorBuilder: (c, e, s) =>
+                  const Icon(Icons.image_not_supported, size: 24),
+            ),
+          );
+        }
+      }
+      // Jika bukan gambar (Teks atau Default), 'Tidak Ada' tidak praktis.
+      // Kita akan jatuhkan (fall through) ke logika 'Bulat' di bawah.
+    }
+    // --- SELESAI TAMBAHAN ---
+
+    // --- Logika yang ada (untuk Bulat, Kotak, atau Fallback Teks/Default) ---
     Widget pinContent;
 
     if (type == 'text' &&
@@ -240,27 +262,24 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
     }
 
     const Color pinColor = Colors.blue; // Biru untuk editor
-
     BoxDecoration pinDecoration;
 
-    // --- BACA PENGATURAN PETA ---
-    if (AppSettings.mapPinShape == 'Bulat') {
-      pinDecoration = BoxDecoration(
-        color: pinColor,
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 2),
-        boxShadow: const [BoxShadow(color: Colors.black, blurRadius: 4.0)],
-      );
-    } else {
-      // 'Kotak' (atau fallback 'Tidak Ada')
+    if (AppSettings.mapPinShape == 'Kotak') {
       pinDecoration = BoxDecoration(
         color: pinColor,
         borderRadius: BorderRadius.circular(4), // Menjadi kotak
         border: Border.all(color: Colors.white, width: 2),
         boxShadow: const [BoxShadow(color: Colors.black, blurRadius: 4.0)],
       );
+    } else {
+      // Default ke 'Bulat' (mencakup 'Bulat' dan 'Tidak Ada' untuk Teks/Default)
+      pinDecoration = BoxDecoration(
+        color: pinColor,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 2),
+        boxShadow: const [BoxShadow(color: Colors.black, blurRadius: 4.0)],
+      );
     }
-    // --- SELESAI BACA PENGATURAN ---
 
     return Container(
       width: 30,
@@ -270,6 +289,7 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
       child: Center(child: pinContent),
     );
   }
+  // --- SELESAI PERUBAHAN ---
 
   @override
   Widget build(BuildContext context) {

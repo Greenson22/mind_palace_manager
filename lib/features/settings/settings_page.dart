@@ -13,10 +13,8 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   late TextEditingController _folderController;
-  // --- DIPERBARUI ---
-  late String _currentMapPinShape; // <-- Diganti nama
-  late String _currentListIconShape; // <-- Baru
-  // --- SELESAI DIPERBARUI ---
+  late String _currentMapPinShape;
+  late String _currentListIconShape;
 
   @override
   void initState() {
@@ -24,10 +22,8 @@ class _SettingsPageState extends State<SettingsPage> {
     _folderController = TextEditingController(
       text: AppSettings.baseBuildingsPath ?? 'Belum diatur',
     );
-    // --- DIPERBARUI ---
-    _currentMapPinShape = AppSettings.mapPinShape; // <-- Diganti nama
-    _currentListIconShape = AppSettings.listIconShape; // <-- Baru
-    // --- SELESAI DIPERBARUI ---
+    _currentMapPinShape = AppSettings.mapPinShape;
+    _currentListIconShape = AppSettings.listIconShape;
   }
 
   @override
@@ -108,20 +104,20 @@ class _SettingsPageState extends State<SettingsPage> {
             // --- PENGATURAN BENTUK PIN PETA (DIPERBARUI) ---
             const Divider(height: 32.0),
             Text(
-              'Tampilan Pin Peta', // <-- Judul diubah
+              'Tampilan Pin Peta',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 8.0),
             Text(
-              'Atur bentuk pin bangunan di Peta Distrik.', // <-- Teks diubah
+              'Atur bentuk pin bangunan di Peta Distrik.',
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 8.0),
             DropdownButton<String>(
-              value: _currentMapPinShape, // <-- Variabel diubah
+              value: _currentMapPinShape,
               isExpanded: true,
-              // Opsi 'Tidak Ada' dihapus untuk Peta
-              items: ['Bulat', 'Kotak']
+              // --- PERUBAHAN DI SINI ---
+              items: ['Bulat', 'Kotak', 'Tidak Ada (Tanpa Latar)']
                   .map(
                     (String value) => DropdownMenuItem<String>(
                       value: value,
@@ -129,20 +125,19 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   )
                   .toList(),
+              // --- SELESAI PERUBAHAN ---
               onChanged: (String? newValue) async {
                 if (newValue != null) {
-                  await AppSettings.saveMapPinShape(
-                    newValue,
-                  ); // <-- Fungsi diubah
+                  await AppSettings.saveMapPinShape(newValue);
                   setState(() {
-                    _currentMapPinShape = newValue; // <-- Variabel diubah
+                    _currentMapPinShape = newValue;
                   });
                 }
               },
             ),
             // --- SELESAI DIPERBARUI ---
 
-            // --- TAMBAHAN: Pengaturan Bentuk Ikon Daftar ---
+            // --- Pengaturan Bentuk Ikon Daftar (Tidak Berubah) ---
             const Divider(height: 32.0),
             Text(
               'Tampilan Ikon Daftar',
@@ -174,7 +169,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 }
               },
             ),
-            // --- SELESAI TAMBAHAN ---
+            // --- SELESAI ---
           ],
         ),
       ),
