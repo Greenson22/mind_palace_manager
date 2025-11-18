@@ -34,7 +34,9 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
 
   double _imageAspectRatio = 1.0;
 
-  // --- TAMBAHAN: Controller untuk Zoom ---
+  // Variabel untuk ukuran ikon saat ini
+  double _currentSize = 30.0;
+
   final TransformationController _transformationController =
       TransformationController();
 
@@ -49,7 +51,6 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
 
   @override
   void dispose() {
-    // --- TAMBAHAN: Dispose controller ---
     _transformationController.dispose();
     super.dispose();
   }
@@ -166,12 +167,18 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
       return;
     }
     final buildingName = p.basename(_selectedBuildingToPlace!.path);
-    _placements.removeWhere((p) => p['building_folder_name'] == buildingName);
+    // Hapus penempatan lama jika ada
+    _placements.removeWhere(
+      (item) => item['building_folder_name'] == buildingName,
+    );
+
     _placements.add({
       'building_folder_name': buildingName,
       'map_x': _tappedRelativeCoords!.dx,
       'map_y': _tappedRelativeCoords!.dy,
+      'size': _currentSize, // Simpan ukuran
     });
+
     setState(() {
       _selectedBuildingToPlace = null;
       _tappedRelativeCoords = null;
@@ -182,29 +189,27 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
   void _removePlacement(String buildingFolderName) {
     setState(() {
       _placements.removeWhere(
-        (p) => p['building_folder_name'] == buildingFolderName,
+        (item) => item['building_folder_name'] == buildingFolderName,
       );
     });
     _saveData();
   }
 
-  // --- TAMBAHAN: Fungsi Zoom ---
   void _zoomIn() {
     final Matrix4 matrix = _transformationController.value.clone();
-    matrix.scale(1.2); // Zoom in factor
+    matrix.scale(1.2);
     _transformationController.value = matrix;
   }
 
   void _zoomOut() {
     final Matrix4 matrix = _transformationController.value.clone();
-    matrix.scale(1 / 1.2); // Zoom out factor
+    matrix.scale(1 / 1.2);
     _transformationController.value = matrix;
   }
 
   void _resetZoom() {
     _transformationController.value = Matrix4.identity();
   }
-  // ------------------------------
 
   Future<Map<String, dynamic>> _getBuildingIconData(
     String buildingFolderName,
@@ -232,35 +237,20 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
     }
   }
 
-  Widget _buildMapPinWidget(Map<String, dynamic> iconData) {
+  Widget _buildMapPinWidget(Map<String, dynamic> iconData, double size) {
     final type = iconData['type'];
-    if (AppSettings.mapPinShape == 'Tidak Ada (Tanpa Latar)') {
-      if (type == 'image') {
-        final File? imageFile = iconData['file'];
-        if (imageFile != null) {
-          return SizedBox(
-            width: 30,
-            height: 30,
-            child: Image.file(
-              imageFile,
-              fit: BoxFit.contain,
-              errorBuilder: (c, e, s) =>
-                  const Icon(Icons.image_not_supported, size: 24),
-            ),
-          );
-        }
-      }
-    }
     Widget pinContent;
+
     if (type == 'text' &&
         iconData['data'] != null &&
         iconData['data'].toString().isNotEmpty) {
       pinContent = Text(
         iconData['data'].toString(),
-        style: const TextStyle(
-          fontSize: 16,
+        style: TextStyle(
+          fontSize: size * 0.5,
           color: Colors.white,
           fontWeight: FontWeight.bold,
+          shadows: const [Shadow(blurRadius: 2, color: Colors.black)],
         ),
         textAlign: TextAlign.center,
         maxLines: 1,
@@ -269,30 +259,44 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
     } else if (type == 'image') {
       final File? imageFile = iconData['file'];
       if (imageFile != null) {
-        pinContent = ClipOval(
-          child: Image.file(
-            imageFile,
-            width: 24,
-            height: 24,
-            fit: BoxFit.cover,
-            errorBuilder: (c, e, s) =>
-                const Icon(Icons.location_city, size: 14, color: Colors.white),
-          ),
+        if (AppSettings.mapPinShape == 'Tidak Ada (Tanpa Latar)') {
+          return SizedBox(
+            width: size,
+            height: size,
+            child: Image.file(imageFile, fit: BoxFit.contain),
+          );
+        }
+        pinContent = Image.file(
+          imageFile,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (c, e, s) =>
+              Icon(Icons.location_city, size: size * 0.6, color: Colors.white),
         );
       } else {
-        pinContent = const Icon(
+        pinContent = Icon(
           Icons.location_city,
-          size: 14,
+          size: size * 0.6,
           color: Colors.white,
         );
       }
     } else {
-      pinContent = const Icon(
+      pinContent = Icon(
         Icons.location_city,
-        size: 14,
+        size: size * 0.6,
         color: Colors.white,
       );
     }
+
+    if (AppSettings.mapPinShape == 'Tidak Ada (Tanpa Latar)') {
+      return SizedBox(
+        width: size,
+        height: size,
+        child: Center(child: pinContent),
+      );
+    }
+
     const Color pinColor = Colors.blue;
     BoxDecoration pinDecoration;
     if (AppSettings.mapPinShape == 'Kotak') {
@@ -310,9 +314,10 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
         boxShadow: const [BoxShadow(color: Colors.black, blurRadius: 4.0)],
       );
     }
+
     return Container(
-      width: 30,
-      height: 30,
+      width: size,
+      height: size,
       clipBehavior: Clip.antiAlias,
       decoration: pinDecoration,
       child: Center(child: pinContent),
@@ -373,7 +378,7 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
         const SizedBox(height: 16),
         DropdownButton<Directory>(
           value: _selectedBuildingToPlace,
-          hint: const Text('1. Pilih bangunan... (untuk ditempatkan / diedit)'),
+          hint: const Text('1. Pilih bangunan...'),
           isExpanded: true,
           items: _buildingFolders.map((dir) {
             return DropdownMenuItem(
@@ -384,10 +389,43 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
           onChanged: (dir) {
             setState(() {
               _selectedBuildingToPlace = dir;
+              if (dir != null) {
+                // --- PERBAIKAN DI SINI ---
+                // Mengganti variabel (p) menjadi (item) untuk menghindari konflik dengan library path (p)
+                final existing = _placements.firstWhere(
+                  (item) =>
+                      item['building_folder_name'] == p.basename(dir.path),
+                  orElse: () => {},
+                );
+                if (existing.isNotEmpty && existing['size'] != null) {
+                  _currentSize = (existing['size'] as num).toDouble();
+                }
+              }
             });
           },
         ),
+
         const SizedBox(height: 16),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Ukuran Ikon: ${_currentSize.toInt()}'),
+            TextButton(
+              onPressed: () => setState(() => _currentSize = 30.0),
+              child: const Text("Reset"),
+            ),
+          ],
+        ),
+        Slider(
+          value: _currentSize,
+          min: 10.0,
+          max: 150.0,
+          divisions: 140,
+          label: _currentSize.toInt().toString(),
+          onChanged: (val) => setState(() => _currentSize = val),
+        ),
+
+        const SizedBox(height: 8),
         Text(
           '2. Ketuk (tap) lokasi pada peta di bawah:',
           style: Theme.of(context).textTheme.bodyMedium,
@@ -405,16 +443,13 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
               ? const Center(child: Text('Pilih gambar peta terlebih dahulu'))
               : LayoutBuilder(
                   builder: (context, constraints) {
-                    // --- PERUBAHAN: Stack untuk menumpuk tombol zoom ---
                     return Stack(
                       children: [
                         InteractiveViewer(
-                          // Menggunakan controller
                           transformationController: _transformationController,
                           panEnabled: true,
                           minScale: 1.0,
-                          maxScale:
-                              6.0, // Ditingkatkan agar bisa zoom lebih dalam
+                          maxScale: 6.0,
                           child: Center(
                             child: AspectRatio(
                               aspectRatio: _imageAspectRatio,
@@ -440,34 +475,38 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
                                           height: imageConstraints.maxHeight,
                                           fit: BoxFit.cover,
                                         ),
-                                        ..._placements.map((p) {
+                                        ..._placements.map((item) {
+                                          final double itemSize =
+                                              item['size'] != null
+                                              ? (item['size'] as num).toDouble()
+                                              : 30.0;
+
                                           return Positioned(
                                             left:
-                                                p['map_x'] *
+                                                item['map_x'] *
                                                     imageConstraints.maxWidth -
-                                                15,
+                                                (itemSize / 2),
                                             top:
-                                                p['map_y'] *
+                                                item['map_y'] *
                                                     imageConstraints.maxHeight -
-                                                15,
+                                                (itemSize / 2),
                                             child:
                                                 FutureBuilder<
                                                   Map<String, dynamic>
                                                 >(
                                                   future: _getBuildingIconData(
-                                                    p['building_folder_name'],
+                                                    item['building_folder_name'],
                                                   ),
                                                   builder: (context, snapshot) {
                                                     if (!snapshot.hasData) {
                                                       return _buildMapPinWidget(
-                                                        {
-                                                          'type': null,
-                                                          'data': null,
-                                                        },
+                                                        {'type': null},
+                                                        itemSize,
                                                       );
                                                     }
                                                     return _buildMapPinWidget(
                                                       snapshot.data!,
+                                                      itemSize,
                                                     );
                                                   },
                                                 ),
@@ -478,15 +517,28 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
                                             left:
                                                 _tappedRelativeCoords!.dx *
                                                     imageConstraints.maxWidth -
-                                                12,
+                                                (_currentSize / 2),
                                             top:
                                                 _tappedRelativeCoords!.dy *
                                                     imageConstraints.maxHeight -
-                                                24,
-                                            child: const Icon(
-                                              Icons.add_location,
-                                              color: Colors.red,
-                                              size: 24,
+                                                (_currentSize / 2),
+                                            child: Opacity(
+                                              opacity: 0.7,
+                                              child: Container(
+                                                width: _currentSize,
+                                                height: _currentSize,
+                                                decoration: BoxDecoration(
+                                                  shape: BoxShape.circle,
+                                                  border: Border.all(
+                                                    color: Colors.red,
+                                                    width: 2,
+                                                  ),
+                                                ),
+                                                child: const Icon(
+                                                  Icons.add,
+                                                  color: Colors.red,
+                                                ),
+                                              ),
                                             ),
                                           ),
                                       ],
@@ -497,7 +549,6 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
                             ),
                           ),
                         ),
-                        // --- Widget Tombol Zoom ---
                         Positioned(
                           right: 8,
                           bottom: 8,
@@ -560,17 +611,16 @@ class _DistrictMapEditorPageState extends State<DistrictMapEditorPage> {
         ),
         if (_placements.isEmpty)
           const Text('Belum ada bangunan yang ditempatkan.'),
-        ..._placements.map((p) {
-          final String name = p['building_folder_name'];
-          final double x = p['map_x'];
-          final double y = p['map_y'];
+        ..._placements.map((item) {
+          final String name = item['building_folder_name'];
+          final double size = item['size'] != null
+              ? (item['size'] as num).toDouble()
+              : 30.0;
 
           return ListTile(
             leading: const Icon(Icons.location_on, color: Colors.blue),
             title: Text(name),
-            subtitle: Text(
-              'Posisi: (${x.toStringAsFixed(2)}, ${y.toStringAsFixed(2)})',
-            ),
+            subtitle: Text('Size: ${size.toInt()}'),
             trailing: IconButton(
               icon: const Icon(Icons.delete_forever, color: Colors.red),
               onPressed: () => _removePlacement(name),

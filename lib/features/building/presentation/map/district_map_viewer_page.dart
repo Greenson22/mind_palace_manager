@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:mind_palace_manager/app_settings.dart';
 import 'package:mind_palace_manager/features/building/presentation/viewer/building_viewer_page.dart';
-// --- PERUBAHAN: Import halaman daftar bangunan ---
 import 'package:mind_palace_manager/features/building/presentation/management/district_building_management_page.dart';
 
 class DistrictMapViewerPage extends StatefulWidget {
@@ -115,7 +114,6 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
     );
   }
 
-  // --- TAMBAHAN: Fungsi untuk membuka daftar bangunan ---
   void _openBuildingList() {
     Navigator.push(
       context,
@@ -156,35 +154,21 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
     }
   }
 
-  Widget _buildMapPinWidget(Map<String, dynamic> iconData) {
+  // --- UPDATE: Menerima parameter size ---
+  Widget _buildMapPinWidget(Map<String, dynamic> iconData, double size) {
     final type = iconData['type'];
-    if (AppSettings.mapPinShape == 'Tidak Ada (Tanpa Latar)') {
-      if (type == 'image') {
-        final File? imageFile = iconData['file'];
-        if (imageFile != null) {
-          return SizedBox(
-            width: 30,
-            height: 30,
-            child: Image.file(
-              imageFile,
-              fit: BoxFit.contain,
-              errorBuilder: (c, e, s) =>
-                  const Icon(Icons.image_not_supported, size: 24),
-            ),
-          );
-        }
-      }
-    }
     Widget pinContent;
+
     if (type == 'text' &&
         iconData['data'] != null &&
         iconData['data'].toString().isNotEmpty) {
       pinContent = Text(
         iconData['data'].toString(),
-        style: const TextStyle(
-          fontSize: 16,
+        style: TextStyle(
+          fontSize: size * 0.5, // Font size relatif terhadap ukuran container
           color: Colors.white,
           fontWeight: FontWeight.bold,
+          shadows: const [Shadow(blurRadius: 2, color: Colors.black)],
         ),
         textAlign: TextAlign.center,
         maxLines: 1,
@@ -193,30 +177,44 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
     } else if (type == 'image') {
       final File? imageFile = iconData['file'];
       if (imageFile != null) {
-        pinContent = ClipOval(
-          child: Image.file(
-            imageFile,
-            width: 24,
-            height: 24,
-            fit: BoxFit.cover,
-            errorBuilder: (c, e, s) =>
-                const Icon(Icons.location_city, size: 14, color: Colors.white),
-          ),
+        if (AppSettings.mapPinShape == 'Tidak Ada (Tanpa Latar)') {
+          return SizedBox(
+            width: size,
+            height: size,
+            child: Image.file(imageFile, fit: BoxFit.contain),
+          );
+        }
+        pinContent = Image.file(
+          imageFile,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (c, e, s) =>
+              Icon(Icons.location_city, size: size * 0.6, color: Colors.white),
         );
       } else {
-        pinContent = const Icon(
+        pinContent = Icon(
           Icons.location_city,
-          size: 14,
+          size: size * 0.6,
           color: Colors.white,
         );
       }
     } else {
-      pinContent = const Icon(
+      pinContent = Icon(
         Icons.location_city,
-        size: 14,
+        size: size * 0.6,
         color: Colors.white,
       );
     }
+
+    if (AppSettings.mapPinShape == 'Tidak Ada (Tanpa Latar)') {
+      return SizedBox(
+        width: size,
+        height: size,
+        child: Center(child: pinContent),
+      );
+    }
+
     const Color pinColor = Colors.red;
     BoxDecoration pinDecoration;
     if (AppSettings.mapPinShape == 'Kotak') {
@@ -234,9 +232,10 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
         boxShadow: const [BoxShadow(color: Colors.black, blurRadius: 4.0)],
       );
     }
+
     return Container(
-      width: 30,
-      height: 30,
+      width: size,
+      height: size,
       clipBehavior: Clip.antiAlias,
       decoration: pinDecoration,
       child: Center(child: pinContent),
@@ -248,7 +247,6 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Peta: ${p.basename(widget.districtDirectory.path)}'),
-        // --- PERUBAHAN: Menambahkan tombol daftar di AppBar ---
         actions: [
           IconButton(
             icon: const Icon(Icons.list_alt),
@@ -301,9 +299,15 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
                         final String name = p['building_folder_name'];
                         final double x = p['map_x'];
                         final double y = p['map_y'];
+                        // Ambil ukuran (default 30.0 jika data lama)
+                        final double size = p['size'] != null
+                            ? (p['size'] as num).toDouble()
+                            : 30.0;
+
                         return Positioned(
-                          left: x * imageConstraints.maxWidth - 15,
-                          top: y * imageConstraints.maxHeight - 15,
+                          // Geser posisi sebesar setengah ukuran agar titik tengahnya pas
+                          left: x * imageConstraints.maxWidth - (size / 2),
+                          top: y * imageConstraints.maxHeight - (size / 2),
                           child: Tooltip(
                             message: name,
                             child: GestureDetector(
@@ -314,10 +318,12 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
                                   if (!snapshot.hasData) {
                                     return _buildMapPinWidget({
                                       'type': null,
-                                      'data': null,
-                                    });
+                                    }, size);
                                   }
-                                  return _buildMapPinWidget(snapshot.data!);
+                                  return _buildMapPinWidget(
+                                    snapshot.data!,
+                                    size,
+                                  );
                                 },
                               ),
                             ),
