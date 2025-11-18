@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import 'package:mind_palace_manager/app_settings.dart';
+// --- BARU: Import About Page ---
+import 'package:mind_palace_manager/features/settings/about_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -21,7 +23,7 @@ class _SettingsPageState extends State<SettingsPage> {
   late double _currentRegionShapeStrokeWidth;
   late bool _currentShowRegionDistrictNames;
 
-  // --- BARU: State Warna ---
+  // State Warna
   late Color _currentRegionPinColor;
   late Color _currentRegionOutlineColor;
   late Color _currentRegionNameColor;
@@ -40,7 +42,6 @@ class _SettingsPageState extends State<SettingsPage> {
     _currentRegionShapeStrokeWidth = AppSettings.regionPinShapeStrokeWidth;
     _currentShowRegionDistrictNames = AppSettings.showRegionDistrictNames;
 
-    // --- BARU ---
     _currentRegionPinColor = Color(AppSettings.regionPinColor);
     _currentRegionOutlineColor = Color(AppSettings.regionOutlineColor);
     _currentRegionNameColor = Color(AppSettings.regionNameColor);
@@ -80,7 +81,7 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  // --- BARU: Helper Dialog Color Picker ---
+  // Helper Dialog Color Picker
   void _showColorPickerDialog(
     String title,
     Color currentColor,
@@ -168,7 +169,6 @@ class _SettingsPageState extends State<SettingsPage> {
         padding: const EdgeInsets.all(16.0),
         child: ListView(
           children: [
-            // ... (Bagian Folder Utama tetap sama)
             Text(
               'Atur Lokasi Folder Utama',
               style: Theme.of(context).textTheme.titleLarge,
@@ -260,7 +260,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   ],
                 ),
               ),
-              // --- BARU: Pemilih Warna Pin ---
+              // Pemilih Warna Pin
               ListTile(
                 title: const Text('Warna Pin Distrik'),
                 trailing: GestureDetector(
@@ -318,7 +318,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   ],
                 ),
               ),
-              // --- BARU: Pemilih Warna Outline ---
+              // Pemilih Warna Outline
               ListTile(
                 title: const Text('Warna Outline'),
                 trailing: GestureDetector(
@@ -353,7 +353,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
 
             if (_currentShowRegionDistrictNames)
-              // --- BARU: Pemilih Warna Nama ---
+              // Pemilih Warna Nama
               ListTile(
                 title: const Text('Warna Teks Nama'),
                 trailing: GestureDetector(
@@ -399,6 +399,20 @@ class _SettingsPageState extends State<SettingsPage> {
                     )
                     .toList(),
               ),
+            ),
+
+            // --- BARU: Bagian Tentang Aplikasi ---
+            const Divider(height: 32.0),
+            ListTile(
+              leading: const Icon(Icons.info_outline),
+              title: const Text('Tentang Aplikasi'),
+              subtitle: const Text('Versi, Fitur, dan Pengembang'),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const AboutPage()),
+                );
+              },
             ),
           ],
         ),
