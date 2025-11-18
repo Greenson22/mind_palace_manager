@@ -19,6 +19,9 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
   Map<String, dynamic> _buildingData = {'rooms': []};
   bool _isLoading = true;
 
+  // --- TAMBAHAN: State untuk melacak mode ---
+  bool _isReorderMode = false;
+
   final TextEditingController _roomNameController = TextEditingController();
   String? _pickedImagePath;
 
@@ -38,6 +41,7 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
   }
 
   Future<void> _loadData() async {
+    //... (Fungsi _loadData tidak berubah)
     setState(() {
       _isLoading = true;
     });
@@ -67,6 +71,7 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
   }
 
   Future<void> _saveData() async {
+    //... (Fungsi _saveData tidak berubah)
     try {
       await _jsonFile.writeAsString(json.encode(_buildingData));
     } catch (e) {
@@ -79,6 +84,7 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
   }
 
   Future<void> _showAddRoomDialog() async {
+    //... (Fungsi _showAddRoomDialog tidak berubah)
     _roomNameController.clear();
     _pickedImagePath = null;
 
@@ -145,6 +151,7 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
   }
 
   Future<void> _createNewRoom() async {
+    //... (Fungsi _createNewRoom tidak berubah)
     final String roomName = _roomNameController.text.trim();
     if (roomName.isEmpty) return;
 
@@ -178,7 +185,7 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ruangan "$roomName" berhasil dibuat')),
+          SnackBar(content: Text('Bangunan "$roomName" berhasil dibuat')),
         );
       }
     } catch (e) {
@@ -186,12 +193,111 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Gagal membuat ruangan: $e')));
+        ).showSnackBar(SnackBar(content: Text('Gagal membuat bangunan: $e')));
       }
     }
   }
 
+  Future<void> _handleDeleteNavigation(
+    //... (Fungsi _handleDeleteNavigation tidak berubah)
+    Map<String, dynamic> fromRoom, // Ruangan A
+    Map<String, dynamic> conn, // Koneksi A -> B
+    Function setDialogState, // setState dari dialog
+  ) async {
+    // 1. (Request 2) Konfirmasi hapus navigasi (A -> B)
+    final bool? didConfirm = await showDialog<bool>(
+      context: context, // Gunakan context halaman
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hapus Navigasi'),
+        content: Text(
+          'Anda yakin ingin menghapus navigasi:\n'
+          '"${conn['label'] ?? 'Tanpa Label'}"?',
+        ),
+        actions: [
+          TextButton(
+            child: const Text('Batal'),
+            onPressed: () => Navigator.of(ctx).pop(false),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Hapus'),
+            onPressed: () => Navigator.of(ctx).pop(true),
+          ),
+        ],
+      ),
+    );
+
+    if (didConfirm != true) {
+      return; // Pengguna membatalkan
+    }
+
+    // 2. (Request 3) Cek apakah ada navigasi balik (B -> A)
+    final String targetRoomId = conn['targetRoomId']; // ID Ruangan B
+    Map<String, dynamic>? targetRoom; // Ruangan B
+    Map<String, dynamic>? returnConnection; // Koneksi B -> A
+
+    try {
+      // Cari Ruangan B
+      targetRoom = _rooms.firstWhere((r) => r['id'] == targetRoomId);
+      // Cari Koneksi B -> A (targetId-nya adalah fromRoom['id'])
+      returnConnection = (targetRoom?['connections'] as List? ?? []).firstWhere(
+        (c) => c['targetRoomId'] == fromRoom['id'],
+      );
+    } catch (e) {
+      // Tidak ada ruangan target atau tidak ada koneksi balik, tidak masalah
+      returnConnection = null;
+    }
+
+    // 3. Jika ada navigasi balik, tampilkan konfirmasi kedua
+    if (returnConnection != null) {
+      final bool? deleteReturn = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Hapus Navigasi Terkait'),
+          content: Text(
+            'Ruangan "${targetRoom!['name']}" memiliki navigasi kembali ("${returnConnection!['label']}") ke ruangan ini.\n\n'
+            'Apakah Anda ingin menghapus navigasi kembali tersebut juga?',
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Jangan Hapus'),
+              onPressed: () => Navigator.of(ctx).pop(false),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('Ya, Hapus Keduanya'),
+              onPressed: () => Navigator.of(ctx).pop(true),
+            ),
+          ],
+        ),
+      );
+
+      // Jika user mau hapus keduanya, hapus koneksi B -> A
+      if (deleteReturn == true) {
+        (targetRoom!['connections'] as List).remove(returnConnection);
+      }
+    }
+
+    // 4. Hapus koneksi A -> B (yang asli)
+    setDialogState(() {
+      (fromRoom['connections'] as List).remove(conn);
+    });
+
+    // 5. Simpan semua perubahan
+    await _saveData();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Navigasi berhasil dihapus'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
   Future<void> _showNavigationDialog(Map<String, dynamic> fromRoom) async {
+    //... (Fungsi _showNavigationDialog tidak berubah)
     final otherRooms = _rooms.where((r) => r['id'] != fromRoom['id']).toList();
     final connections = (fromRoom['connections'] as List? ?? []);
 
@@ -219,20 +325,26 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
                       if (connections.isEmpty)
                         const Text('Belum ada navigasi.'),
                       ...connections.map((conn) {
-                        final targetRoom = otherRooms.firstWhere(
-                          (r) => r['id'] == conn['targetRoomId'],
-                          orElse: () => {'name': 'Ruangan Dihapus'},
-                        );
+                        Map<String, dynamic> targetRoom;
+                        try {
+                          targetRoom = otherRooms.firstWhere(
+                            (r) => r['id'] == conn['targetRoomId'],
+                          );
+                        } catch (e) {
+                          targetRoom = {'name': 'Ruangan Dihapus'};
+                        }
+
                         return ListTile(
                           title: Text(conn['label'] ?? 'Tanpa Label'),
                           subtitle: Text('-> ${targetRoom['name']}'),
                           trailing: IconButton(
                             icon: const Icon(Icons.delete, color: Colors.red),
                             onPressed: () {
-                              setDialogState(() {
-                                connections.remove(conn);
-                              });
-                              _saveData(); // Simpan perubahan
+                              _handleDeleteNavigation(
+                                fromRoom,
+                                conn,
+                                setDialogState,
+                              );
                             },
                           ),
                         );
@@ -275,15 +387,12 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
                 ),
                 ElevatedButton(
                   child: const Text('Tambah'),
-                  // --- PERUBAHAN DIMULAI DI SINI ---
                   onPressed: () async {
-                    if (selectedTargetRoomId == null)
-                      return; // Wajib pilih tujuan
+                    if (selectedTargetRoomId == null) return;
 
                     Map<String, dynamic> targetRoom;
                     String targetRoomName;
 
-                    // 1. Dapatkan data ruangan tujuan
                     try {
                       targetRoom = otherRooms.firstWhere(
                         (r) => r['id'] == selectedTargetRoomId,
@@ -301,14 +410,11 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
                       return;
                     }
 
-                    // 2. PERMINTAAN 1: Tentukan label otomatis
                     String label = labelController.text.trim();
                     if (label.isEmpty) {
-                      label =
-                          targetRoomName; // Otomatis pakai nama ruangan tujuan
+                      label = targetRoomName;
                     }
 
-                    // 3. Buat koneksi (A -> B)
                     final newConnection = {
                       'id': DateTime.now().millisecondsSinceEpoch.toString(),
                       'label': label,
@@ -318,17 +424,14 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
                     setDialogState(() {
                       connections.add(newConnection);
                     });
-                    await _saveData(); // Simpan koneksi A -> B
+                    await _saveData();
 
-                    // Simpan nama label untuk dialog konfirmasi
                     String addedLabel = label;
-                    // Reset form di dialog
                     labelController.clear();
                     selectedTargetRoomId = null;
 
-                    // 4. PERMINTAAN 2: Dialog konfirmasi navigasi balik (B -> A)
                     final bool? createReturn = await showDialog<bool>(
-                      context: context, // Gunakan context dari StatefulBuilder
+                      context: context,
                       builder: (ctx) => AlertDialog(
                         title: const Text('Navigasi Balik Otomatis'),
                         content: Text(
@@ -348,17 +451,14 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
                       ),
                     );
 
-                    // 5. Jika dikonfirmasi, buat koneksi B -> A
                     if (createReturn == true) {
                       try {
-                        // Temukan data lengkap ruangan target dari list utama
                         final fullTargetRoom = (_rooms as List).firstWhere(
                           (r) => r['id'] == targetRoom['id'],
                         );
 
                         fullTargetRoom['connections'] ??= [];
 
-                        // Buat koneksi balik (B -> A)
                         final returnConnection = {
                           'id': DateTime.now().millisecondsSinceEpoch
                               .toString(),
@@ -366,12 +466,11 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
                           'targetRoomId': fromRoom['id'],
                         };
 
-                        // Tambahkan koneksi balik ke ruangan B
                         (fullTargetRoom['connections'] as List).add(
                           returnConnection,
                         );
 
-                        await _saveData(); // Simpan lagi data (termasuk B -> A)
+                        await _saveData();
 
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -394,7 +493,6 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
                       }
                     }
                   },
-                  // --- PERUBAHAN BERAKHIR DI SINI ---
                 ),
               ],
             );
@@ -409,6 +507,23 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Editor: ${p.basename(widget.buildingDirectory.path)}'),
+        // --- TAMBAHAN: Tombol Aksi di AppBar ---
+        actions: [
+          IconButton(
+            // Ganti ikon berdasarkan mode
+            icon: Icon(_isReorderMode ? Icons.link : Icons.swap_vert),
+            tooltip: _isReorderMode
+                ? 'Aktifkan Mode Navigasi'
+                : 'Aktifkan Mode Pindah (Urutkan)',
+            onPressed: () {
+              // Toggle mode
+              setState(() {
+                _isReorderMode = !_isReorderMode;
+              });
+            },
+          ),
+        ],
+        // --- SELESAI ---
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -423,6 +538,7 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
 
   Widget _buildRoomList() {
     if (_rooms.isEmpty) {
+      //... (Widget ini tidak berubah)
       return const Center(
         child: Text(
           'Belum ada ruangan.\nKlik tombol + untuk menambahkannya.',
@@ -432,7 +548,10 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
       );
     }
 
-    return ListView.builder(
+    return ReorderableListView.builder(
+      // --- TAMBAHAN: Nonaktifkan handle default (long-press) ---
+      buildDefaultDragHandles: false,
+      // --- SELESAI ---
       itemCount: _rooms.length,
       itemBuilder: (context, index) {
         final room = _rooms[index];
@@ -440,6 +559,7 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
         final roomImage = room['image'];
 
         Widget leadingIcon;
+        //... (Logika leadingIcon tidak berubah)
         if (roomImage != null) {
           final imageFile = File(
             p.join(widget.buildingDirectory.path, roomImage),
@@ -458,17 +578,37 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
         }
 
         return ListTile(
+          key: ValueKey(room['id']),
           leading: CircleAvatar(child: leadingIcon, radius: 25),
           title: Text(roomName),
           subtitle: Text('ID: ${room['id']}'),
-          trailing: IconButton(
-            icon: const Icon(Icons.link),
-            onPressed: () {
-              _showNavigationDialog(room);
-            },
-            tooltip: 'Atur Navigasi',
-          ),
+          // --- PERUBAHAN: Tampilkan ikon berdasarkan mode ---
+          trailing: _isReorderMode
+              ? ReorderableDragStartListener(
+                  // Mode Pindah: Tampilkan Drag Handle
+                  index: index,
+                  child: const Icon(Icons.drag_handle, color: Colors.grey),
+                )
+              : IconButton(
+                  // Mode Navigasi: Tampilkan Tombol Link
+                  icon: const Icon(Icons.link),
+                  onPressed: () {
+                    _showNavigationDialog(room);
+                  },
+                  tooltip: 'Atur Navigasi',
+                ),
+          // --- SELESAI ---
         );
+      },
+      onReorder: (int oldIndex, int newIndex) {
+        setState(() {
+          if (newIndex > oldIndex) {
+            newIndex -= 1;
+          }
+          final dynamic room = _rooms.removeAt(oldIndex);
+          _rooms.insert(newIndex, room);
+        });
+        _saveData();
       },
     );
   }
