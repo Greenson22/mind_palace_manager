@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:mind_palace_manager/app_settings.dart';
+// Import Viewer Distrik untuk Navigasi
 import 'package:mind_palace_manager/features/building/presentation/map/district_map_viewer_page.dart';
 
 class RegionMapViewerPage extends StatefulWidget {
@@ -50,7 +51,7 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
     }
   }
 
-  // --- HELPER: Ambil Data Ikon Distrik ---
+  // --- HELPER: AMBIL IKON ---
   Future<Map<String, dynamic>> _getDistrictIconData(
     String districtFolderName,
   ) async {
@@ -76,31 +77,26 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
     }
   }
 
-  // --- HELPER: Build Pin Widget (Sama seperti Editor) ---
-  Widget _buildMapPinWidget(Map<String, dynamic> iconData) {
+  // --- BUILD PIN WIDGET (Konsisten dengan Editor) ---
+  Widget _buildMapPinWidget(
+    Map<String, dynamic> iconData,
+    String districtName,
+  ) {
     final type = iconData['type'];
-    final shape = AppSettings.regionPinShape; // Gunakan setting Region
+    final shape = AppSettings.regionPinShape;
 
-    // --- Opsi Tidak Ada ---
+    // --- Content Ikon ---
+    Widget pinContent;
     if (shape == 'Tidak Ada (Tanpa Latar)') {
-      if (type == 'image') {
-        final File? imageFile = iconData['file'];
-        if (imageFile != null) {
-          return SizedBox(
-            width: 30,
-            height: 30,
-            child: Image.file(
-              imageFile,
-              fit: BoxFit.contain,
-              errorBuilder: (c, e, s) =>
-                  const Icon(Icons.broken_image, size: 24),
-            ),
-          );
-        }
-      }
-      if (type == 'text' && iconData['data'] != null) {
-        return Text(
-          iconData['data'].toString(),
+      if (type == 'image' && iconData['file'] != null) {
+        pinContent = SizedBox(
+          width: 30,
+          height: 30,
+          child: Image.file(iconData['file'], fit: BoxFit.contain),
+        );
+      } else if (type == 'text' && iconData['data'] != null) {
+        pinContent = Text(
+          iconData['data'],
           style: const TextStyle(
             fontSize: 16,
             color: Colors.white,
@@ -109,38 +105,39 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
           ),
           textAlign: TextAlign.center,
         );
+      } else {
+        pinContent = const Icon(
+          Icons.holiday_village,
+          size: 24,
+          color: Colors.red,
+        );
       }
-      return const Icon(Icons.holiday_village, size: 24, color: Colors.red);
-    }
-
-    // --- Opsi Bulat / Kotak ---
-    Widget pinContent;
-    if (type == 'text' && iconData['data'] != null) {
-      pinContent = Text(
-        iconData['data'].toString(),
-        style: const TextStyle(
-          fontSize: 16,
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-        ),
-        textAlign: TextAlign.center,
-      );
-    } else if (type == 'image') {
-      final File? imageFile = iconData['file'];
-      if (imageFile != null) {
+    } else {
+      // Bulat/Kotak
+      if (type == 'text' && iconData['data'] != null) {
+        pinContent = Text(
+          iconData['data'],
+          style: const TextStyle(
+            fontSize: 16,
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+          textAlign: TextAlign.center,
+        );
+      } else if (type == 'image' && iconData['file'] != null) {
         if (shape == 'Kotak') {
           pinContent = Image.file(
-            imageFile,
-            width: 24,
-            height: 24,
+            iconData['file'],
+            width: 100,
+            height: 100,
             fit: BoxFit.cover,
           );
         } else {
           pinContent = ClipOval(
             child: Image.file(
-              imageFile,
-              width: 24,
-              height: 24,
+              iconData['file'],
+              width: 100,
+              height: 100,
               fit: BoxFit.cover,
             ),
           );
@@ -148,53 +145,72 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
       } else {
         pinContent = const Icon(
           Icons.holiday_village,
-          size: 14,
+          size: 18,
           color: Colors.white,
         );
       }
-    } else {
-      pinContent = const Icon(
-        Icons.holiday_village,
-        size: 14,
-        color: Colors.white,
+    }
+
+    // --- Container Pin Utama ---
+    Widget pinContainer = pinContent;
+
+    if (shape != 'Tidak Ada (Tanpa Latar)') {
+      // Outline luar
+      Border? borderDeco;
+      if (AppSettings.showRegionPinOutline) {
+        borderDeco = Border.all(
+          color: Colors.white,
+          width: AppSettings.regionPinOutlineWidth,
+        );
+      }
+
+      pinContainer = Container(
+        width: 32 + AppSettings.regionPinShapeStrokeWidth * 2,
+        height: 32 + AppSettings.regionPinShapeStrokeWidth * 2,
+        // Padding untuk ketebalan stroke
+        padding: EdgeInsets.all(
+          AppSettings.regionPinShapeStrokeWidth > 0
+              ? AppSettings.regionPinShapeStrokeWidth
+              : 0,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.red, // Warna dasar pin Viewer
+          shape: shape == 'Kotak' ? BoxShape.rectangle : BoxShape.circle,
+          borderRadius: shape == 'Kotak' ? BorderRadius.circular(4) : null,
+          border: borderDeco,
+          boxShadow: const [BoxShadow(color: Colors.black, blurRadius: 4.0)],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Center(child: pinContent),
       );
     }
 
-    BoxDecoration pinDecoration;
-    Color pinColor = Colors.red; // Warna Viewer
-
-    // Logika Outline
-    Border? borderDeco;
-    if (AppSettings.showRegionPinOutline) {
-      borderDeco = Border.all(color: Colors.white, width: 2);
-    }
-
-    if (shape == 'Kotak') {
-      pinDecoration = BoxDecoration(
-        color: pinColor,
-        borderRadius: BorderRadius.circular(4),
-        border: borderDeco,
-        boxShadow: const [BoxShadow(color: Colors.black, blurRadius: 4.0)],
-      );
-    } else {
-      pinDecoration = BoxDecoration(
-        color: pinColor,
-        shape: BoxShape.circle,
-        border: borderDeco,
-        boxShadow: const [BoxShadow(color: Colors.black, blurRadius: 4.0)],
+    // --- Nama Distrik ---
+    if (AppSettings.showRegionDistrictNames) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          pinContainer,
+          const SizedBox(height: 2),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            decoration: BoxDecoration(
+              color: Colors.black54,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              districtName,
+              style: const TextStyle(color: Colors.white, fontSize: 10),
+            ),
+          ),
+        ],
       );
     }
 
-    return Container(
-      width: 30,
-      height: 30,
-      clipBehavior: Clip.antiAlias,
-      decoration: pinDecoration,
-      child: Center(child: pinContent),
-    );
+    return pinContainer;
   }
 
-  // --- NAVIGASI ---
+  // --- NAVIGASI KE MAP DISTRIK ---
   void _goToDistrictMap(String name) {
     final d = Directory(p.join(widget.regionDirectory.path, name));
     if (d.existsSync()) {
@@ -236,8 +252,8 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
                           ..._placements.map((pl) {
                             final name = pl['district_folder_name'];
                             return Positioned(
-                              left: pl['map_x'] * cons.maxWidth - 15,
-                              top: pl['map_y'] * cons.maxHeight - 15,
+                              left: pl['map_x'] * cons.maxWidth - 20,
+                              top: pl['map_y'] * cons.maxHeight - 20,
                               child: GestureDetector(
                                 onTap: () => _goToDistrictMap(name),
                                 child: Tooltip(
@@ -248,9 +264,12 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
                                       if (!snapshot.hasData) {
                                         return _buildMapPinWidget({
                                           'type': null,
-                                        });
+                                        }, name);
                                       }
-                                      return _buildMapPinWidget(snapshot.data!);
+                                      return _buildMapPinWidget(
+                                        snapshot.data!,
+                                        name,
+                                      );
                                     },
                                   ),
                                 ),

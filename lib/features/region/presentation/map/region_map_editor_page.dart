@@ -30,7 +30,7 @@ class _RegionMapEditorPageState extends State<RegionMapEditorPage> {
   Offset? _tappedRelativeCoords;
   double _imageAspectRatio = 1.0;
 
-  // Controller untuk Zoom
+  // Controller untuk Zoom Manual
   final TransformationController _transformationController =
       TransformationController();
 
@@ -132,7 +132,7 @@ class _RegionMapEditorPageState extends State<RegionMapEditorPage> {
     _saveData();
   }
 
-  // --- LOGIKA ZOOM ---
+  // --- FUNGSI ZOOM ---
   void _zoomIn() {
     final Matrix4 matrix = _transformationController.value.clone();
     matrix.scale(1.2);
@@ -149,7 +149,7 @@ class _RegionMapEditorPageState extends State<RegionMapEditorPage> {
     _transformationController.value = Matrix4.identity();
   }
 
-  // --- HELPER IKON ---
+  // --- HELPER: AMBIL IKON DISTRIK ---
   Future<Map<String, dynamic>> _getDistrictIconData(
     String districtFolderName,
   ) async {
@@ -175,31 +175,27 @@ class _RegionMapEditorPageState extends State<RegionMapEditorPage> {
     }
   }
 
-  Widget _buildMapPinWidget(Map<String, dynamic> iconData) {
+  // --- BUILD PIN WIDGET (LENGKAP) ---
+  Widget _buildMapPinWidget(
+    Map<String, dynamic> iconData,
+    String districtName,
+  ) {
     final type = iconData['type'];
-    final shape = AppSettings.regionPinShape; // Gunakan setting Region
+    final shape = AppSettings.regionPinShape;
 
-    // --- Opsi Tidak Ada ---
+    // --- Content Ikon (Gambar/Teks) ---
+    Widget pinContent;
     if (shape == 'Tidak Ada (Tanpa Latar)') {
-      if (type == 'image') {
-        final File? imageFile = iconData['file'];
-        if (imageFile != null) {
-          return SizedBox(
-            width: 30,
-            height: 30,
-            child: Image.file(
-              imageFile,
-              fit: BoxFit.contain,
-              errorBuilder: (c, e, s) =>
-                  const Icon(Icons.broken_image, size: 24),
-            ),
-          );
-        }
-      }
-      // Teks tanpa latar
-      if (type == 'text' && iconData['data'] != null) {
-        return Text(
-          iconData['data'].toString(),
+      // Jika tanpa latar, kita render gambar/teks langsung
+      if (type == 'image' && iconData['file'] != null) {
+        pinContent = SizedBox(
+          width: 30,
+          height: 30,
+          child: Image.file(iconData['file'], fit: BoxFit.contain),
+        );
+      } else if (type == 'text' && iconData['data'] != null) {
+        pinContent = Text(
+          iconData['data'],
           style: const TextStyle(
             fontSize: 16,
             color: Colors.white,
@@ -208,38 +204,39 @@ class _RegionMapEditorPageState extends State<RegionMapEditorPage> {
           ),
           textAlign: TextAlign.center,
         );
+      } else {
+        pinContent = const Icon(
+          Icons.holiday_village,
+          size: 24,
+          color: Colors.blue,
+        );
       }
-      return const Icon(Icons.holiday_village, size: 24, color: Colors.blue);
-    }
-
-    // --- Opsi Bulat / Kotak ---
-    Widget pinContent;
-    if (type == 'text' && iconData['data'] != null) {
-      pinContent = Text(
-        iconData['data'].toString(),
-        style: const TextStyle(
-          fontSize: 16,
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-        ),
-        textAlign: TextAlign.center,
-      );
-    } else if (type == 'image') {
-      final File? imageFile = iconData['file'];
-      if (imageFile != null) {
+    } else {
+      // Jika Bulat/Kotak, content di-clip
+      if (type == 'text' && iconData['data'] != null) {
+        pinContent = Text(
+          iconData['data'],
+          style: const TextStyle(
+            fontSize: 16,
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+          textAlign: TextAlign.center,
+        );
+      } else if (type == 'image' && iconData['file'] != null) {
         if (shape == 'Kotak') {
           pinContent = Image.file(
-            imageFile,
-            width: 24,
-            height: 24,
+            iconData['file'],
+            width: 100,
+            height: 100,
             fit: BoxFit.cover,
           );
         } else {
           pinContent = ClipOval(
             child: Image.file(
-              imageFile,
-              width: 24,
-              height: 24,
+              iconData['file'],
+              width: 100,
+              height: 100,
               fit: BoxFit.cover,
             ),
           );
@@ -247,50 +244,70 @@ class _RegionMapEditorPageState extends State<RegionMapEditorPage> {
       } else {
         pinContent = const Icon(
           Icons.holiday_village,
-          size: 14,
+          size: 18,
           color: Colors.white,
         );
       }
-    } else {
-      pinContent = const Icon(
-        Icons.holiday_village,
-        size: 14,
-        color: Colors.white,
+    }
+
+    // --- Container Pin Utama (Shape + Border + Padding) ---
+    Widget pinContainer = pinContent;
+
+    if (shape != 'Tidak Ada (Tanpa Latar)') {
+      // Outline luar (putih)
+      Border? borderDeco;
+      if (AppSettings.showRegionPinOutline) {
+        borderDeco = Border.all(
+          color: Colors.white,
+          width: AppSettings.regionPinOutlineWidth,
+        );
+      }
+
+      pinContainer = Container(
+        // Ukuran dasar 32 + stroke width * 2
+        width: 32 + AppSettings.regionPinShapeStrokeWidth * 2,
+        height: 32 + AppSettings.regionPinShapeStrokeWidth * 2,
+        // Padding mensimulasikan ketebalan bentuk (warna biru)
+        padding: EdgeInsets.all(
+          AppSettings.regionPinShapeStrokeWidth > 0
+              ? AppSettings.regionPinShapeStrokeWidth
+              : 0,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.blue, // Warna dasar pin untuk Editor
+          shape: shape == 'Kotak' ? BoxShape.rectangle : BoxShape.circle,
+          borderRadius: shape == 'Kotak' ? BorderRadius.circular(4) : null,
+          border: borderDeco, // Border putih luar
+          boxShadow: const [BoxShadow(color: Colors.black, blurRadius: 4.0)],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Center(child: pinContent),
       );
     }
 
-    BoxDecoration pinDecoration;
-    Color pinColor = Colors.blue; // Warna Editor
-
-    // Outline
-    Border? borderDeco;
-    if (AppSettings.showRegionPinOutline) {
-      borderDeco = Border.all(color: Colors.white, width: 2);
-    }
-
-    if (shape == 'Kotak') {
-      pinDecoration = BoxDecoration(
-        color: pinColor,
-        borderRadius: BorderRadius.circular(4),
-        border: borderDeco,
-        boxShadow: const [BoxShadow(color: Colors.black, blurRadius: 4.0)],
-      );
-    } else {
-      pinDecoration = BoxDecoration(
-        color: pinColor,
-        shape: BoxShape.circle,
-        border: borderDeco,
-        boxShadow: const [BoxShadow(color: Colors.black, blurRadius: 4.0)],
+    // --- Tampilkan Nama Distrik (Opsional) ---
+    if (AppSettings.showRegionDistrictNames) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          pinContainer,
+          const SizedBox(height: 2),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            decoration: BoxDecoration(
+              color: Colors.black54,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              districtName,
+              style: const TextStyle(color: Colors.white, fontSize: 10),
+            ),
+          ),
+        ],
       );
     }
 
-    return Container(
-      width: 30,
-      height: 30,
-      clipBehavior: Clip.antiAlias,
-      decoration: pinDecoration,
-      child: Center(child: pinContent),
-    );
+    return pinContainer;
   }
 
   @override
@@ -356,14 +373,15 @@ class _RegionMapEditorPageState extends State<RegionMapEditorPage> {
                                         height: cons.maxHeight,
                                         fit: BoxFit.cover,
                                       ),
-                                      // Render Pin Distrik
+                                      // Render semua pin
                                       ..._placements.map((pl) {
                                         final name = pl['district_folder_name'];
                                         return Positioned(
+                                          // Offset sedikit dikurangi agar pin berada di tengah titik (kira-kira)
                                           left:
-                                              pl['map_x'] * cons.maxWidth - 15,
+                                              pl['map_x'] * cons.maxWidth - 20,
                                           top:
-                                              pl['map_y'] * cons.maxHeight - 15,
+                                              pl['map_y'] * cons.maxHeight - 20,
                                           child:
                                               FutureBuilder<
                                                 Map<String, dynamic>
@@ -375,16 +393,17 @@ class _RegionMapEditorPageState extends State<RegionMapEditorPage> {
                                                   if (!s.hasData) {
                                                     return _buildMapPinWidget({
                                                       'type': null,
-                                                    });
+                                                    }, name);
                                                   }
                                                   return _buildMapPinWidget(
                                                     s.data!,
+                                                    name,
                                                   );
                                                 },
                                               ),
                                         );
                                       }),
-                                      // Penanda posisi tap
+                                      // Penanda tap posisi baru
                                       if (_tappedRelativeCoords != null)
                                         Positioned(
                                           left:
@@ -409,7 +428,7 @@ class _RegionMapEditorPageState extends State<RegionMapEditorPage> {
                           ),
                         ),
                       ),
-                      // Tombol Zoom Overlay
+                      // Tombol Zoom
                       Positioned(
                         right: 8,
                         bottom: 8,
