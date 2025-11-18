@@ -263,6 +263,16 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
                           ),
                           ..._placements.map((pl) {
                             final name = pl['district_folder_name'];
+
+                            // --- BARU: Cek eksistensi folder distrik ---
+                            final districtDir = Directory(
+                              p.join(widget.regionDirectory.path, name),
+                            );
+                            if (!districtDir.existsSync()) {
+                              return const SizedBox.shrink();
+                            }
+                            // ------------------------------------------
+
                             return Positioned(
                               left: pl['map_x'] * cons.maxWidth - 20,
                               top: pl['map_y'] * cons.maxHeight - 20,

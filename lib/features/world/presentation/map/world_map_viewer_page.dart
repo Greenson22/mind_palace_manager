@@ -253,6 +253,16 @@ class _WorldMapViewerPageState extends State<WorldMapViewerPage> {
                           ),
                           ..._placements.map((pl) {
                             final name = pl['region_folder_name'];
+
+                            // --- BARU: Cek eksistensi folder wilayah ---
+                            final regionDir = Directory(
+                              p.join(widget.worldDirectory.path, name),
+                            );
+                            if (!regionDir.existsSync()) {
+                              return const SizedBox.shrink();
+                            }
+                            // ------------------------------------------
+
                             return Positioned(
                               left: pl['map_x'] * cons.maxWidth - 20,
                               top: pl['map_y'] * cons.maxHeight - 20,

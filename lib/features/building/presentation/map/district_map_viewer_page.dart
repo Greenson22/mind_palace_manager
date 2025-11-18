@@ -154,7 +154,6 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
     }
   }
 
-  // --- UPDATE: Menerima parameter size ---
   Widget _buildMapPinWidget(Map<String, dynamic> iconData, double size) {
     final type = iconData['type'];
     Widget pinContent;
@@ -295,14 +294,25 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
                         height: imageConstraints.maxHeight,
                         fit: BoxFit.cover,
                       ),
-                      ..._placements.map((p) {
-                        final String name = p['building_folder_name'];
-                        final double x = p['map_x'];
-                        final double y = p['map_y'];
+                      // Mengganti variabel iterator 'p' menjadi 'item' untuk menghindari konflik dengan alias 'p' (path)
+                      ..._placements.map((item) {
+                        final String name = item['building_folder_name'];
+                        final double x = item['map_x'];
+                        final double y = item['map_y'];
                         // Ambil ukuran (default 30.0 jika data lama)
-                        final double size = p['size'] != null
-                            ? (p['size'] as num).toDouble()
+                        final double size = item['size'] != null
+                            ? (item['size'] as num).toDouble()
                             : 30.0;
+
+                        // --- Cek eksistensi folder bangunan ---
+                        final buildingDir = Directory(
+                          p.join(widget.districtDirectory.path, name),
+                        );
+                        if (!buildingDir.existsSync()) {
+                          // Jika folder bangunan sudah dihapus, jangan tampilkan pin
+                          return const SizedBox.shrink();
+                        }
+                        // ------------------------------------------
 
                         return Positioned(
                           // Geser posisi sebesar setengah ukuran agar titik tengahnya pas
