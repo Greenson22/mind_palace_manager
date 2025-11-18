@@ -18,9 +18,13 @@ class _SettingsPageState extends State<SettingsPage> {
   late bool _currentShowRegionOutline;
   late String _currentRegionPinShape;
   late double _currentRegionOutlineWidth;
-  // --- BARU ---
   late double _currentRegionShapeStrokeWidth;
   late bool _currentShowRegionDistrictNames;
+
+  // --- BARU: State Warna ---
+  late Color _currentRegionPinColor;
+  late Color _currentRegionOutlineColor;
+  late Color _currentRegionNameColor;
 
   @override
   void initState() {
@@ -33,9 +37,13 @@ class _SettingsPageState extends State<SettingsPage> {
     _currentShowRegionOutline = AppSettings.showRegionPinOutline;
     _currentRegionPinShape = AppSettings.regionPinShape;
     _currentRegionOutlineWidth = AppSettings.regionPinOutlineWidth;
-    // --- BARU ---
     _currentRegionShapeStrokeWidth = AppSettings.regionPinShapeStrokeWidth;
     _currentShowRegionDistrictNames = AppSettings.showRegionDistrictNames;
+
+    // --- BARU ---
+    _currentRegionPinColor = Color(AppSettings.regionPinColor);
+    _currentRegionOutlineColor = Color(AppSettings.regionOutlineColor);
+    _currentRegionNameColor = Color(AppSettings.regionNameColor);
   }
 
   @override
@@ -72,6 +80,86 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  // --- BARU: Helper Dialog Color Picker ---
+  void _showColorPickerDialog(
+    String title,
+    Color currentColor,
+    Function(Color) onColorSelected,
+  ) {
+    final List<Color> colors = [
+      Colors.red,
+      Colors.pink,
+      Colors.purple,
+      Colors.deepPurple,
+      Colors.indigo,
+      Colors.blue,
+      Colors.lightBlue,
+      Colors.cyan,
+      Colors.teal,
+      Colors.green,
+      Colors.lightGreen,
+      Colors.lime,
+      Colors.yellow,
+      Colors.amber,
+      Colors.orange,
+      Colors.deepOrange,
+      Colors.brown,
+      Colors.grey,
+      Colors.blueGrey,
+      Colors.black,
+      Colors.white,
+    ];
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(title),
+          content: SingleChildScrollView(
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: colors.map((color) {
+                return GestureDetector(
+                  onTap: () {
+                    onColorSelected(color);
+                    Navigator.of(context).pop();
+                  },
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.grey.shade300),
+                      boxShadow: [
+                        if (color.value == currentColor.value)
+                          const BoxShadow(
+                            color: Colors.black45,
+                            blurRadius: 5,
+                            spreadRadius: 2,
+                          ),
+                      ],
+                    ),
+                    child: color.value == currentColor.value
+                        ? const Icon(Icons.check, color: Colors.grey)
+                        : null,
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Batal'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -80,6 +168,7 @@ class _SettingsPageState extends State<SettingsPage> {
         padding: const EdgeInsets.all(16.0),
         child: ListView(
           children: [
+            // ... (Bagian Folder Utama tetap sama)
             Text(
               'Atur Lokasi Folder Utama',
               style: Theme.of(context).textTheme.titleLarge,
@@ -148,19 +237,14 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
 
-            // --- BARU: Slider Ketebalan Bentuk (Hanya jika bukan 'Tidak Ada') ---
-            if (_currentRegionPinShape != 'Tidak Ada (Tanpa Latar)')
+            if (_currentRegionPinShape != 'Tidak Ada (Tanpa Latar)') ...[
               Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16.0,
-                  vertical: 8.0,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Ketebalan Bentuk (Warna Pin): ${_currentRegionShapeStrokeWidth.toStringAsFixed(1)}',
-                      style: Theme.of(context).textTheme.bodyMedium,
+                      'Ketebalan Bentuk: ${_currentRegionShapeStrokeWidth.toStringAsFixed(1)}',
                     ),
                     Slider(
                       value: _currentRegionShapeStrokeWidth,
@@ -168,18 +252,42 @@ class _SettingsPageState extends State<SettingsPage> {
                       max: 10.0,
                       divisions: 20,
                       label: _currentRegionShapeStrokeWidth.toStringAsFixed(1),
-                      onChanged: (double value) async {
-                        setState(() => _currentRegionShapeStrokeWidth = value);
-                        await AppSettings.saveRegionPinShapeStrokeWidth(value);
+                      onChanged: (val) async {
+                        setState(() => _currentRegionShapeStrokeWidth = val);
+                        await AppSettings.saveRegionPinShapeStrokeWidth(val);
                       },
                     ),
                   ],
                 ),
               ),
+              // --- BARU: Pemilih Warna Pin ---
+              ListTile(
+                title: const Text('Warna Pin Distrik'),
+                trailing: GestureDetector(
+                  onTap: () => _showColorPickerDialog(
+                    'Pilih Warna Pin',
+                    _currentRegionPinColor,
+                    (color) async {
+                      setState(() => _currentRegionPinColor = color);
+                      await AppSettings.saveRegionPinColor(color.value);
+                    },
+                  ),
+                  child: Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: _currentRegionPinColor,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.grey),
+                    ),
+                  ),
+                ),
+              ),
+            ],
 
             SwitchListTile(
               title: const Text('Outline Ikon Distrik'),
-              subtitle: const Text('Garis tepi putih luar.'),
+              subtitle: const Text('Garis tepi luar.'),
               value: _currentShowRegionOutline,
               onChanged: (bool value) async {
                 await AppSettings.saveShowRegionPinOutline(value);
@@ -187,18 +295,14 @@ class _SettingsPageState extends State<SettingsPage> {
               },
             ),
 
-            if (_currentShowRegionOutline)
+            if (_currentShowRegionOutline) ...[
               Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16.0,
-                  vertical: 8.0,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Ketebalan Outline Putih: ${_currentRegionOutlineWidth.toStringAsFixed(1)}',
-                      style: Theme.of(context).textTheme.bodyMedium,
+                      'Ketebalan Outline: ${_currentRegionOutlineWidth.toStringAsFixed(1)}',
                     ),
                     Slider(
                       value: _currentRegionOutlineWidth,
@@ -206,25 +310,72 @@ class _SettingsPageState extends State<SettingsPage> {
                       max: 6.0,
                       divisions: 10,
                       label: _currentRegionOutlineWidth.toStringAsFixed(1),
-                      onChanged: (double value) async {
-                        setState(() => _currentRegionOutlineWidth = value);
-                        await AppSettings.saveRegionPinOutlineWidth(value);
+                      onChanged: (val) async {
+                        setState(() => _currentRegionOutlineWidth = val);
+                        await AppSettings.saveRegionPinOutlineWidth(val);
                       },
                     ),
                   ],
                 ),
               ),
+              // --- BARU: Pemilih Warna Outline ---
+              ListTile(
+                title: const Text('Warna Outline'),
+                trailing: GestureDetector(
+                  onTap: () => _showColorPickerDialog(
+                    'Pilih Warna Outline',
+                    _currentRegionOutlineColor,
+                    (color) async {
+                      setState(() => _currentRegionOutlineColor = color);
+                      await AppSettings.saveRegionOutlineColor(color.value);
+                    },
+                  ),
+                  child: Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: _currentRegionOutlineColor,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.grey),
+                    ),
+                  ),
+                ),
+              ),
+            ],
 
-            // --- BARU: Switch Nama Distrik ---
             SwitchListTile(
               title: const Text('Tampilkan Nama Distrik'),
-              subtitle: const Text('Munculkan teks nama di bawah pin.'),
               value: _currentShowRegionDistrictNames,
               onChanged: (bool value) async {
                 await AppSettings.saveShowRegionDistrictNames(value);
                 setState(() => _currentShowRegionDistrictNames = value);
               },
             ),
+
+            if (_currentShowRegionDistrictNames)
+              // --- BARU: Pemilih Warna Nama ---
+              ListTile(
+                title: const Text('Warna Teks Nama'),
+                trailing: GestureDetector(
+                  onTap: () => _showColorPickerDialog(
+                    'Pilih Warna Teks',
+                    _currentRegionNameColor,
+                    (color) async {
+                      setState(() => _currentRegionNameColor = color);
+                      await AppSettings.saveRegionNameColor(color.value);
+                    },
+                  ),
+                  child: Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: _currentRegionNameColor,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.grey),
+                    ),
+                  ),
+                ),
+              ),
 
             const Divider(height: 32.0),
             Text(

@@ -77,13 +77,19 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
     }
   }
 
-  // --- BUILD PIN WIDGET (Konsisten dengan Editor) ---
+  // --- BUILD PIN WIDGET (Sama dengan Editor) ---
   Widget _buildMapPinWidget(
     Map<String, dynamic> iconData,
     String districtName,
   ) {
     final type = iconData['type'];
     final shape = AppSettings.regionPinShape;
+
+    // --- AMBIL WARNA DARI SETTING ---
+    final Color pinBaseColor = Color(AppSettings.regionPinColor);
+    final Color outlineColor = Color(AppSettings.regionOutlineColor);
+    final Color nameColor = Color(AppSettings.regionNameColor);
+    // --------------------------------
 
     // --- Content Ikon ---
     Widget pinContent;
@@ -97,20 +103,16 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
       } else if (type == 'text' && iconData['data'] != null) {
         pinContent = Text(
           iconData['data'],
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 16,
-            color: Colors.white,
+            color: nameColor, // Custom
             fontWeight: FontWeight.bold,
-            shadows: [Shadow(blurRadius: 2, color: Colors.black)],
+            shadows: const [Shadow(blurRadius: 2, color: Colors.black)],
           ),
           textAlign: TextAlign.center,
         );
       } else {
-        pinContent = const Icon(
-          Icons.holiday_village,
-          size: 24,
-          color: Colors.red,
-        );
+        pinContent = Icon(Icons.holiday_village, size: 24, color: pinBaseColor);
       }
     } else {
       // Bulat/Kotak
@@ -159,7 +161,7 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
       Border? borderDeco;
       if (AppSettings.showRegionPinOutline) {
         borderDeco = Border.all(
-          color: Colors.white,
+          color: outlineColor, // Custom
           width: AppSettings.regionPinOutlineWidth,
         );
       }
@@ -174,7 +176,7 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
               : 0,
         ),
         decoration: BoxDecoration(
-          color: Colors.red, // Warna dasar pin Viewer
+          color: pinBaseColor, // Custom
           shape: shape == 'Kotak' ? BoxShape.rectangle : BoxShape.circle,
           borderRadius: shape == 'Kotak' ? BorderRadius.circular(4) : null,
           border: borderDeco,
@@ -200,7 +202,7 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
             ),
             child: Text(
               districtName,
-              style: const TextStyle(color: Colors.white, fontSize: 10),
+              style: TextStyle(color: nameColor, fontSize: 10), // Custom
             ),
           ),
         ],

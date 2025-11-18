@@ -183,6 +183,12 @@ class _RegionMapEditorPageState extends State<RegionMapEditorPage> {
     final type = iconData['type'];
     final shape = AppSettings.regionPinShape;
 
+    // --- AMBIL WARNA DARI SETTING ---
+    final Color pinBaseColor = Color(AppSettings.regionPinColor);
+    final Color outlineColor = Color(AppSettings.regionOutlineColor);
+    final Color nameColor = Color(AppSettings.regionNameColor);
+    // --------------------------------
+
     // --- Content Ikon (Gambar/Teks) ---
     Widget pinContent;
     if (shape == 'Tidak Ada (Tanpa Latar)') {
@@ -196,20 +202,16 @@ class _RegionMapEditorPageState extends State<RegionMapEditorPage> {
       } else if (type == 'text' && iconData['data'] != null) {
         pinContent = Text(
           iconData['data'],
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 16,
-            color: Colors.white,
+            color: nameColor, // Warna custom
             fontWeight: FontWeight.bold,
-            shadows: [Shadow(blurRadius: 2, color: Colors.black)],
+            shadows: const [Shadow(blurRadius: 2, color: Colors.black)],
           ),
           textAlign: TextAlign.center,
         );
       } else {
-        pinContent = const Icon(
-          Icons.holiday_village,
-          size: 24,
-          color: Colors.blue,
-        );
+        pinContent = Icon(Icons.holiday_village, size: 24, color: pinBaseColor);
       }
     } else {
       // Jika Bulat/Kotak, content di-clip
@@ -254,11 +256,11 @@ class _RegionMapEditorPageState extends State<RegionMapEditorPage> {
     Widget pinContainer = pinContent;
 
     if (shape != 'Tidak Ada (Tanpa Latar)') {
-      // Outline luar (putih)
+      // Outline luar
       Border? borderDeco;
       if (AppSettings.showRegionPinOutline) {
         borderDeco = Border.all(
-          color: Colors.white,
+          color: outlineColor, // Warna outline custom
           width: AppSettings.regionPinOutlineWidth,
         );
       }
@@ -267,17 +269,17 @@ class _RegionMapEditorPageState extends State<RegionMapEditorPage> {
         // Ukuran dasar 32 + stroke width * 2
         width: 32 + AppSettings.regionPinShapeStrokeWidth * 2,
         height: 32 + AppSettings.regionPinShapeStrokeWidth * 2,
-        // Padding mensimulasikan ketebalan bentuk (warna biru)
+        // Padding mensimulasikan ketebalan bentuk (warna pin)
         padding: EdgeInsets.all(
           AppSettings.regionPinShapeStrokeWidth > 0
               ? AppSettings.regionPinShapeStrokeWidth
               : 0,
         ),
         decoration: BoxDecoration(
-          color: Colors.blue, // Warna dasar pin untuk Editor
+          color: pinBaseColor, // Warna pin custom
           shape: shape == 'Kotak' ? BoxShape.rectangle : BoxShape.circle,
           borderRadius: shape == 'Kotak' ? BorderRadius.circular(4) : null,
-          border: borderDeco, // Border putih luar
+          border: borderDeco,
           boxShadow: const [BoxShadow(color: Colors.black, blurRadius: 4.0)],
         ),
         clipBehavior: Clip.antiAlias,
@@ -300,7 +302,10 @@ class _RegionMapEditorPageState extends State<RegionMapEditorPage> {
             ),
             child: Text(
               districtName,
-              style: const TextStyle(color: Colors.white, fontSize: 10),
+              style: TextStyle(
+                color: nameColor,
+                fontSize: 10,
+              ), // Warna nama custom
             ),
           ),
         ],
