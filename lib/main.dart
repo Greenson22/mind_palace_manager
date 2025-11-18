@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
 import 'dart:io';
-import 'dart:convert'; // <-- IMPORT BARU untuk JSON
+import 'dart:convert'; // Untuk JSON
 
 // -------------------------------------
-// KELAS STATIS BARU (Untuk Berbagi Path)
+// KELAS STATIS (Sama seperti sebelumnya)
 // -------------------------------------
 /// Menyimpan pengaturan global (path) agar bisa diakses
-/// oleh SettingsPage dan EditorPage.
+/// oleh SettingsPage dan halaman manajemen.
 class AppSettings {
   /// Path lengkap ke folder 'buildings' (cth: /home/user/Dokumen/buildings)
   static String? baseBuildingsPath;
@@ -31,7 +31,7 @@ class MainApp extends StatelessWidget {
 }
 
 // -------------------------------------
-// HALAMAN DASHBOARD (Sama seperti sebelumnya)
+// HALAMAN DASHBOARD (DIMODIFIKASI)
 // -------------------------------------
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
@@ -44,28 +44,20 @@ class DashboardPage extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            // TOMBOL VIEW DAN EDITOR DIGANTI DENGAN INI
             ElevatedButton(
               onPressed: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const BuildingViewPage(),
+                    builder: (context) => const BuildingManagementPage(),
                   ),
                 );
               },
-              child: const Text('Buka Halaman View'),
+              child: const Text('Kelola Bangunan'),
             ),
             const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const EditorPage()),
-                );
-              },
-              child: const Text('Buka Halaman Editor'),
-            ),
-            const SizedBox(height: 20),
+            // TOMBOL PENGATURAN TETAP ADA
             ElevatedButton(
               onPressed: () {
                 Navigator.push(
@@ -83,81 +75,29 @@ class DashboardPage extends StatelessWidget {
 }
 
 // -------------------------------------
-// HALAMAN VIEW (Sama seperti sebelumnya)
+// HALAMAN VIEW (DIHAPUS)
 // -------------------------------------
-class BuildingViewPage extends StatelessWidget {
-  const BuildingViewPage({super.key});
+// Halaman BuildingViewPage (yang statis) telah dihapus
+// sesuai permintaan.
 
-  final String longDescription =
-      "Lorem ipsum dolor sit amet, consectetur adipiscing elit. "
-      "Sed euismod, nisl eget aliquam ultricies, nunc nisl ultricies "
-      // ... (sisa deskripsi panjang) ...
-      "ultricies mi vitae est. Mauris placerat eleifend leo.";
+// -------------------------------------
+// HALAMAN EDITOR (DIHAPUS)
+// -------------------------------------
+// Halaman EditorPage telah dihapus dan digantikan oleh
+// BuildingManagementPage di bawah ini.
+
+// -------------------------------------
+// HALAMAN BARU (BuildingManagementPage)
+// Menggabungkan fungsionalitas list, buat, view, edit, hapus
+// -------------------------------------
+class BuildingManagementPage extends StatefulWidget {
+  const BuildingManagementPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Tampilan Bangunan')),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Image.network(
-                'https://via.placeholder.com/600x400.png?text=Gambar+Bangunan',
-                width: double.infinity,
-                height: 250,
-                fit: BoxFit.cover,
-              ),
-              const SizedBox(height: 16.0),
-              Text(
-                'Deskripsi Bangunan',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 8.0),
-              Text(
-                longDescription,
-                textAlign: TextAlign.justify,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 24.0),
-            ],
-          ),
-        ),
-      ),
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            FloatingActionButton(
-              onPressed: () {},
-              child: const Icon(Icons.arrow_back),
-            ),
-            FloatingActionButton(
-              onPressed: () {},
-              child: const Icon(Icons.arrow_forward),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  State<BuildingManagementPage> createState() => _BuildingManagementPageState();
 }
 
-// -------------------------------------
-// HALAMAN EDITOR (DIMODIFIKASI TOTAL)
-// Menjadi halaman untuk me-list dan membuat bangunan
-// -------------------------------------
-class EditorPage extends StatefulWidget {
-  const EditorPage({super.key});
-
-  @override
-  State<EditorPage> createState() => _EditorPageState();
-}
-
-class _EditorPageState extends State<EditorPage> {
+class _BuildingManagementPageState extends State<BuildingManagementPage> {
   List<Directory> _buildingFolders = [];
   bool _isLoading = false;
   final TextEditingController _newBuildingController = TextEditingController();
@@ -165,8 +105,7 @@ class _EditorPageState extends State<EditorPage> {
   @override
   void initState() {
     super.initState();
-    // Kita panggil 'load' saat halaman dibuka,
-    // tapi kita butuh context untuk SnackBar, jadi kita tunda sedikit.
+    // Tunda pemuatan hingga frame pertama selesai
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadBuildings());
   }
 
@@ -176,29 +115,29 @@ class _EditorPageState extends State<EditorPage> {
     super.dispose();
   }
 
+  // --- Fungsi untuk Memuat Daftar Bangunan ---
   Future<void> _loadBuildings() async {
     setState(() {
       _isLoading = true;
     });
 
-    // 1. Cek apakah path utama sudah diatur
     if (AppSettings.baseBuildingsPath == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Path utama belum diatur. Silakan ke Pengaturan.'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Path utama belum diatur. Silakan ke Pengaturan.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
       setState(() {
         _isLoading = false;
       });
       return;
     }
 
-    // 2. Baca semua folder di dalam path utama
     try {
       final buildingsDir = Directory(AppSettings.baseBuildingsPath!);
-      // Pastikan folder 'buildings' ada
       if (!await buildingsDir.exists()) {
         await buildingsDir.create(recursive: true);
       }
@@ -208,9 +147,11 @@ class _EditorPageState extends State<EditorPage> {
         _buildingFolders = entities.whereType<Directory>().toList();
       });
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Gagal memuat bangunan: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Gagal memuat bangunan: $e')));
+      }
     }
 
     setState(() {
@@ -218,6 +159,7 @@ class _EditorPageState extends State<EditorPage> {
     });
   }
 
+  // --- Fungsi untuk Membuat Bangunan Baru (Dialog) ---
   Future<void> _showCreateBuildingDialog() async {
     _newBuildingController.clear();
     return showDialog<void>(
@@ -233,9 +175,7 @@ class _EditorPageState extends State<EditorPage> {
           actions: <Widget>[
             TextButton(
               child: const Text('Batal'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
+              onPressed: () => Navigator.of(context).pop(),
             ),
             ElevatedButton(
               child: const Text('Buat'),
@@ -247,6 +187,7 @@ class _EditorPageState extends State<EditorPage> {
     );
   }
 
+  // --- Fungsi untuk Membuat Bangunan Baru (Logika) ---
   Future<void> _createNewBuilding() async {
     if (AppSettings.baseBuildingsPath == null) {
       Navigator.of(context).pop(); // Tutup dialog
@@ -255,12 +196,9 @@ class _EditorPageState extends State<EditorPage> {
     }
 
     final String buildingName = _newBuildingController.text.trim();
-    if (buildingName.isEmpty) {
-      return; // Jangan lakukan apa-apa jika nama kosong
-    }
+    if (buildingName.isEmpty) return;
 
     try {
-      // 1. Buat folder baru
       final newBuildingPath = p.join(
         AppSettings.baseBuildingsPath!,
         buildingName,
@@ -268,42 +206,116 @@ class _EditorPageState extends State<EditorPage> {
       final newDir = Directory(newBuildingPath);
       await newDir.create(recursive: true);
 
-      // 2. Buat file data.json
+      // Buat file data.json awal
       final dataJsonFile = File(p.join(newBuildingPath, 'data.json'));
-      // Tulis data JSON awal (daftar ruangan kosong)
       await dataJsonFile.writeAsString(json.encode({"rooms": []}));
 
-      Navigator.of(context).pop(); // Tutup dialog
+      if (mounted) {
+        Navigator.of(context).pop(); // Tutup dialog
+      }
       await _loadBuildings(); // Muat ulang daftar bangunan
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Bangunan "$buildingName" berhasil dibuat')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Bangunan "$buildingName" berhasil dibuat')),
+        );
+      }
     } catch (e) {
-      Navigator.of(context).pop(); // Tutup dialog
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Gagal membuat bangunan: $e')));
+      if (mounted) {
+        Navigator.of(context).pop(); // Tutup dialog
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Gagal membuat bangunan: $e')));
+      }
     }
   }
 
-  void _navigateToRoomEditor(Directory buildingDir) {
+  // --- Fungsi Aksi untuk ListTile ---
+
+  void _viewBuilding(Directory buildingDir) {
+    // TODO: Implementasikan halaman "View" yang sesungguhnya.
+    // Untuk saat ini, kita bisa tampilkan placeholder
+    // atau navigasi ke halaman yang sama dengan "Edit".
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Fitur "View" belum diimplementasikan.')),
+    );
+    // Alternatif:
+    // _editBuilding(buildingDir);
+  }
+
+  void _editBuilding(Directory buildingDir) {
+    // Navigasi ke halaman editor ruangan (RoomEditorPage)
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => RoomEditorPage(buildingDirectory: buildingDir),
       ),
     ).then((_) {
-      // Muat ulang daftar jika diperlukan (misal, jika ada perubahan)
+      // Muat ulang daftar jika diperlukan
       // _loadBuildings();
     });
   }
+
+  Future<void> _deleteBuilding(Directory buildingDir) async {
+    final buildingName = p.basename(buildingDir.path);
+
+    // Tampilkan dialog konfirmasi
+    final bool? didConfirm = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Hapus Bangunan'),
+          content: Text(
+            'Apakah Anda yakin ingin menghapus "$buildingName"?\n\n'
+            'Tindakan ini akan menghapus semua folder, ruangan, dan gambar di dalamnya secara permanen.',
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Batal'),
+              onPressed: () => Navigator.of(context).pop(false),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Hapus'),
+              onPressed: () => Navigator.of(context).pop(true),
+            ),
+          ],
+        );
+      },
+    );
+
+    // Jika dikonfirmasi, lakukan penghapusan
+    if (didConfirm == true) {
+      try {
+        await buildingDir.delete(recursive: true);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Bangunan "$buildingName" berhasil dihapus.'),
+            ),
+          );
+        }
+        await _loadBuildings(); // Muat ulang daftar
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Gagal menghapus bangunan: $e')),
+          );
+        }
+      }
+    }
+  }
+
+  // --- Build Method Utama ---
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Editor Bangunan'),
+        title: const Text('Manajemen Bangunan'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -316,7 +328,7 @@ class _EditorPageState extends State<EditorPage> {
       floatingActionButton: FloatingActionButton(
         onPressed: _showCreateBuildingDialog,
         tooltip: 'Buat Bangunan Baru',
-        child: const Icon(Icons.add_business), // Icon yang relevan
+        child: const Icon(Icons.add_business),
       ),
     );
   }
@@ -349,16 +361,37 @@ class _EditorPageState extends State<EditorPage> {
       );
     }
 
+    // Tampilkan daftar bangunan
     return ListView.builder(
       itemCount: _buildingFolders.length,
       itemBuilder: (context, index) {
         final folder = _buildingFolders[index];
-        final folderName = p.basename(folder.path); // Dapatkan nama folder
+        final folderName = p.basename(folder.path);
         return ListTile(
           leading: const Icon(Icons.location_city, size: 40),
           title: Text(folderName, style: const TextStyle(fontSize: 18)),
           subtitle: Text(folder.path, style: const TextStyle(fontSize: 12)),
-          onTap: () => _navigateToRoomEditor(folder),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min, // Agar Row tidak makan tempat
+            children: [
+              IconButton(
+                icon: const Icon(Icons.visibility),
+                tooltip: 'Lihat',
+                onPressed: () => _viewBuilding(folder),
+              ),
+              IconButton(
+                icon: const Icon(Icons.edit),
+                tooltip: 'Edit Ruangan',
+                onPressed: () => _editBuilding(folder),
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete, color: Colors.red),
+                tooltip: 'Hapus',
+                onPressed: () => _deleteBuilding(folder),
+              ),
+            ],
+          ),
+          onTap: null, // Nonaktifkan onTap utama agar tombol bisa diklik
         );
       },
     );
@@ -366,8 +399,7 @@ class _EditorPageState extends State<EditorPage> {
 }
 
 // -------------------------------------
-// HALAMAN PENGATURAN (DIMODIFIKASI)
-// Untuk menyimpan path ke AppSettings
+// HALAMAN PENGATURAN (Sama seperti sebelumnya)
 // -------------------------------------
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -382,7 +414,6 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void initState() {
     super.initState();
-    // Inisialisasi controller dengan nilai yang tersimpan (jika ada)
     _folderController = TextEditingController(
       text: AppSettings.baseBuildingsPath ?? 'Belum diatur',
     );
@@ -403,31 +434,34 @@ class _SettingsPageState extends State<SettingsPage> {
         final buildingsDir = Directory(buildingsPath);
         await buildingsDir.create(recursive: true);
 
-        // --- MODIFIKASI PENTING ---
-        // Simpan path ke variabel statis
         AppSettings.baseBuildingsPath = buildingsDir.path;
 
-        // Update UI untuk menampilkan path "buildings" yang baru
         setState(() {
           _folderController.text = AppSettings.baseBuildingsPath!;
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Folder "buildings" berhasil diatur di: ${AppSettings.baseBuildingsPath}',
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Folder "buildings" berhasil diatur di: ${AppSettings.baseBuildingsPath}',
+              ),
             ),
-          ),
-        );
+          );
+        }
       } catch (e) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Gagal membuat folder: $e')));
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Gagal membuat folder: $e')));
+        }
       }
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pemilihan folder dibatalkan')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Pemilihan folder dibatalkan')),
+        );
+      }
     }
   }
 
@@ -449,7 +483,7 @@ class _SettingsPageState extends State<SettingsPage> {
               controller: _folderController,
               readOnly: true,
               decoration: const InputDecoration(
-                labelText: 'Path Folder "buildings"', // Label diubah
+                labelText: 'Path Folder "buildings"',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -471,8 +505,8 @@ class _SettingsPageState extends State<SettingsPage> {
 }
 
 // -------------------------------------
-// HALAMAN BARU (RoomEditorPage)
-// Halaman untuk mengelola ruangan di dalam satu bangunan
+// HALAMAN RoomEditorPage (Sama seperti sebelumnya)
+// Halaman ini tidak diubah, karena ini adalah tujuan dari tombol "Edit"
 // -------------------------------------
 class RoomEditorPage extends StatefulWidget {
   final Directory buildingDirectory;
@@ -488,11 +522,9 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
   Map<String, dynamic> _buildingData = {'rooms': []};
   bool _isLoading = true;
 
-  // Controller untuk dialog tambah ruangan
   final TextEditingController _roomNameController = TextEditingController();
   String? _pickedImagePath;
 
-  // Helper getter untuk mengakses daftar ruangan
   List<dynamic> get _rooms => _buildingData['rooms'];
 
   @override
@@ -514,7 +546,6 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
     });
     try {
       if (!await _jsonFile.exists()) {
-        // Jika file tidak ada, buat file dasar
         await _saveData();
       }
       final content = await _jsonFile.readAsString();
@@ -526,9 +557,11 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
       setState(() {
         _isLoading = false;
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Gagal memuat data ruangan: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal memuat data ruangan: $e')),
+        );
+      }
     }
   }
 
@@ -536,9 +569,11 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
     try {
       await _jsonFile.writeAsString(json.encode(_buildingData));
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Gagal menyimpan data: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Gagal menyimpan data: $e')));
+      }
     }
   }
 
@@ -546,7 +581,6 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
     _roomNameController.clear();
     _pickedImagePath = null;
 
-    // Kita butuh StatefulBuilder agar dialog bisa update saat gambar dipilih
     return showDialog<void>(
       context: context,
       builder: (BuildContext context) {
@@ -616,7 +650,6 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
     try {
       String? relativeImagePath;
 
-      // 1. Jika gambar dipilih, copy ke folder bangunan
       if (_pickedImagePath != null) {
         final sourceFile = File(_pickedImagePath!);
         final imageName = p.basename(_pickedImagePath!);
@@ -625,34 +658,35 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
           imageName,
         );
 
-        // Copy file
         await sourceFile.copy(destinationPath);
-        relativeImagePath = imageName; // Simpan nama filenya saja
+        relativeImagePath = imageName;
       }
 
-      // 2. Buat data ruangan baru
       final newRoom = {
         'id': DateTime.now().millisecondsSinceEpoch.toString(),
         'name': roomName,
-        'image': relativeImagePath, // Nama file gambar
-        'connections': [], // Tempat untuk navigasi
+        'image': relativeImagePath,
+        'connections': [],
       };
 
-      // 3. Update state dan simpan ke file
       setState(() {
         _rooms.add(newRoom);
       });
       await _saveData();
 
-      Navigator.of(context).pop(); // Tutup dialog
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ruangan "$roomName" berhasil dibuat')),
-      );
+      if (mounted) {
+        Navigator.of(context).pop(); // Tutup dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ruangan "$roomName" berhasil dibuat')),
+        );
+      }
     } catch (e) {
-      Navigator.of(context).pop(); // Tutup dialog
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Gagal membuat ruangan: $e')));
+      if (mounted) {
+        Navigator.of(context).pop(); // Tutup dialog
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Gagal membuat ruangan: $e')));
+      }
     }
   }
 
@@ -668,7 +702,7 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddRoomDialog,
         tooltip: 'Tambah Ruangan Baru',
-        child: const Icon(Icons.add_to_home_screen), // Icon yang relevan
+        child: const Icon(Icons.add_to_home_screen),
       ),
     );
   }
@@ -693,7 +727,6 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
 
         Widget leadingIcon;
         if (roomImage != null) {
-          // Coba muat gambar dari file lokal
           final imageFile = File(
             p.join(widget.buildingDirectory.path, roomImage),
           );
@@ -703,7 +736,6 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
             height: 50,
             fit: BoxFit.cover,
             errorBuilder: (context, error, stackTrace) {
-              // Jika gagal (file tidak ada), tampilkan placeholder
               return const Icon(Icons.image_not_supported, size: 40);
             },
           );
@@ -715,11 +747,9 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
           leading: CircleAvatar(child: leadingIcon, radius: 25),
           title: Text(roomName),
           subtitle: Text('ID: ${room['id']}'),
-          // Di sini Anda bisa tambahkan tombol untuk mengelola 'connections'
           trailing: IconButton(
             icon: const Icon(Icons.link),
             onPressed: () {
-              // TODO: Tampilkan UI untuk mengedit navigasi (connections)
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Fitur navigasi belum diimplementasikan.'),
