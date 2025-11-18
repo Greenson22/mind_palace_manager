@@ -15,6 +15,8 @@ class _SettingsPageState extends State<SettingsPage> {
   late TextEditingController _folderController;
   late String _currentMapPinShape;
   late String _currentListIconShape;
+  // --- BARU ---
+  late bool _currentShowRegionOutline;
 
   @override
   void initState() {
@@ -24,6 +26,8 @@ class _SettingsPageState extends State<SettingsPage> {
     );
     _currentMapPinShape = AppSettings.mapPinShape;
     _currentListIconShape = AppSettings.listIconShape;
+    // --- BARU ---
+    _currentShowRegionOutline = AppSettings.showRegionPinOutline;
   }
 
   @override
@@ -97,79 +101,85 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
             const SizedBox(height: 8.0),
             Text(
-              'Ini adalah lokasi utama tempat semua distrik dan bangunan Anda akan disimpan.',
+              'Ini adalah lokasi utama tempat semua data Anda akan disimpan.',
               style: Theme.of(context).textTheme.bodySmall,
             ),
 
-            // --- PENGATURAN BENTUK PIN PETA (DIPERBARUI) ---
             const Divider(height: 32.0),
             Text(
-              'Tampilan Pin Peta',
+              'Tampilan Peta',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 8.0),
-            Text(
-              'Atur bentuk pin bangunan di Peta Distrik.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 8.0),
-            DropdownButton<String>(
-              value: _currentMapPinShape,
-              isExpanded: true,
-              // --- PERUBAHAN DI SINI ---
-              items: ['Bulat', 'Kotak', 'Tidak Ada (Tanpa Latar)']
-                  .map(
-                    (String value) => DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value),
-                    ),
-                  )
-                  .toList(),
-              // --- SELESAI PERUBAHAN ---
-              onChanged: (String? newValue) async {
-                if (newValue != null) {
-                  await AppSettings.saveMapPinShape(newValue);
-                  setState(() {
-                    _currentMapPinShape = newValue;
-                  });
-                }
-              },
-            ),
-            // --- SELESAI DIPERBARUI ---
 
-            // --- Pengaturan Bentuk Ikon Daftar (Tidak Berubah) ---
+            // --- PENGATURAN BENTUK PIN ---
+            ListTile(
+              title: const Text('Bentuk Pin Peta (Umum)'),
+              subtitle: const Text('Bulat, Kotak, atau Tanpa Latar'),
+              trailing: DropdownButton<String>(
+                value: _currentMapPinShape,
+                onChanged: (String? newValue) async {
+                  if (newValue != null) {
+                    await AppSettings.saveMapPinShape(newValue);
+                    setState(() {
+                      _currentMapPinShape = newValue;
+                    });
+                  }
+                },
+                items: ['Bulat', 'Kotak', 'Tidak Ada (Tanpa Latar)']
+                    .map(
+                      (String value) => DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(value),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
+
+            // --- BARU: TOGGLE OUTLINE WILAYAH ---
+            SwitchListTile(
+              title: const Text('Outline Ikon Distrik (Peta Wilayah)'),
+              subtitle: const Text(
+                'Tampilkan garis tepi putih pada ikon distrik di peta wilayah.',
+              ),
+              value: _currentShowRegionOutline,
+              onChanged: (bool value) async {
+                await AppSettings.saveShowRegionPinOutline(value);
+                setState(() {
+                  _currentShowRegionOutline = value;
+                });
+              },
+            ),
+
             const Divider(height: 32.0),
             Text(
-              'Tampilan Ikon Daftar',
+              'Tampilan Daftar',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 8.0),
-            Text(
-              'Atur bentuk bingkai (outline) untuk ikon di Daftar Bangunan.',
-              style: Theme.of(context).textTheme.bodySmall,
+            ListTile(
+              title: const Text('Bentuk Ikon Daftar'),
+              trailing: DropdownButton<String>(
+                value: _currentListIconShape,
+                onChanged: (String? newValue) async {
+                  if (newValue != null) {
+                    await AppSettings.saveListIconShape(newValue);
+                    setState(() {
+                      _currentListIconShape = newValue;
+                    });
+                  }
+                },
+                items: ['Bulat', 'Kotak', 'Tidak Ada (Tanpa Latar)']
+                    .map(
+                      (String value) => DropdownMenuItem<String>(
+                        value: value,
+                        child: Text(value),
+                      ),
+                    )
+                    .toList(),
+              ),
             ),
-            const SizedBox(height: 8.0),
-            DropdownButton<String>(
-              value: _currentListIconShape,
-              isExpanded: true,
-              items: ['Bulat', 'Kotak', 'Tidak Ada (Tanpa Latar)']
-                  .map(
-                    (String value) => DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (String? newValue) async {
-                if (newValue != null) {
-                  await AppSettings.saveListIconShape(newValue);
-                  setState(() {
-                    _currentListIconShape = newValue;
-                  });
-                }
-              },
-            ),
-            // --- SELESAI ---
           ],
         ),
       ),
