@@ -7,7 +7,10 @@ import 'package:mind_palace_manager/app_settings.dart';
 import 'package:mind_palace_manager/features/building/presentation/editor/room_editor_page.dart';
 import 'package:mind_palace_manager/features/building/presentation/viewer/building_viewer_page.dart';
 
-// Ganti 'nama_proyek_anda' dengan nama proyek Anda
+// --- TAMBAHAN ---
+// Impor helper izin
+import 'package:mind_palace_manager/permission_helper.dart';
+// --- SELESAI TAMBAHAN ---
 
 class BuildingManagementPage extends StatefulWidget {
   const BuildingManagementPage({super.key});
@@ -37,6 +40,26 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
     setState(() {
       _isLoading = true;
     });
+
+    // --- TAMBAHAN: Pengecekan Izin ---
+    // Tambahkan pengecekan di sini sebagai pengaman jika pengguna
+    // mencabut izin saat aplikasi berjalan.
+    bool hasPermission = await checkAndRequestPermissions();
+    if (!hasPermission) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Izin penyimpanan ditolak. Tidak dapat memuat bangunan.',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      setState(() => _isLoading = false);
+      return;
+    }
+    // --- SELESAI TAMBAHAN ---
 
     if (AppSettings.baseBuildingsPath == null) {
       if (mounted) {
