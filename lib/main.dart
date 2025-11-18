@@ -1,5 +1,13 @@
 import 'package:flutter/material.dart';
 
+// -------------------------------------
+// IMPORT BARU YANG DIPERLUKAN (Tanpa Permission Handler)
+// -------------------------------------
+import 'package:file_picker/file_picker.dart'; // Untuk memilih folder
+import 'package:path/path.dart' as p; // Untuk menggabung path
+import 'dart:io'; // Untuk membuat Directory
+// (Kita HAPUS 'package:permission_handler/permission_handler.dart')
+
 void main() {
   runApp(const MainApp());
 }
@@ -9,15 +17,12 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      // Halaman utama aplikasi sekarang adalah DashboardPage
-      home: DashboardPage(),
-    );
+    return const MaterialApp(home: DashboardPage());
   }
 }
 
 // -------------------------------------
-// HALAMAN DASHBOARD (BARU)
+// HALAMAN DASHBOARD (Sama seperti sebelumnya)
 // -------------------------------------
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
@@ -30,7 +35,6 @@ class DashboardPage extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Tombol ke Halaman View (BuildingViewPage)
             ElevatedButton(
               onPressed: () {
                 Navigator.push(
@@ -43,8 +47,6 @@ class DashboardPage extends StatelessWidget {
               child: const Text('Buka Halaman View'),
             ),
             const SizedBox(height: 20),
-
-            // Tombol ke Halaman Editor
             ElevatedButton(
               onPressed: () {
                 Navigator.push(
@@ -55,8 +57,6 @@ class DashboardPage extends StatelessWidget {
               child: const Text('Buka Halaman Editor'),
             ),
             const SizedBox(height: 20),
-
-            // Tombol ke Halaman Pengaturan
             ElevatedButton(
               onPressed: () {
                 Navigator.push(
@@ -74,7 +74,7 @@ class DashboardPage extends StatelessWidget {
 }
 
 // -------------------------------------
-// HALAMAN VIEW (DARI SEBELUMNYA)
+// HALAMAN VIEW (Sama seperti sebelumnya)
 // -------------------------------------
 class BuildingViewPage extends StatelessWidget {
   const BuildingViewPage({super.key});
@@ -82,9 +82,7 @@ class BuildingViewPage extends StatelessWidget {
   final String longDescription =
       "Lorem ipsum dolor sit amet, consectetur adipiscing elit. "
       "Sed euismod, nisl eget aliquam ultricies, nunc nisl ultricies "
-      "nunc, quis aliquam nisl nisl sit amet nisl. Sed euismod, nisl "
       // ... (sisa deskripsi panjang) ...
-      "Donec eu libero sit amet quam egestas semper. Aenean "
       "ultricies mi vitae est. Mauris placerat eleifend leo.";
 
   @override
@@ -140,7 +138,7 @@ class BuildingViewPage extends StatelessWidget {
 }
 
 // -------------------------------------
-// HALAMAN EDITOR (BARU)
+// HALAMAN EDITOR (Sama seperti sebelumnya)
 // -------------------------------------
 class EditorPage extends StatelessWidget {
   const EditorPage({super.key});
@@ -155,7 +153,7 @@ class EditorPage extends StatelessWidget {
 }
 
 // -------------------------------------
-// HALAMAN PENGATURAN (BARU)
+// HALAMAN PENGATURAN (Disesuaikan untuk Linux)
 // -------------------------------------
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -165,10 +163,10 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  // Controller untuk mengelola input teks
+  // Controller untuk menampilkan path yang dipilih
   late TextEditingController _folderController;
-  // Menyimpan path folder saat ini
-  String _currentFolderPath = '/storage/emulated/0/MyAppFolder';
+  // Menyimpan path folder utama
+  String _currentFolderPath = 'Belum diatur';
 
   @override
   void initState() {
@@ -179,21 +177,52 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   void dispose() {
-    // Selalu dispose controller saat widget dihapus
     _folderController.dispose();
     super.dispose();
   }
 
-  // Fungsi untuk menyimpan pengaturan baru
-  void _saveSettings() {
-    setState(() {
-      _currentFolderPath = _folderController.text;
-    });
+  // --- FUNGSI YANG DIPERBARUI (TANPA IZIN) ---
+  Future<void> _pickAndCreateFolder() async {
+    // 1. Logika izin DIHAPUS. Kita langsung ke langkah 2.
 
-    // Tampilkan pesan konfirmasi
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Lokasi baru disimpan: $_currentFolderPath')),
-    );
+    // 2. Buka dialog 'pilih folder'
+    String? selectedPath = await FilePicker.platform.getDirectoryPath();
+
+    if (selectedPath != null) {
+      // 3. Jika user memilih path, buat folder 'buildings' di dalamnya
+      try {
+        // Menggunakan package 'path' (p) untuk menggabungkan path
+        final buildingsPath = p.join(selectedPath, 'buildings');
+
+        // Menggunakan 'dart:io' untuk membuat folder
+        final buildingsDir = Directory(buildingsPath);
+        await buildingsDir.create(recursive: true);
+
+        // 4. Update UI untuk menampilkan path yang baru dipilih
+        setState(() {
+          _currentFolderPath = selectedPath;
+          _folderController.text = _currentFolderPath;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Folder "buildings" berhasil dibuat di: $_currentFolderPath',
+            ),
+          ),
+        );
+      } catch (e) {
+        // Tangani jika ada error saat membuat folder
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Gagal membuat folder: $e')));
+      }
+    } else {
+      // User membatalkan pemilihan folder
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pemilihan folder dibatalkan')),
+      );
+    }
   }
 
   @override
@@ -210,19 +239,26 @@ class _SettingsPageState extends State<SettingsPage> {
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 16.0),
-            // TextField untuk memasukkan path folder
+
             TextField(
               controller: _folderController,
+              readOnly: true, // Dibuat 'read-only'
               decoration: const InputDecoration(
-                labelText: 'Path Folder',
+                labelText: 'Path Folder Utama',
                 border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 16.0),
-            // Tombol untuk menyimpan
+
+            // Tombol ini sekarang memanggil fungsi _pickAndCreateFolder yang lebih sederhana
             ElevatedButton(
-              onPressed: _saveSettings,
-              child: const Text('Simpan'),
+              onPressed: _pickAndCreateFolder,
+              child: const Text('Pilih Lokasi...'),
+            ),
+            const SizedBox(height: 8.0),
+            Text(
+              'Folder "buildings" akan otomatis dibuat di dalam lokasi yang Anda pilih.',
+              style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
         ),
