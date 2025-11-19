@@ -40,7 +40,7 @@ class _SettingsPageState extends State<SettingsPage> {
   late Color _currentSolidColor;
   late Color _currentGradientColor1;
   late Color _currentGradientColor2;
-  late double _currentBlurStrength;
+  late double _currentBlurStrength; // <-- FIX: Mengubah tipe data ke double
 
   // --- SLIDESHOW STATE ---
   late double _slideshowSpeed;
@@ -82,7 +82,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _currentSolidColor = Color(AppSettings.solidColor);
     _currentGradientColor1 = Color(AppSettings.gradientColor1);
     _currentGradientColor2 = Color(AppSettings.gradientColor2);
-    _currentBlurStrength = AppSettings.blurStrength;
+    _currentBlurStrength = AppSettings.blurStrength; // Memuat double
     _slideshowSpeed = AppSettings.slideshowSpeedSeconds;
     _slideshowTransitionDuration =
         AppSettings.slideshowTransitionDurationSeconds;

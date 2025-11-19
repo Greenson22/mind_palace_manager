@@ -19,7 +19,7 @@ class GeneralSettingsSection extends StatelessWidget {
   final Color currentSolidColor;
   final Color currentGradientColor1;
   final Color currentGradientColor2;
-  final double currentBlurStrength;
+  final double currentBlurStrength; // <-- Tipe data sudah benar: double
   final Function(VoidCallback fn) setStateCallback;
 
   const GeneralSettingsSection({
@@ -103,6 +103,7 @@ class GeneralSettingsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final primaryColor = Theme.of(context).colorScheme.primary;
 
+    // Inisialisasi WallpaperManagerDialogs (sekarang sebagai orkestrator)
     final dialogs = WallpaperManagerDialogs(
       context: context,
       setStateCallback: setStateCallback,
@@ -113,7 +114,7 @@ class GeneralSettingsSection extends StatelessWidget {
       currentSolidColor: currentSolidColor,
       currentGradientColor1: currentGradientColor1,
       currentGradientColor2: currentGradientColor2,
-      currentBlurStrength: currentBlurStrength,
+      currentBlurStrength: currentBlurStrength, // Pass the correct double value
     );
 
     return Column(
@@ -152,7 +153,7 @@ class GeneralSettingsSection extends StatelessWidget {
             leading: Icon(Icons.wallpaper, color: primaryColor),
             title: const Text('Atur Wallpaper Dashboard'),
             subtitle: Text(
-              // PERBAIKAN: Menggunakan fungsi helper publik yang baru
+              // Menggunakan fungsi helper publik
               getWallpaperModeLabel(
                 currentWallpaperMode,
                 selectedSlideshowBuildingName,
