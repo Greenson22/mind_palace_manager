@@ -4,6 +4,27 @@ import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import 'package:mind_palace_manager/app_settings.dart';
 import 'package:mind_palace_manager/features/settings/about_page.dart';
+// --- BARU: Import untuk Wallpaper Traversal ---
+import 'package:path/path.dart' as p;
+import 'dart:convert';
+// --- SELESAI BARU ---
+
+// --- BARU: Class helper untuk menyimpan info gambar ---
+class _ImageSourceInfo {
+  final String path;
+  final String label;
+  final String? buildingPath; // Ditambahkan untuk hierarki ruangan
+  _ImageSourceInfo(this.path, this.label, {this.buildingPath});
+}
+
+class _BuildingInfo {
+  final Directory directory;
+  final String name;
+  final String districtName;
+  final String regionName;
+  _BuildingInfo(this.directory, this.name, this.districtName, this.regionName);
+}
+// --- SELESAI BARU ---
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -14,9 +35,7 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   late TextEditingController _folderController;
-  // --- BARU: Controller untuk Export Path ---
-  late TextEditingController _exportPathController;
-  // --- SELESAI BARU ---
+  late TextEditingController _exportPathController; // DIBUAT BARU
   late String _currentMapPinShape;
   late String _currentListIconShape;
   late bool _currentShowRegionOutline;
@@ -92,7 +111,7 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  // --- BARU: Fungsi untuk memilih dan menyimpan folder export ---
+  // --- Fungsi untuk memilih dan menyimpan folder export ---
   Future<void> _pickAndSaveExportFolder() async {
     String? selectedPath = await FilePicker.platform.getDirectoryPath();
     if (selectedPath != null) {
@@ -122,7 +141,6 @@ class _SettingsPageState extends State<SettingsPage> {
       }
     }
   }
-  // --- SELESAI BARU ---
 
   void _showColorPickerDialog(
     String title,
@@ -205,6 +223,538 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  // --- START LOGIKA WALLPAPER ---
+
+  // Traversal untuk mengumpulkan gambar ikon dari semua tingkatan
+  Future<List<_ImageSourceInfo>> _loadAllIconImages() async {
+    final List<_ImageSourceInfo> images = [];
+    if (AppSettings.baseBuildingsPath == null) return images;
+    final rootDir = Directory(AppSettings.baseBuildingsPath!);
+
+    if (!await rootDir.exists()) return images;
+
+    await for (final regionEntity in rootDir.list()) {
+      if (regionEntity is Directory) {
+        final regionName = p.basename(regionEntity.path);
+
+        // Region Icons
+        final regionDataFile = File(
+          p.join(regionEntity.path, 'region_data.json'),
+        );
+        if (await regionDataFile.exists()) {
+          try {
+            final content = await regionDataFile.readAsString();
+            final data = json.decode(content);
+            if (data['icon_type'] == 'image' && data['icon_data'] != null) {
+              final iconPath = p.join(regionEntity.path, data['icon_data']);
+              if (await File(iconPath).exists()) {
+                images.add(_ImageSourceInfo(iconPath, 'Wilayah: $regionName'));
+              }
+            }
+          } catch (_) {}
+        }
+
+        await for (final districtEntity in regionEntity.list()) {
+          if (districtEntity is Directory) {
+            final districtName = p.basename(districtEntity.path);
+
+            // District Icons
+            final districtDataFile = File(
+              p.join(districtEntity.path, 'district_data.json'),
+            );
+            if (await districtDataFile.exists()) {
+              try {
+                final content = await districtDataFile.readAsString();
+                final data = json.decode(content);
+                if (data['icon_type'] == 'image' && data['icon_data'] != null) {
+                  final iconPath = p.join(
+                    districtEntity.path,
+                    data['icon_data'],
+                  );
+                  if (await File(iconPath).exists()) {
+                    images.add(
+                      _ImageSourceInfo(iconPath, 'Distrik: $districtName'),
+                    );
+                  }
+                }
+              } catch (_) {}
+            }
+
+            await for (final buildingEntity in districtEntity.list()) {
+              if (buildingEntity is Directory) {
+                final buildingName = p.basename(buildingEntity.path);
+                final buildingDataFile = File(
+                  p.join(buildingEntity.path, 'data.json'),
+                );
+
+                if (!await buildingDataFile.exists()) continue;
+
+                try {
+                  final content = await buildingDataFile.readAsString();
+                  Map<String, dynamic> buildingData = json.decode(content);
+
+                  // Building Icons
+                  if (buildingData['icon_type'] == 'image' &&
+                      buildingData['icon_data'] != null) {
+                    final iconPath = p.join(
+                      buildingEntity.path,
+                      buildingData['icon_data'],
+                    );
+                    if (await File(iconPath).exists()) {
+                      images.add(
+                        _ImageSourceInfo(iconPath, 'Bangunan: $buildingName'),
+                      );
+                    }
+                  }
+                } catch (_) {}
+              }
+            }
+          }
+        }
+      }
+    }
+    return images;
+  }
+
+  // Traversal untuk mengumpulkan ruangan, diorganisir per bangunan (Output untuk Building Picker)
+  Future<List<_BuildingInfo>> _loadAllBuildingsWithRooms() async {
+    final List<_BuildingInfo> result = [];
+    if (AppSettings.baseBuildingsPath == null) return result;
+    final rootDir = Directory(AppSettings.baseBuildingsPath!);
+    if (!await rootDir.exists()) return result;
+
+    await for (final regionEntity in rootDir.list()) {
+      if (regionEntity is Directory) {
+        final regionName = p.basename(regionEntity.path);
+        await for (final districtEntity in regionEntity.list()) {
+          if (districtEntity is Directory) {
+            final districtName = p.basename(districtEntity.path);
+            await for (final buildingEntity in districtEntity.list()) {
+              if (buildingEntity is Directory) {
+                final buildingName = p.basename(buildingEntity.path);
+                final buildingDataFile = File(
+                  p.join(buildingEntity.path, 'data.json'),
+                );
+
+                if (!await buildingDataFile.exists()) continue;
+
+                try {
+                  final content = await buildingDataFile.readAsString();
+                  Map<String, dynamic> buildingData = json.decode(content);
+
+                  // Cek apakah ada setidaknya satu gambar ruangan
+                  List<dynamic> rooms = buildingData['rooms'] ?? [];
+                  bool hasRoomImage = rooms.any((room) {
+                    if (room['image'] != null) {
+                      final imagePath = p.join(
+                        buildingEntity.path,
+                        room['image'],
+                      );
+                      return File(imagePath).existsSync();
+                    }
+                    return false;
+                  });
+
+                  if (hasRoomImage) {
+                    result.add(
+                      _BuildingInfo(
+                        buildingEntity,
+                        buildingName,
+                        districtName,
+                        regionName,
+                      ),
+                    );
+                  }
+                } catch (_) {}
+              }
+            }
+          }
+        }
+      }
+    }
+    return result;
+  }
+
+  // Traversal untuk memuat gambar ruangan spesifik dari satu bangunan
+  Future<List<_ImageSourceInfo>> _loadRoomImagesFromBuilding(
+    Directory buildingDir,
+  ) async {
+    final List<_ImageSourceInfo> images = [];
+    final buildingDataFile = File(p.join(buildingDir.path, 'data.json'));
+    if (!await buildingDataFile.exists()) return images;
+
+    try {
+      final content = await buildingDataFile.readAsString();
+      Map<String, dynamic> buildingData = json.decode(content);
+      List<dynamic> rooms = buildingData['rooms'] ?? [];
+
+      for (var room in rooms) {
+        if (room['image'] != null) {
+          final relativeImagePath = room['image'];
+          final imagePath = p.join(buildingDir.path, relativeImagePath);
+          if (await File(imagePath).exists()) {
+            images.add(
+              _ImageSourceInfo(
+                imagePath,
+                room['name'] ?? 'Tanpa Nama',
+                buildingPath: buildingDir.path,
+              ),
+            );
+          }
+        }
+      }
+    } catch (_) {}
+
+    return images;
+  }
+
+  Future<void> _pickImageFromGallery() async {
+    final result = await FilePicker.platform.pickFiles(type: FileType.image);
+    if (result != null && result.files.single.path != null) {
+      await AppSettings.saveWallpaperPath(result.files.single.path!);
+      setState(() {});
+    }
+  }
+
+  Future<void> _showIconPicker() async {
+    if (AppSettings.baseBuildingsPath == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Atur lokasi penyimpanan utama di Pengaturan terlebih dahulu.',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (c) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 20),
+            Text("Memuat ikon..."),
+          ],
+        ),
+      ),
+    );
+
+    final images = await _loadAllIconImages();
+    if (mounted) Navigator.pop(context); // Dismiss loading
+
+    if (!mounted) return;
+    if (images.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Tidak ditemukan ikon bangunan/distrik."),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    await showDialog(
+      context: context,
+      builder: (c) {
+        return AlertDialog(
+          title: const Text('Pilih Ikon Bangunan/Distrik'),
+          content: SizedBox(
+            width: 300,
+            height: 400,
+            child: GridView.builder(
+              itemCount: images.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: 0.8,
+              ),
+              itemBuilder: (c, index) {
+                final imageInfo = images[index];
+                return GestureDetector(
+                  onTap: () async {
+                    await AppSettings.saveWallpaperPath(imageInfo.path);
+                    if (mounted) {
+                      Navigator.pop(c);
+                      setState(() {});
+                    }
+                  },
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.shade300),
+                            borderRadius: BorderRadius.circular(8),
+                            image: DecorationImage(
+                              image: FileImage(File(imageInfo.path)),
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4.0),
+                        child: Text(
+                          imageInfo.label,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 12),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(c),
+              child: const Text('Batal'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // --- HIERARCHICAL PICKER FOR ROOMS (STEP 1: BUILDING) ---
+  Future<void> _showBuildingPicker() async {
+    if (AppSettings.baseBuildingsPath == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Atur lokasi penyimpanan utama di Pengaturan terlebih dahulu.',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (c) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 20),
+            Text("Memuat bangunan dengan gambar ruangan..."),
+          ],
+        ),
+      ),
+    );
+
+    final buildingList = await _loadAllBuildingsWithRooms();
+    if (mounted) Navigator.pop(context); // Dismiss loading
+
+    if (!mounted) return;
+    if (buildingList.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Tidak ditemukan bangunan yang berisi gambar ruangan."),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // 2. Show Building Picker Dialog
+    await showDialog(
+      context: context,
+      builder: (c) {
+        return AlertDialog(
+          title: const Text('Pilih Bangunan (Langkah 1/2)'),
+          content: SizedBox(
+            width: 300,
+            height: 400,
+            child: ListView.builder(
+              itemCount: buildingList.length,
+              itemBuilder: (c, index) {
+                final info = buildingList[index];
+                return ListTile(
+                  title: Text(info.name),
+                  subtitle: Text(
+                    'Wilayah: ${info.regionName} / Distrik: ${info.districtName}',
+                  ),
+                  onTap: () {
+                    Navigator.pop(c); // Tutup picker bangunan
+                    _showRoomPicker(info); // Lanjut ke picker ruangan
+                  },
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(c),
+              child: const Text('Batal'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // --- HIERARCHICAL PICKER FOR ROOMS (STEP 2: ROOM) ---
+  Future<void> _showRoomPicker(_BuildingInfo buildingInfo) async {
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (c) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 20),
+            Text("Memuat ruangan..."),
+          ],
+        ),
+      ),
+    );
+
+    final roomImages = await _loadRoomImagesFromBuilding(
+      buildingInfo.directory,
+    );
+    if (mounted) Navigator.pop(context); // Dismiss loading
+
+    await showDialog(
+      context: context,
+      builder: (c) {
+        return AlertDialog(
+          title: Text('Pilih Ruangan di ${buildingInfo.name}'),
+          content: SizedBox(
+            width: 300,
+            height: 400,
+            child: GridView.builder(
+              itemCount: roomImages.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: 0.8,
+              ),
+              itemBuilder: (c, index) {
+                final imageInfo = roomImages[index];
+
+                return GestureDetector(
+                  onTap: () async {
+                    // imageInfo.path sudah merupakan path absolut
+                    await AppSettings.saveWallpaperPath(imageInfo.path);
+                    if (mounted) {
+                      Navigator.pop(c); // Close room picker
+                      setState(() {});
+                    }
+                  },
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.shade300),
+                            borderRadius: BorderRadius.circular(8),
+                            image: DecorationImage(
+                              image: FileImage(File(imageInfo.path)),
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4.0),
+                        child: Text(
+                          imageInfo.label,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 12),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(c),
+              child: const Text('Batal'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // --- MAIN DIALOG (Bottom Sheet) ---
+  Future<void> _showWallpaperSelectionDialog() async {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text(
+                  'Pilih Sumber Wallpaper',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Pilih dari Galeri'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImageFromGallery();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.meeting_room),
+                title: const Text('Pilih Gambar Ruangan (Bangunan)'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showBuildingPicker(); // Memulai alur hierarkis
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.business),
+                title: const Text('Pilih Ikon Bangunan/Distrik'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showIconPicker();
+                },
+              ),
+              if (AppSettings.wallpaperPath != null)
+                ListTile(
+                  leading: const Icon(Icons.close, color: Colors.red),
+                  title: const Text('Hapus Wallpaper'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await AppSettings.saveWallpaperPath(null);
+                    setState(() {});
+                  },
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // --- END LOGIKA WALLPAPER ---
+
   @override
   Widget build(BuildContext context) {
     final primaryColor = Theme.of(context).colorScheme.primary;
@@ -245,6 +795,27 @@ class _SettingsPageState extends State<SettingsPage> {
                 ],
               ),
             ),
+
+            // --- BARU: Atur Wallpaper ---
+            const Divider(indent: 56),
+            ListTile(
+              leading: Icon(Icons.wallpaper, color: primaryColor),
+              title: const Text('Atur Wallpaper Dashboard'),
+              subtitle: Text(
+                AppSettings.wallpaperPath != null
+                    ? 'Wallpaper diatur'
+                    : 'Menggunakan latar default',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              // FIX ERROR: Mengubah 'showWallpaperSelectionDialog' menjadi '_showWallpaperSelectionDialog'
+              trailing: ElevatedButton(
+                onPressed: _showWallpaperSelectionDialog,
+                child: const Text('Pilih'),
+              ),
+            ),
+
+            // --- SELESAI BARU ---
             const Divider(indent: 56),
             ListTile(
               leading: Icon(Icons.folder_open, color: primaryColor),
@@ -255,13 +826,12 @@ class _SettingsPageState extends State<SettingsPage> {
                 overflow: TextOverflow.ellipsis,
               ),
               trailing: IconButton(
-                // --- PERBAIKAN DI SINI (Ganti Icon) ---
                 icon: const Icon(Icons.drive_file_move_outline),
                 onPressed: _pickAndCreateFolder,
                 tooltip: 'Ubah Folder',
               ),
             ),
-            // --- BARU: Lokasi Export Peta ---
+
             const Divider(indent: 56),
             ListTile(
               leading: Icon(Icons.save_alt, color: primaryColor),
@@ -277,7 +847,6 @@ class _SettingsPageState extends State<SettingsPage> {
                 tooltip: 'Ubah Folder Export',
               ),
             ),
-            // --- SELESAI BARU ---
           ]),
 
           const SizedBox(height: 24),

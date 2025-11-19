@@ -17,9 +17,10 @@ class AppSettings {
   static const String _regionOutlineColorKey = 'regionOutlineColor';
   static const String _regionNameColorKey = 'regionNameColor';
   static const String _themeModeKey = 'themeMode';
-
-  // --- BARU: Key untuk Export Path ---
   static const String _exportPathKey = 'exportPath';
+
+  // --- BARU: Key untuk Wallpaper ---
+  static const String _wallpaperPathKey = 'wallpaperPath';
 
   // ... variabel statis yang sudah ada ...
   static String? baseBuildingsPath;
@@ -33,9 +34,10 @@ class AppSettings {
   static int regionPinColor = Colors.blue.value;
   static int regionOutlineColor = Colors.white.value;
   static int regionNameColor = Colors.white.value;
-
-  // --- BARU: Variabel statis untuk Export Path ---
   static String? exportPath;
+
+  // --- BARU: Variabel statis untuk Wallpaper ---
+  static String? wallpaperPath;
 
   static ValueNotifier<ThemeMode> themeMode = ValueNotifier(ThemeMode.system);
 
@@ -60,20 +62,30 @@ class AppSettings {
     final themeString = prefs.getString(_themeModeKey) ?? 'system';
     themeMode.value = _getThemeModeFromString(themeString);
 
-    // --- BARU: Load Export Path ---
     exportPath = prefs.getString(_exportPathKey);
+
+    // --- BARU: Load Wallpaper Path ---
+    wallpaperPath = prefs.getString(_wallpaperPathKey);
   }
 
-  // --- BARU: Fungsi Save Export Path ---
+  // --- BARU: Fungsi Save Wallpaper Path ---
+  static Future<void> saveWallpaperPath(String? path) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (path == null) {
+      await prefs.remove(_wallpaperPathKey);
+    } else {
+      await prefs.setString(_wallpaperPathKey, path);
+    }
+    wallpaperPath = path;
+  }
+
+  // ... (sisa fungsi save lainnya) ...
   static Future<void> saveExportPath(String path) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_exportPathKey, path);
     exportPath = path;
   }
 
-  // ... fungsi save yang lama ...
-
-  // --- BARU: Fungsi Save Tema ---
   static Future<void> saveThemeMode(ThemeMode mode) async {
     final prefs = await SharedPreferences.getInstance();
     themeMode.value = mode; // Update notifier
