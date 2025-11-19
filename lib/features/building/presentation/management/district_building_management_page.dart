@@ -656,6 +656,72 @@ class _DistrictBuildingManagementPageState
     );
   }
 
+  // --- BARU: FUNGSI EXPORT IKON BANGUNAN ---
+  Future<void> _exportBuildingIcon(Directory buildingDir) async {
+    if (AppSettings.exportPath == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Atur folder export di Pengaturan terlebih dahulu.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      final iconData = await _getBuildingIconData(buildingDir);
+      final iconType = iconData['type'];
+      // File object sudah diverifikasi keberadaannya di _getBuildingIconData
+      final imageFile = iconData['file'] as File?;
+
+      if (iconType != 'image' ||
+          imageFile == null ||
+          !await imageFile.exists()) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Ikon bukan gambar atau file ikon tidak ditemukan.',
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      final buildingName = p.basename(buildingDir.path);
+      final extension = p.extension(imageFile.path);
+      final now = DateTime.now();
+      final fileName =
+          'icon_${buildingName}_${now.year}${now.month}${now.day}_${now.hour}${now.minute}${now.second}${extension}';
+
+      final destinationPath = p.join(AppSettings.exportPath!, fileName);
+      await imageFile.copy(destinationPath);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ikon berhasil diexport ke: ${destinationPath}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal export ikon: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+  // --- SELESAI FUNGSI BARU ---
+
   @override
   Widget build(BuildContext context) {
     // Tampilkan nama distrik di AppBar
@@ -705,6 +771,7 @@ class _DistrictBuildingManagementPageState
       if (iconType == 'image' && iconData != null) {
         final imageFile = File(p.join(buildingDir.path, iconData.toString()));
         if (await imageFile.exists()) {
+          // Tambahkan file object ke hasil untuk memudahkan fungsi export
           return {'type': 'image', 'data': iconData, 'file': imageFile};
         } else {
           return {'type': null, 'data': null};
@@ -858,8 +925,11 @@ class _DistrictBuildingManagementPageState
                 case 'edit_room':
                   _editBuilding(folder);
                   break;
-                case 'edit_info': // NEW CASE: Ubah Nama & Ikon
+                case 'edit_info': // Ubah Nama & Ikon
                   _showEditBuildingDialog(folder);
+                  break;
+                case 'export_icon': // OPSI BARU
+                  _exportBuildingIcon(folder);
                   break;
                 case 'delete':
                   _deleteBuilding(folder);
@@ -887,7 +957,6 @@ class _DistrictBuildingManagementPageState
                   ],
                 ),
               ),
-              // --- OPSI BARU ---
               const PopupMenuItem<String>(
                 value: 'edit_info',
                 child: Row(
@@ -895,6 +964,17 @@ class _DistrictBuildingManagementPageState
                     Icon(Icons.palette_outlined, color: Colors.blue),
                     SizedBox(width: 8),
                     Text('Ubah Info (Nama/Ikon)'),
+                  ],
+                ),
+              ),
+              // --- OPSI BARU: Export Ikon ---
+              const PopupMenuItem<String>(
+                value: 'export_icon',
+                child: Row(
+                  children: [
+                    Icon(Icons.ios_share, color: Colors.indigo),
+                    SizedBox(width: 8),
+                    Text('Export Ikon (Gambar)'),
                   ],
                 ),
               ),

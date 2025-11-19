@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
 import 'dart:io';
 import 'dart:convert';
+import 'package:mind_palace_manager/app_settings.dart'; // Import AppSettings
 
 class RoomEditorPage extends StatefulWidget {
   final Directory buildingDirectory;
@@ -756,6 +757,82 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
     );
   }
 
+  // --- BARU: Fungsi Export Gambar Ruangan (ditempatkan di Editor) ---
+  Future<void> _exportRoomImage(Map<String, dynamic> room) async {
+    final roomImageName = room['image'];
+    if (roomImageName == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Ruangan ini tidak memiliki gambar untuk diexport.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    if (AppSettings.exportPath == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Atur folder export di Pengaturan terlebih dahulu.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      final sourceFile = File(
+        p.join(widget.buildingDirectory.path, roomImageName),
+      );
+
+      if (!await sourceFile.exists()) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('File gambar tidak ditemukan.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      final roomName = room['name'] ?? 'tanpa_nama';
+      final extension = p.extension(roomImageName);
+      final now = DateTime.now();
+      final fileName =
+          'room_${roomName}_${now.year}${now.month}${now.day}_${now.hour}${now.minute}${now.second}${extension}';
+
+      final destinationPath = p.join(AppSettings.exportPath!, fileName);
+      await sourceFile.copy(destinationPath);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Gambar ruangan berhasil diexport ke: ${destinationPath}',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal export gambar ruangan: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+  // --- SELESAI BARU ---
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -852,6 +929,9 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
                       case 'edit':
                         _showEditRoomDialog(room);
                         break;
+                      case 'export_room_image': // OPSI BARU
+                        _exportRoomImage(room);
+                        break;
                       case 'delete':
                         _deleteRoom(room);
                         break;
@@ -879,6 +959,23 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
                             ],
                           ),
                         ),
+                        // --- OPSI BARU: Export Gambar Ruangan ---
+                        PopupMenuItem<String>(
+                          value: 'export_room_image',
+                          enabled: roomImage != null,
+                          child: Row(
+                            children: [
+                              const Icon(Icons.ios_share, color: Colors.indigo),
+                              const SizedBox(width: 8),
+                              Text(
+                                roomImage != null
+                                    ? 'Export Gambar Ruangan'
+                                    : 'Tidak Ada Gambar',
+                              ),
+                            ],
+                          ),
+                        ),
+                        // --- SELESAI OPSI BARU ---
                         const PopupMenuDivider(),
                         const PopupMenuItem<String>(
                           value: 'delete',
