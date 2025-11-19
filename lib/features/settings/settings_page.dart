@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'dart:io';
 import 'package:mind_palace_manager/app_settings.dart';
-import 'package:mind_palace_manager/features/settings/about_page.dart';
+
 // --- BARU: Import Sections ---
 import 'package:mind_palace_manager/features/settings/sections/general_settings_section.dart';
 import 'package:mind_palace_manager/features/settings/sections/visualization_settings_section.dart';
@@ -79,10 +79,10 @@ class _SettingsPageState extends State<SettingsPage> {
     _currentWallpaperFit = AppSettings.wallpaperFit;
 
     _currentWallpaperMode = AppSettings.wallpaperMode;
-    _currentSolidColor = Color(AppSettings.solidColor);
+    _currentSolidColor = Color(AppSettings.solidColor.value);
     _currentGradientColor1 = Color(AppSettings.gradientColor1);
     _currentGradientColor2 = Color(AppSettings.gradientColor2);
-    _currentBlurStrength = AppSettings.blurStrength; // Memuat double
+    _currentBlurStrength = AppSettings.blurStrength.value; // Memuat double
     _slideshowSpeed = AppSettings.slideshowSpeedSeconds;
     _slideshowTransitionDuration =
         AppSettings.slideshowTransitionDurationSeconds;
