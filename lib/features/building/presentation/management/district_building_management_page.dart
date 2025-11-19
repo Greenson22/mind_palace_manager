@@ -232,8 +232,15 @@ class _DistrictBuildingManagementPageState
       } else if (_buildingIconType == 'Gambar' &&
           _buildingIconImagePath != null) {
         // Gambar harus disalin ke folder bangunan BARU
+
+        // --- PERUBAHAN: Gunakan ID Unik untuk Nama File Ikon Bangunan ---
+        final extension = p.extension(_buildingIconImagePath!);
+        final uniqueIconName =
+            'icon_${DateTime.now().millisecondsSinceEpoch}${extension}';
+
         iconType = 'image';
-        iconData = p.basename(_buildingIconImagePath!);
+        iconData = uniqueIconName;
+        // --- SELESAI PERUBAHAN ---
       }
 
       // Buat folder bangunan
@@ -312,15 +319,15 @@ class _DistrictBuildingManagementPageState
         return StatefulBuilder(
           builder: (context, setDialogState) {
             String currentImageText = '...';
-            if (_buildingIconType == 'Gambar' && currentType == 'image') {
-              currentImageText =
-                  'Gambar saat ini: "$currentData"\n(Pilih file baru untuk mengganti)';
-            } else if (_buildingIconType == 'Gambar' &&
-                _buildingIconImagePath != null) {
-              currentImageText =
-                  'File baru: ${p.basename(_buildingIconImagePath!)}';
-            } else {
-              currentImageText = 'Pilih Gambar Ikon';
+            if (_buildingIconType == 'Gambar') {
+              if (_buildingIconImagePath != null) {
+                currentImageText =
+                    'File baru: ${p.basename(_buildingIconImagePath!)}';
+              } else if (currentType == 'image' && currentData != null) {
+                currentImageText = 'Gambar saat ini: $currentData';
+              } else {
+                currentImageText = 'Pilih Gambar Ikon';
+              }
             }
 
             return AlertDialog(
@@ -441,6 +448,7 @@ class _DistrictBuildingManagementPageState
     dynamic oldData,
   ) async {
     // 1. Tentukan nama baru & lakukan Rename
+    // FIX: Mengganti _editNameController menjadi _buildingNameController
     final newName = _buildingNameController.text.trim();
     Directory currentDir = originalDir;
 
@@ -461,7 +469,7 @@ class _DistrictBuildingManagementPageState
       }
     }
 
-    // --- ICON LOGIC (Diambil dari _updateBuildingIcon lama) ---
+    // --- ICON LOGIC ---
 
     final jsonFile = File(p.join(currentDir.path, 'data.json'));
     Map<String, dynamic> jsonData;
@@ -490,9 +498,19 @@ class _DistrictBuildingManagementPageState
       }
     } else if (_buildingIconType == 'Gambar') {
       if (_buildingIconImagePath != null) {
+        // Pengguna memilih gambar baru -> Gunakan Nama Unik
+
+        // --- PERUBAHAN: Gunakan ID Unik untuk Nama File Ikon Bangunan ---
+        final extension = p.extension(_buildingIconImagePath!);
+        final uniqueIconName =
+            'icon_${DateTime.now().millisecondsSinceEpoch}${extension}';
+        // --- SELESAI PERUBAHAN ---
+
         iconType = 'image';
-        iconData = p.basename(_buildingIconImagePath!);
+        iconData = uniqueIconName;
+
         try {
+          // Salin file baru ke folder bangunan
           final sourceFile = File(_buildingIconImagePath!);
           final destinationPath = p.join(currentDir.path, iconData);
           await sourceFile.copy(destinationPath);
@@ -502,20 +520,26 @@ class _DistrictBuildingManagementPageState
               SnackBar(content: Text('Gagal menyalin gambar baru: $e')),
             );
           }
-          return;
+          return; // Batalkan penyimpanan jika salin gagal
         }
-      } else if (oldType == 'image') {
+      } else if (oldImageName != null) {
+        // Pertahankan gambar lama (iconData akan sama dengan oldImageName)
         iconType = 'image';
-        iconData = oldData;
+        iconData = oldImageName;
       } else {
         iconType = null;
         iconData = null;
       }
     } else {
+      // Tipe 'Default'
       iconType = null;
       iconData = null;
     }
 
+    // --- DELETION LOGIC ---
+    // Hapus file lama hanya jika:
+    // 1. Tipe berubah dari 'image' ke 'text' atau 'default'
+    // 2. Tipe tetap 'image', tetapi nama file berubah (karena upload baru)
     if (oldImageName != null &&
         (iconType != 'image' || iconData != oldImageName)) {
       try {
@@ -527,7 +551,9 @@ class _DistrictBuildingManagementPageState
         print("Gagal menghapus gambar ikon lama: $e");
       }
     }
+    // --- END DELETION LOGIC ---
 
+    // 4. Update JSON
     jsonData['icon_type'] = iconType;
     jsonData['icon_data'] = iconData;
 
@@ -549,8 +575,6 @@ class _DistrictBuildingManagementPageState
       }
     }
   }
-
-  // --- Fungsi _showEditIconDialog dan _updateBuildingIcon DIHAPUS karena digantikan oleh di atas ---
 
   void _viewBuilding(Directory buildingDir) {
     Navigator.push(
@@ -678,6 +702,15 @@ class _DistrictBuildingManagementPageState
       final iconType = data.containsKey('icon_type') ? data['icon_type'] : null;
       final iconData = data.containsKey('icon_data') ? data['icon_data'] : null;
 
+      if (iconType == 'image' && iconData != null) {
+        final imageFile = File(p.join(buildingDir.path, iconData.toString()));
+        if (await imageFile.exists()) {
+          return {'type': 'image', 'data': iconData, 'file': imageFile};
+        } else {
+          return {'type': null, 'data': null};
+        }
+      }
+
       return {'type': iconType, 'data': iconData};
     } catch (e) {
       print('Gagal membaca ikon: $e');
@@ -783,6 +816,7 @@ class _DistrictBuildingManagementPageState
 
             final type = snapshot.data!['type'];
             final data = snapshot.data!['data'];
+            final imageFile = snapshot.data!['file'] as File?;
 
             // Tipe Teks
             if (type == 'text' && data != null && data.toString().isNotEmpty) {
@@ -798,8 +832,7 @@ class _DistrictBuildingManagementPageState
             }
 
             // Tipe Gambar
-            if (type == 'image' && data != null) {
-              final imageFile = File(p.join(folder.path, data.toString()));
+            if (type == 'image' && imageFile != null) {
               return _buildIconContainer(null, imageFile: imageFile);
             }
 
@@ -879,7 +912,7 @@ class _DistrictBuildingManagementPageState
               ),
             ],
           ),
-          // --- SELESAI MENU OPSI ---
+          // --- SELESAI PERUBAHAN ---
           onTap: () => _viewBuilding(folder),
         );
       },

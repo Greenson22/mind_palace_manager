@@ -156,14 +156,20 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
 
       if (_pickedImagePath != null) {
         final sourceFile = File(_pickedImagePath!);
-        final imageName = p.basename(_pickedImagePath!);
+
+        // --- Gunakan ID Unik untuk Nama File Gambar Ruangan ---
+        final extension = p.extension(_pickedImagePath!);
+        final uniqueFileName =
+            'room_${DateTime.now().millisecondsSinceEpoch}${extension}';
+
         final destinationPath = p.join(
           widget.buildingDirectory.path,
-          imageName,
+          uniqueFileName,
         );
 
         await sourceFile.copy(destinationPath);
-        relativeImagePath = imageName;
+        relativeImagePath = uniqueFileName;
+        // --- SELESAI ---
       }
 
       final newRoom = {
@@ -181,7 +187,7 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ruangan "$roomName" berhasil dibuat')),
+          SnackBar(content: Text('Bangunan "$roomName" berhasil dibuat')),
         );
       }
     } catch (e) {
@@ -194,7 +200,7 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
     }
   }
 
-  // --- MULAI FUNGSI EDIT/HAPUS ---
+  // --- FUNGSI EDIT/HAPUS ---
 
   Future<void> _showEditRoomDialog(Map<String, dynamic> room) async {
     // Siapkan controller dengan data ruangan saat ini
@@ -325,6 +331,11 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
         newRelativeImagePath = null;
       } else if (_pickedImagePath != null) {
         // Ganti gambar
+
+        // --- PERBAIKAN: Ambil nilai non-null secara eksplisit ---
+        final String newPath = _pickedImagePath!;
+        // --- SELESAI PERBAIKAN ---
+
         // Hapus gambar lama (jika ada)
         if (oldImageName != null) {
           final oldFile = File(
@@ -335,16 +346,20 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
           }
         }
 
-        // Salin gambar baru
-        final sourceFile = File(_pickedImagePath!);
-        final imageName = p.basename(_pickedImagePath!);
+        // --- Gunakan ID Unik untuk Nama File Gambar Ruangan ---
+        final sourceFile = File(newPath);
+        final extension = p.extension(newPath);
+        final uniqueFileName =
+            'room_${DateTime.now().millisecondsSinceEpoch}${extension}';
+
         final destinationPath = p.join(
           widget.buildingDirectory.path,
-          imageName,
+          uniqueFileName,
         );
 
         await sourceFile.copy(destinationPath);
-        newRelativeImagePath = imageName;
+        newRelativeImagePath = uniqueFileName;
+        // --- SELESAI ---
       }
 
       // 2. Update data ruangan
@@ -446,8 +461,6 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
       }
     }
   }
-
-  // --- SELESAI FUNGSI EDIT/HAPUS ---
 
   // FUNGSI NAVIGASI LAMA (Hanya perlu dipertahankan)
   Future<void> _handleDeleteNavigation(
