@@ -31,9 +31,10 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
   Directory? _roomObjectsRootDir;
   Offset? _tappedCoords;
 
-  // --- VISIBILITY STATE (BARU) ---
-  late bool _showIcons; // Toggle lokal untuk visibilitas icon
+  // --- STATE PINDAH POSISI ---
+  String? _movingObjectId;
 
+  late bool _showIcons;
   final TransformationController _transformationController =
       TransformationController();
 
@@ -43,7 +44,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
   void initState() {
     super.initState();
     _jsonFile = File(p.join(widget.buildingDirectory.path, 'data.json'));
-    // Inisialisasi toggle dari setting default
     _showIcons = AppSettings.defaultShowObjectIcons;
     _loadData();
   }
@@ -96,6 +96,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
 
   Future<void> _loadRoomObjects(String roomId) async {
     _roomObjects = [];
+    _movingObjectId = null;
     _roomObjectsRootDir = Directory(
       p.join(widget.buildingDirectory.path, 'room_objects', roomId.toString()),
     );
@@ -123,15 +124,58 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
 
   Future<void> _saveRoomObjects() async {
     if (_roomObjectsJsonFile == null) return;
-
     final data = {"view_mode": "root", "children": _roomObjects};
-
     await _roomObjectsJsonFile!.writeAsString(json.encode(data));
+  }
+
+  // --- LOGIKA PINDAH POSISI ---
+  void _startMovingObject(String id, String name) {
+    setState(() {
+      _movingObjectId = id;
+      _tappedCoords = null;
+    });
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("Memindahkan '$name'. Ketuk lokasi baru."),
+        duration: const Duration(seconds: 3),
+        backgroundColor: Colors.blue,
+      ),
+    );
+  }
+
+  Future<void> _confirmMoveObject(double x, double y) async {
+    if (_movingObjectId == null) return;
+
+    final index = _roomObjects.indexWhere(
+      (obj) => obj['id'] == _movingObjectId,
+    );
+    if (index != -1) {
+      setState(() {
+        _roomObjects[index]['x'] = x;
+        _roomObjects[index]['y'] = y;
+        _movingObjectId = null;
+      });
+      await _saveRoomObjects();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Posisi berhasil diperbarui.")),
+        );
+      }
+    }
+  }
+
+  void _cancelMove() {
+    setState(() {
+      _movingObjectId = null;
+    });
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text("Batal memindahkan.")));
   }
 
   Future<void> _showAddObjectDialog() async {
     if (_tappedCoords == null) return;
-
     final nameController = TextEditingController();
     String selectedType = 'mapContainer';
 
@@ -149,7 +193,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                     controller: nameController,
                     decoration: const InputDecoration(
                       labelText: 'Nama Objek',
-                      hintText: 'Contoh: Lemari, Laci, Pintu Rahasia',
+                      hintText: 'Contoh: Lemari, Laci',
                     ),
                     autofocus: true,
                   ),
@@ -160,7 +204,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                   ),
                   RadioListTile<String>(
                     title: const Text('Wadah (Container)'),
-                    subtitle: const Text('Seperti Distrik. Berisi item lain.'),
+                    subtitle: const Text('Seperti Distrik.'),
                     value: 'mapContainer',
                     groupValue: selectedType,
                     onChanged: (val) =>
@@ -168,9 +212,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                   ),
                   RadioListTile<String>(
                     title: const Text('Lokasi (Immersive)'),
-                    subtitle: const Text(
-                      'Seperti Ruangan. Bisa masuk ke dalam.',
-                    ),
+                    subtitle: const Text('Seperti Ruangan.'),
                     value: 'immersiveView',
                     groupValue: selectedType,
                     onChanged: (val) =>
@@ -229,7 +271,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
       _roomObjects.add(newObject);
       _tappedCoords = null;
     });
-
     await _saveRoomObjects();
   }
 
@@ -287,7 +328,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                     ),
                     const SizedBox(height: 16),
                     const Text(
-                      'Tampilan Ikon (Marker):',
+                      'Tampilan Ikon:',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     Row(
@@ -332,8 +373,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                               fontSize: 11,
                               color: Colors.grey,
                             ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
@@ -341,14 +380,28 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                 ),
               ),
               actions: [
+                // --- TOMBOL HAPUS ---
                 TextButton(
                   style: TextButton.styleFrom(foregroundColor: Colors.red),
                   onPressed: () {
                     Navigator.pop(context);
                     _deleteObject(obj);
                   },
-                  child: const Text('Hapus Objek'),
+                  child: const Text('Hapus'),
                 ),
+                // --- TOMBOL PINDAH POSISI (BARU) ---
+                TextButton.icon(
+                  icon: const Icon(Icons.open_with),
+                  label: const Text('Pindah'),
+                  onPressed: () {
+                    Navigator.pop(context); // Tutup dialog
+                    _startMovingObject(
+                      obj['id'],
+                      obj['name'],
+                    ); // Mulai mode pindah
+                  },
+                ),
+                // --- TOMBOL SIMPAN ---
                 ElevatedButton(
                   onPressed: () async {
                     if (nameController.text.trim().isNotEmpty) {
@@ -426,7 +479,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
     } catch (e) {
       print("Gagal update config anak: $e");
     }
-
     setState(() {});
   }
 
@@ -459,6 +511,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
       }
       setState(() {
         _roomObjects.removeWhere((e) => e['id'] == obj['id']);
+        if (_movingObjectId == obj['id']) _movingObjectId = null;
       });
       await _saveRoomObjects();
     }
@@ -471,6 +524,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
         _currentRoom = targetRoom;
         _isObjectEditMode = false;
         _tappedCoords = null;
+        _movingObjectId = null;
       });
       await _loadRoomObjects(targetRoomId);
     } catch (e) {
@@ -485,6 +539,10 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
 
   void _handleObjectTap(Map<String, dynamic> obj) {
     if (_isObjectEditMode) {
+      // Jika sedang mode pindah, tap objek tidak melakukan apa-apa
+      // (user harus tap background untuk meletakkan)
+      if (_movingObjectId != null) return;
+
       _showEditObjectDialog(obj);
     } else {
       _enterObject(obj);
@@ -518,12 +576,14 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
     setState(() {
       _isObjectEditMode = !_isObjectEditMode;
       _tappedCoords = null;
+      _movingObjectId = null;
     });
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           _isObjectEditMode
-              ? 'Mode Edit: Ketuk objek untuk ubah, ketuk area kosong untuk tambah.'
+              ? 'Mode Edit: Ketuk objek untuk mengedit.'
               : 'Mode Lihat Aktif',
         ),
         duration: const Duration(seconds: 2),
@@ -549,12 +609,17 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
           ],
         ),
         actions: [
+          if (_isObjectEditMode && _movingObjectId != null)
+            IconButton(
+              icon: const Icon(Icons.close, color: Colors.red),
+              tooltip: 'Batal Pindah',
+              onPressed: _cancelMove,
+            ),
           PopupMenuButton<String>(
             onSelected: (v) {
               if (v == 'toggle_edit_mode') {
                 _toggleObjectEditMode();
               } else if (v == 'toggle_icons') {
-                // --- LOGIC TOGGLE VISIBILITY ---
                 setState(() {
                   _showIcons = !_showIcons;
                 });
@@ -582,7 +647,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                   ],
                 ),
               ),
-              // --- MENU TOGGLE ICON ---
               PopupMenuItem(
                 value: 'toggle_icons',
                 child: Row(
@@ -646,21 +710,13 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
       );
     }
 
-    // --- HITUNG LOGIKA VISIBILITAS ICONS ---
-    // 1. Opacity: Jika _showIcons = true -> pakai setting global (0.1-1.0). Jika false -> 0.0.
-    //    Kecuali dalam mode Edit, ikon selalu terlihat (opacity 1.0 atau minimal jelas).
     double finalOpacity;
     if (_isObjectEditMode) {
-      finalOpacity = 1.0; // Selalu terlihat saat edit
+      finalOpacity = 1.0;
     } else {
       finalOpacity = _showIcons ? AppSettings.objectIconOpacity : 0.0;
     }
 
-    // 2. Interactable:
-    //    - Mode Edit: Selalu true.
-    //    - Mode Lihat:
-    //       - Jika _showIcons = true -> true.
-    //       - Jika _showIcons = false -> ikuti setting interactableWhenHidden.
     bool isInteractable;
     if (_isObjectEditMode) {
       isInteractable = true;
@@ -670,6 +726,17 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
 
     return Column(
       children: [
+        if (_isObjectEditMode && _movingObjectId != null)
+          Container(
+            color: Colors.blue.shade100,
+            padding: const EdgeInsets.all(8),
+            width: double.infinity,
+            child: const Text(
+              "MODE PINDAH AKTIF: Ketuk lokasi baru untuk meletakkan ikon.",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
+            ),
+          ),
         Expanded(
           child: Container(
             color: Colors.black12,
@@ -685,15 +752,22 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                         GestureDetector(
                           onTapDown: (details) {
                             if (_isObjectEditMode) {
-                              setState(() {
-                                _tappedCoords = Offset(
+                              final x =
                                   details.localPosition.dx /
-                                      constraints.maxWidth,
+                                  constraints.maxWidth;
+                              final y =
                                   details.localPosition.dy /
-                                      constraints.maxHeight,
-                                );
-                              });
-                              _showAddObjectDialog();
+                                  constraints.maxHeight;
+
+                              // LOGIKA UTAMA: Pindah atau Tambah
+                              if (_movingObjectId != null) {
+                                _confirmMoveObject(x, y);
+                              } else {
+                                setState(() {
+                                  _tappedCoords = Offset(x, y);
+                                });
+                                _showAddObjectDialog();
+                              }
                             }
                           },
                           child: SizedBox(
@@ -703,7 +777,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                           ),
                         ),
 
-                        // RENDER OBJEK
                         ..._roomObjects.map((obj) {
                           final double x = obj['x'] ?? 0.5;
                           final double y = obj['y'] ?? 0.5;
@@ -711,6 +784,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                           final String name = obj['name'] ?? 'Objek';
                           final String iconType = obj['icon_type'] ?? 'default';
                           final String? iconPath = obj['icon_path'];
+                          final bool isMoving = (obj['id'] == _movingObjectId);
 
                           final IconData defaultIconData =
                               type == 'mapContainer'
@@ -737,8 +811,10 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                    color: Colors.white,
-                                    width: 2,
+                                    color: isMoving
+                                        ? Colors.greenAccent
+                                        : Colors.white,
+                                    width: isMoving ? 3 : 2,
                                   ),
                                   boxShadow: const [
                                     BoxShadow(
@@ -749,9 +825,10 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                                   image: DecorationImage(
                                     image: FileImage(file),
                                     fit: BoxFit.cover,
+                                    opacity: isMoving ? 0.5 : 1.0,
                                   ),
                                 ),
-                                child: _isObjectEditMode
+                                child: _isObjectEditMode && !isMoving
                                     ? Container(
                                         decoration: BoxDecoration(
                                           shape: BoxShape.circle,
@@ -769,21 +846,20 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                               markerWidget = _buildDefaultMarker(
                                 defaultIconData,
                                 defaultColor,
+                                isMoving,
                               );
                             }
                           } else {
                             markerWidget = _buildDefaultMarker(
                               defaultIconData,
                               defaultColor,
+                              isMoving,
                             );
                           }
 
-                          // Widget akhir untuk marker (dibungkus opacity dan ignorepointer)
                           Widget finalMarker = GestureDetector(
                             onTap: () => _handleObjectTap(obj),
-                            onLongPress: _isObjectEditMode
-                                ? () => _deleteObject(obj)
-                                : null,
+                            // Hapus onLongPress
                             child: Tooltip(
                               message: name,
                               child: Column(
@@ -800,11 +876,13 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                                         vertical: 2,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: Colors.black54,
+                                        color: isMoving
+                                            ? Colors.green
+                                            : Colors.black54,
                                         borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
-                                        name,
+                                        isMoving ? 'Pindahkan...' : name,
                                         style: const TextStyle(
                                           color: Colors.white,
                                           fontSize: 10,
@@ -816,7 +894,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                             ),
                           );
 
-                          // --- TERAPKAN VISIBILITY LOGIC ---
                           return Positioned(
                             left: x * constraints.maxWidth - 20,
                             top: y * constraints.maxHeight - 20,
@@ -830,7 +907,9 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                           );
                         }).toList(),
 
-                        if (_isObjectEditMode && _tappedCoords != null)
+                        if (_isObjectEditMode &&
+                            _tappedCoords != null &&
+                            _movingObjectId == null)
                           Positioned(
                             left: _tappedCoords!.dx * constraints.maxWidth - 15,
                             top: _tappedCoords!.dy * constraints.maxHeight - 30,
@@ -889,17 +968,20 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
     );
   }
 
-  Widget _buildDefaultMarker(IconData icon, Color color) {
+  Widget _buildDefaultMarker(IconData icon, Color color, bool isMoving) {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.8),
+        color: isMoving ? Colors.green : color.withOpacity(0.8),
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 2),
+        border: Border.all(
+          color: isMoving ? Colors.greenAccent : Colors.white,
+          width: isMoving ? 3 : 2,
+        ),
         boxShadow: const [BoxShadow(blurRadius: 4, color: Colors.black26)],
       ),
       child: Icon(
-        _isObjectEditMode ? Icons.edit : icon,
+        _isObjectEditMode && !isMoving ? Icons.edit : icon,
         color: Colors.white,
         size: 20,
       ),

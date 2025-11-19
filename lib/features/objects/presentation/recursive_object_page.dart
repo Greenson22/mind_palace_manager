@@ -40,7 +40,9 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
 
   // --- VISIBILITY STATE ---
   late bool _showIcons;
-  // ------------------------
+
+  // --- STATE PINDAH POSISI ---
+  String? _movingChildId;
 
   File? _backgroundImageFile;
   double _imageAspectRatio = 1.0;
@@ -70,6 +72,7 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
+    _movingChildId = null;
     try {
       if (!await widget.objectDirectory.exists()) {
         await widget.objectDirectory.create(recursive: true);
@@ -134,7 +137,48 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
     }
   }
 
-  // --- ACTIONS ---
+  // --- LOGIKA PINDAH POSISI ---
+  void _startMovingChild(String id, String name) {
+    setState(() {
+      _movingChildId = id;
+      _tappedCoords = null;
+    });
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("Memindahkan '$name'. Ketuk lokasi baru."),
+        backgroundColor: Colors.blue,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  Future<void> _confirmMoveChild(double x, double y) async {
+    if (_movingChildId == null) return;
+
+    final children = _objectData['children'] as List;
+    final index = children.indexWhere((c) => c['id'] == _movingChildId);
+
+    if (index != -1) {
+      setState(() {
+        children[index]['x'] = x;
+        children[index]['y'] = y;
+        _movingChildId = null;
+      });
+      await _saveData();
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Posisi disimpan.")));
+      }
+    }
+  }
+
+  void _cancelMove() {
+    setState(() {
+      _movingChildId = null;
+    });
+  }
 
   Future<void> _pickBackgroundImage() async {
     final result = await FilePicker.platform.pickFiles(type: FileType.image);
@@ -182,8 +226,6 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
       ),
     );
   }
-
-  // --- FUNGSI TAMBAH / EDIT CHILD ---
 
   Future<void> _createNewChild(String name, String viewMode) async {
     double x = 0.5;
@@ -334,8 +376,6 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
                               fontSize: 11,
                               color: Colors.grey,
                             ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
@@ -343,6 +383,7 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
                 ),
               ),
               actions: [
+                // --- TOMBOL HAPUS ---
                 TextButton(
                   style: TextButton.styleFrom(foregroundColor: Colors.red),
                   onPressed: () {
@@ -351,6 +392,19 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
                   },
                   child: const Text('Hapus'),
                 ),
+                // --- TOMBOL PINDAH (BARU) ---
+                TextButton.icon(
+                  icon: const Icon(Icons.open_with),
+                  label: const Text('Pindah'),
+                  onPressed: () {
+                    Navigator.pop(c); // Tutup dialog
+                    _startMovingChild(
+                      child['id'],
+                      child['name'],
+                    ); // Mulai mode pindah
+                  },
+                ),
+                // --- TOMBOL SIMPAN ---
                 ElevatedButton(
                   onPressed: () {
                     if (nameController.text.trim().isNotEmpty) {
@@ -455,6 +509,7 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
         (_objectData['children'] as List).removeWhere(
           (e) => e['id'] == child['id'],
         );
+        if (_movingChildId == child['id']) _movingChildId = null;
       });
       await _saveData();
     }
@@ -462,6 +517,7 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
 
   void _handleChildTap(Map<String, dynamic> child) {
     if (_isEditMode) {
+      if (_movingChildId != null) return;
       _showEditChildDialog(child);
     } else {
       _openChildObject(child);
@@ -491,6 +547,7 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
         _currentRoom = target;
         _tappedCoords = null;
         _isEditMode = false;
+        _movingChildId = null;
       });
     } catch (_) {}
   }
@@ -601,6 +658,13 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
           ],
         ),
         actions: [
+          if (_isEditMode && _movingChildId != null)
+            IconButton(
+              icon: const Icon(Icons.close, color: Colors.red),
+              tooltip: 'Batal Pindah',
+              onPressed: _cancelMove,
+            ),
+
           IconButton(
             icon: Icon(_isListView ? Icons.map : Icons.list),
             tooltip: _isListView ? 'Lihat Peta/Gambar' : 'Lihat Daftar Objek',
@@ -616,15 +680,20 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
             onSelected: (v) {
               switch (v) {
                 case 'toggle_edit':
-                  setState(() => _isEditMode = !_isEditMode);
+                  setState(() {
+                    _isEditMode = !_isEditMode;
+                    _tappedCoords = null;
+                    _movingChildId = null;
+                  });
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
                         _isEditMode
-                            ? 'Mode Edit: Ketuk objek untuk ubah'
+                            ? 'Mode Edit: Ketuk untuk edit.'
                             : 'Mode Lihat Aktif',
                       ),
-                      duration: const Duration(seconds: 1),
+                      duration: const Duration(seconds: 2),
                     ),
                   );
                   break;
@@ -715,13 +784,21 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
         children: [
           if (_isEditMode)
             Container(
-              color: Theme.of(context).colorScheme.surfaceVariant,
+              color: _movingChildId != null
+                  ? Colors.blue.shade100
+                  : Theme.of(context).colorScheme.surfaceVariant,
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               width: double.infinity,
-              child: const Text(
-                "Mode Edit Aktif: Ketuk untuk edit, Tahan untuk hapus.",
+              child: Text(
+                _movingChildId != null
+                    ? "MODE PINDAH: Ketuk lokasi baru untuk meletakkan."
+                    : "Mode Edit Aktif: Ketuk objek untuk edit.",
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: _movingChildId != null ? Colors.blue : null,
+                  fontWeight: _movingChildId != null ? FontWeight.bold : null,
+                ),
               ),
             ),
           Expanded(child: mainContent),
@@ -736,8 +813,8 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
 
     bool canAdd =
         _isListView ||
-        (isMapMode && _tappedCoords != null) ||
-        (!isMapMode && _tappedCoords != null);
+        (isMapMode && _tappedCoords != null && _movingChildId == null) ||
+        (!isMapMode && _tappedCoords != null && _movingChildId == null);
 
     if (canAdd) {
       return FloatingActionButton.extended(
@@ -749,7 +826,6 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
     return null;
   }
 
-  // --- WIDGET YANG SEBELUMNYA HILANG: _buildListView ---
   Widget _buildListView() {
     final children = _objectData['children'] as List? ?? [];
 
@@ -882,13 +958,18 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
             return GestureDetector(
               onTapDown: _isEditMode
                   ? (details) {
-                      final local = details.localPosition;
-                      setState(() {
-                        _tappedCoords = Offset(
-                          local.dx / constraints.maxWidth,
-                          local.dy / constraints.maxHeight,
-                        );
-                      });
+                      final x = details.localPosition.dx / constraints.maxWidth;
+                      final y =
+                          details.localPosition.dy / constraints.maxHeight;
+
+                      // LOGIKA PINDAH
+                      if (_movingChildId != null) {
+                        _confirmMoveChild(x, y);
+                      } else {
+                        setState(() {
+                          _tappedCoords = Offset(x, y);
+                        });
+                      }
                     }
                   : null,
 
@@ -922,7 +1003,9 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
                     );
                   }).toList(),
 
-                  if (_isEditMode && _tappedCoords != null)
+                  if (_isEditMode &&
+                      _tappedCoords != null &&
+                      _movingChildId == null)
                     Positioned(
                       left: _tappedCoords!.dx * constraints.maxWidth - 15,
                       top: _tappedCoords!.dy * constraints.maxHeight - 30,
@@ -950,6 +1033,7 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
     final String type = child['type'] ?? 'mapContainer';
     final String iconType = child['icon_type'] ?? 'default';
     final String? iconPath = child['icon_path'];
+    final bool isMoving = (child['id'] == _movingChildId);
 
     final IconData defaultIcon = type == 'mapContainer'
         ? Icons.inbox
@@ -968,11 +1052,18 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
           height: 40,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 2),
+            border: Border.all(
+              color: isMoving ? Colors.greenAccent : Colors.white,
+              width: isMoving ? 3 : 2,
+            ),
             boxShadow: const [BoxShadow(blurRadius: 4, color: Colors.black26)],
-            image: DecorationImage(image: FileImage(file), fit: BoxFit.cover),
+            image: DecorationImage(
+              image: FileImage(file),
+              fit: BoxFit.cover,
+              opacity: isMoving ? 0.5 : 1.0,
+            ),
           ),
-          child: _isEditMode
+          child: _isEditMode && !isMoving
               ? Container(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
@@ -983,10 +1074,20 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
               : null,
         );
       } else {
-        childContent = _buildDefaultMarker(defaultIcon, color, isMapStyle);
+        childContent = _buildDefaultMarker(
+          defaultIcon,
+          color,
+          isMapStyle,
+          isMoving,
+        );
       }
     } else {
-      childContent = _buildDefaultMarker(defaultIcon, color, isMapStyle);
+      childContent = _buildDefaultMarker(
+        defaultIcon,
+        color,
+        isMapStyle,
+        isMoving,
+      );
     }
 
     if (!isMapStyle && iconType != 'image') {
@@ -1000,11 +1101,11 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
               margin: const EdgeInsets.only(top: 2),
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
               decoration: BoxDecoration(
-                color: Colors.black54,
+                color: isMoving ? Colors.green : Colors.black54,
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
-                name,
+                isMoving ? "Pindahkan..." : name,
                 style: const TextStyle(color: Colors.white, fontSize: 10),
               ),
             ),
@@ -1014,6 +1115,7 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
 
     return GestureDetector(
       onTap: () => _handleChildTap(child),
+      // Hapus onLongPress
       child: Tooltip(
         message: "$name (${type == 'mapContainer' ? 'Wadah' : 'Lokasi'})",
         child: childContent,
@@ -1021,18 +1123,26 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
     );
   }
 
-  Widget _buildDefaultMarker(IconData icon, Color color, bool isMapStyle) {
+  Widget _buildDefaultMarker(
+    IconData icon,
+    Color color,
+    bool isMapStyle,
+    bool isMoving,
+  ) {
     if (isMapStyle) {
       return Container(
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.9),
+          color: isMoving ? Colors.green : color.withOpacity(0.9),
           shape: BoxShape.circle,
-          border: Border.all(color: Colors.white, width: 2),
+          border: Border.all(
+            color: isMoving ? Colors.greenAccent : Colors.white,
+            width: isMoving ? 3 : 2,
+          ),
           boxShadow: const [BoxShadow(blurRadius: 4, color: Colors.black26)],
         ),
         child: Icon(
-          _isEditMode ? Icons.edit : icon,
+          _isEditMode && !isMoving ? Icons.edit : icon,
           color: Colors.white,
           size: 20,
         ),
@@ -1041,11 +1151,20 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
       return Container(
         padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.8),
+          color: isMoving
+              ? Colors.green.withOpacity(0.8)
+              : Colors.white.withOpacity(0.8),
           shape: BoxShape.circle,
-          border: Border.all(color: color, width: 2),
+          border: Border.all(
+            color: isMoving ? Colors.greenAccent : color,
+            width: isMoving ? 3 : 2,
+          ),
         ),
-        child: Icon(_isEditMode ? Icons.edit : icon, color: color, size: 24),
+        child: Icon(
+          _isEditMode && !isMoving ? Icons.edit : icon,
+          color: isMoving ? Colors.white : color,
+          size: 24,
+        ),
       );
     }
   }
