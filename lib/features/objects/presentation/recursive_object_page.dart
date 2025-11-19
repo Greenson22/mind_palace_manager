@@ -196,6 +196,8 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
     );
   }
 
+  // --- FUNGSI TAMBAH / EDIT CHILD ---
+
   Future<void> _createNewChild(String name, String viewMode) async {
     // Koordinat default (tengah) jika dibuat dari List View atau tombol tambah
     double x = 0.5;
@@ -232,6 +234,8 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
       "y": y,
       "type": viewMode,
       "parent_room_id": parentRoomId,
+      "icon_type": "default",
+      "icon_path": null,
     };
 
     setState(() {
@@ -246,6 +250,198 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
         context,
       ).showSnackBar(SnackBar(content: Text('Objek "$name" ditambahkan.')));
     }
+  }
+
+  Future<void> _showEditChildDialog(Map<String, dynamic> child) async {
+    final nameController = TextEditingController(text: child['name']);
+    String selectedType = child['type'] ?? 'mapContainer';
+    String iconType = child['icon_type'] ?? 'default';
+    String? tempIconPath = child['icon_path'];
+
+    String getIconStatusText() {
+      if (iconType == 'image' && tempIconPath != null) {
+        return 'Gambar terpilih: ${p.basename(tempIconPath!)}';
+      }
+      return 'Menggunakan Ikon Standar';
+    }
+
+    await showDialog(
+      context: context,
+      builder: (c) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text('Edit: ${child['name']}'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Nama Objek',
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Tipe Perilaku:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    DropdownButton<String>(
+                      value: selectedType,
+                      isExpanded: true,
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'mapContainer',
+                          child: Text('Wadah (Container)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'immersiveView',
+                          child: Text('Lokasi (Immersive)'),
+                        ),
+                      ],
+                      onChanged: (val) =>
+                          setDialogState(() => selectedType = val!),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Tampilan Ikon:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    Row(
+                      children: [
+                        Radio<String>(
+                          value: 'default',
+                          groupValue: iconType,
+                          onChanged: (v) => setDialogState(() => iconType = v!),
+                        ),
+                        const Text('Default'),
+                        const SizedBox(width: 16),
+                        Radio<String>(
+                          value: 'image',
+                          groupValue: iconType,
+                          onChanged: (v) => setDialogState(() => iconType = v!),
+                        ),
+                        const Text('Foto'),
+                      ],
+                    ),
+                    if (iconType == 'image')
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.image),
+                            label: const Text('Pilih Foto Marker'),
+                            onPressed: () async {
+                              final res = await FilePicker.platform.pickFiles(
+                                type: FileType.image,
+                              );
+                              if (res != null &&
+                                  res.files.single.path != null) {
+                                setDialogState(() {
+                                  tempIconPath = res.files.single.path!;
+                                });
+                              }
+                            },
+                          ),
+                          Text(
+                            getIconStatusText(),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  style: TextButton.styleFrom(foregroundColor: Colors.red),
+                  onPressed: () {
+                    Navigator.pop(c);
+                    _deleteChild(child);
+                  },
+                  child: const Text('Hapus'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    if (nameController.text.trim().isNotEmpty) {
+                      Navigator.pop(c);
+                      _updateChild(
+                        child,
+                        nameController.text.trim(),
+                        selectedType,
+                        iconType,
+                        tempIconPath,
+                      );
+                    }
+                  },
+                  child: const Text('Simpan'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _updateChild(
+    Map<String, dynamic> child,
+    String newName,
+    String newType,
+    String newIconType,
+    String? newIconPath,
+  ) async {
+    setState(() {
+      child['name'] = newName;
+      child['type'] = newType;
+      child['icon_type'] = newIconType;
+    });
+
+    // Handle Copy Image
+    if (newIconType == 'image' && newIconPath != null) {
+      final File checkFile = File(newIconPath);
+      if (checkFile.isAbsolute && await checkFile.exists()) {
+        // Copy file baru ke folder anak
+        final childDir = Directory(
+          p.join(widget.objectDirectory.path, child['id']),
+        );
+        if (!await childDir.exists()) await childDir.create();
+
+        final ext = p.extension(newIconPath);
+        final fileName = 'marker_${DateTime.now().millisecondsSinceEpoch}$ext';
+        final destPath = p.join(childDir.path, fileName);
+
+        await checkFile.copy(destPath);
+        child['icon_path'] = fileName;
+      } else {
+        child['icon_path'] = newIconPath; // Path relatif lama
+      }
+    } else {
+      child['icon_path'] = null;
+    }
+
+    // Update config anak
+    try {
+      final childJson = File(
+        p.join(widget.objectDirectory.path, child['id'], 'object_data.json'),
+      );
+      if (await childJson.exists()) {
+        final content = await childJson.readAsString();
+        final data = json.decode(content);
+        data['view_mode'] = newType;
+        await childJson.writeAsString(json.encode(data));
+      }
+    } catch (_) {}
+
+    await _saveData();
+    setState(() {});
   }
 
   Future<void> _deleteChild(Map<String, dynamic> child) async {
@@ -288,10 +484,15 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
 
   // --- NAVIGATION (RECURSION) ---
 
-  void _openChildObject(Map<String, dynamic> child) {
-    if (_isEditMode && !_isListView)
-      return; // Jangan masuk jika sedang edit di mode Peta
+  void _handleChildTap(Map<String, dynamic> child) {
+    if (_isEditMode) {
+      _showEditChildDialog(child);
+    } else {
+      _openChildObject(child);
+    }
+  }
 
+  void _openChildObject(Map<String, dynamic> child) {
     final childDir = Directory(
       p.join(widget.objectDirectory.path, child['id']),
     );
@@ -313,6 +514,7 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
       setState(() {
         _currentRoom = target;
         _tappedCoords = null; // Reset tap saat pindah ruangan
+        _isEditMode = false; // Matikan edit mode
       });
     } catch (_) {}
   }
@@ -345,14 +547,14 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               RadioListTile<String>(
-                title: const Text('Seperti Distrik (Wadah)'),
+                title: const Text('Wadah (Container)'),
                 subtitle: const Text('Pin di atas gambar.'),
                 value: 'mapContainer',
                 groupValue: selectedType,
                 onChanged: (val) => setDialogState(() => selectedType = val!),
               ),
               RadioListTile<String>(
-                title: const Text('Seperti Ruangan (Lokasi)'),
+                title: const Text('Lokasi (Immersive)'),
                 subtitle: const Text('Navigasi masuk ke dalam.'),
                 value: 'immersiveView',
                 groupValue: selectedType,
@@ -429,7 +631,6 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
           ],
         ),
         actions: [
-          // Toggle View List/Map
           IconButton(
             icon: Icon(_isListView ? Icons.map : Icons.list),
             tooltip: _isListView ? 'Lihat Peta/Gambar' : 'Lihat Daftar Objek',
@@ -441,12 +642,22 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
             },
           ),
 
-          // --- MODIFIKASI: Menu Opsi Objek (Show Menu) ---
+          // --- MENU TITIK TIGA (SHOW MENU) ---
           PopupMenuButton<String>(
             onSelected: (v) {
               switch (v) {
                 case 'toggle_edit':
                   setState(() => _isEditMode = !_isEditMode);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        _isEditMode
+                            ? 'Mode Edit: Ketuk objek untuk ubah'
+                            : 'Mode Lihat Aktif',
+                      ),
+                      duration: const Duration(seconds: 1),
+                    ),
+                  );
                   break;
                 case 'change_type':
                   _toggleParentViewMode();
@@ -513,7 +724,6 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
               ];
             },
           ),
-          // --- SELESAI MODIFIKASI ---
         ],
       ),
       body: Column(
@@ -524,7 +734,7 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               width: double.infinity,
               child: const Text(
-                "Mode Edit Aktif: Ketuk untuk tambah, Tahan untuk hapus.",
+                "Mode Edit Aktif: Ketuk untuk edit, Tahan untuk hapus.",
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12),
               ),
@@ -548,7 +758,8 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
       return FloatingActionButton.extended(
         onPressed: _showAddDialog,
         icon: const Icon(Icons.add),
-        label: Text(_tappedCoords != null ? 'Tambah Disini' : 'Tambah Objek'),
+        // --- LABEL DISEDERHANAKAN ---
+        label: const Text('Tambah Objek'),
       );
     }
     return null;
@@ -589,11 +800,11 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
           ),
           trailing: _isEditMode
               ? IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => _deleteChild(child),
+                  icon: const Icon(Icons.edit, color: Colors.green),
+                  onPressed: () => _showEditChildDialog(child),
                 )
               : const Icon(Icons.chevron_right),
-          onTap: () => _openChildObject(child),
+          onTap: () => _handleChildTap(child),
         );
       },
     );
@@ -603,15 +814,11 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
   Widget _buildImmersiveRoomCanvas() {
     if (_currentRoom == null) {
       return const Center(
-        child: Text(
-          'Belum ada ruangan.\nKlik tombol menu (titik tiga) > Kelola Ruangan.',
-        ),
+        child: Text('Belum ada ruangan.\nKlik tombol menu > Kelola Ruangan.'),
       );
     }
 
     final roomImgPath = _currentRoom!['image'];
-
-    // Filter anak: Hanya tampilkan anak yang parent_room_id-nya sama dengan current room
     final allChildren = _objectData['children'] as List? ?? [];
     final roomChildren = allChildren
         .where((c) => c['parent_room_id'] == _currentRoom!['id'])
@@ -623,7 +830,6 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
       if (f.existsSync()) roomFile = f;
     }
 
-    // Jika tidak ada gambar ruangan, tampilkan placeholder
     if (roomFile == null) {
       return const Center(
         child: Icon(Icons.image_not_supported, size: 64, color: Colors.grey),
@@ -633,7 +839,7 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
     return _buildInteractiveArea(
       imageFile: roomFile,
       children: roomChildren,
-      isMapStyle: false, // Style untuk Immersive (Label bukan Pin)
+      isMapStyle: false,
     );
   }
 
@@ -733,39 +939,56 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
     final double y = child['y'] ?? 0.5;
     final String name = child['name'];
     final String type = child['type'] ?? 'mapContainer';
+    final String iconType = child['icon_type'] ?? 'default';
+    final String? iconPath = child['icon_path'];
 
-    final IconData icon = type == 'mapContainer'
+    final IconData defaultIcon = type == 'mapContainer'
         ? Icons.inbox
         : Icons.touch_app;
     final Color color = type == 'mapContainer' ? Colors.blue : Colors.orange;
 
     Widget childContent;
-    if (isMapStyle) {
-      // Tampilan Pin (Wadah)
-      childContent = Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.9),
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white, width: 2),
-          boxShadow: const [BoxShadow(blurRadius: 4, color: Colors.black26)],
-        ),
-        child: Icon(icon, color: Colors.white, size: 20),
+
+    // Cek jika menggunakan custom image marker
+    if (iconType == 'image' && iconPath != null) {
+      final file = File(
+        p.join(widget.objectDirectory.path, child['id'], iconPath),
       );
+      if (file.existsSync()) {
+        childContent = Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2),
+            boxShadow: const [BoxShadow(blurRadius: 4, color: Colors.black26)],
+            image: DecorationImage(image: FileImage(file), fit: BoxFit.cover),
+          ),
+          child: _isEditMode
+              ? Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.black.withOpacity(0.3),
+                  ),
+                  child: const Icon(Icons.edit, color: Colors.white, size: 20),
+                )
+              : null,
+        );
+      } else {
+        // Fallback
+        childContent = _buildDefaultMarker(defaultIcon, color, isMapStyle);
+      }
     } else {
-      // Tampilan Label (Lokasi)
+      // Default Marker
+      childContent = _buildDefaultMarker(defaultIcon, color, isMapStyle);
+    }
+
+    // Jika bukan mode map (immersive), tambahkan label di bawahnya
+    if (!isMapStyle && iconType != 'image') {
       childContent = Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.8),
-              shape: BoxShape.circle,
-              border: Border.all(color: color, width: 2),
-            ),
-            child: Icon(icon, color: color, size: 24),
-          ),
+          childContent,
           Container(
             margin: const EdgeInsets.only(top: 2),
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
@@ -786,8 +1009,7 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
       left: x * constraints.maxWidth - 20,
       top: y * constraints.maxHeight - 20,
       child: GestureDetector(
-        onTap: () => _openChildObject(child),
-        onLongPress: _isEditMode ? () => _deleteChild(child) : null,
+        onTap: () => _handleChildTap(child),
         child: Tooltip(
           message: "$name (${type == 'mapContainer' ? 'Wadah' : 'Lokasi'})",
           child: childContent,
@@ -796,14 +1018,39 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
     );
   }
 
-  // --- Panel Navigasi Bawah (Hanya untuk Mode Immersive) ---
+  Widget _buildDefaultMarker(IconData icon, Color color, bool isMapStyle) {
+    if (isMapStyle) {
+      return Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.9),
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white, width: 2),
+          boxShadow: const [BoxShadow(blurRadius: 4, color: Colors.black26)],
+        ),
+        child: Icon(
+          _isEditMode ? Icons.edit : icon,
+          color: Colors.white,
+          size: 20,
+        ),
+      );
+    } else {
+      return Container(
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.8),
+          shape: BoxShape.circle,
+          border: Border.all(color: color, width: 2),
+        ),
+        child: Icon(_isEditMode ? Icons.edit : icon, color: color, size: 24),
+      );
+    }
+  }
+
+  // --- Panel Navigasi Bawah (Disederhanakan) ---
   Widget _buildBottomNavigationPanel() {
     final connections = _currentRoom?['connections'] as List? ?? [];
-    // Filter anak yang parentnya adalah current room
-    final allChildren = _objectData['children'] as List? ?? [];
-    final roomChildren = allChildren
-        .where((c) => c['parent_room_id'] == _currentRoom!['id'])
-        .toList();
+    // CATATAN: Objek anak tidak lagi ditampilkan di sini sesuai permintaan.
 
     return Container(
       width: double.infinity,
@@ -824,7 +1071,7 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                "Navigasi / Isi di ${_currentRoom?['name']}:",
+                "Navigasi di ${_currentRoom?['name']}:",
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               if (_isEditMode)
@@ -849,44 +1096,24 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
               spacing: 8,
               children: connections.map<Widget>((conn) {
                 return ActionChip(
-                  // Bagian Koneksi Pintu (Diganti ikonnya)
-                  avatar: Icon(Icons.meeting_room, size: 16),
+                  avatar: const Icon(Icons.meeting_room, size: 16),
                   label: Text(conn['label']),
                   onPressed: () => _navigateToRoom(conn['targetRoomId']),
                 );
               }).toList(),
             ),
-            const Divider(),
-          ],
-
-          // Bagian Objek Anak
-          if (roomChildren.isEmpty && connections.isEmpty)
+          ] else ...[
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8.0),
               child: Text(
-                'Tidak ada objek/pintu navigasi.',
+                'Tidak ada pintu navigasi.',
                 style: TextStyle(
                   color: Colors.grey,
                   fontStyle: FontStyle.italic,
                 ),
               ),
-            )
-          else if (roomChildren.isNotEmpty)
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: roomChildren.map<Widget>((child) {
-                final type = child['type'] ?? 'mapContainer';
-                return ActionChip(
-                  avatar: Icon(
-                    type == 'mapContainer' ? Icons.inbox : Icons.touch_app,
-                    size: 16,
-                  ),
-                  label: Text(child['name']),
-                  onPressed: () => _openChildObject(child),
-                );
-              }).toList(),
             ),
+          ],
         ],
       ),
     );
