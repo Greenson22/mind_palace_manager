@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:file_picker/file_picker.dart';
 import 'package:mind_palace_manager/app_settings.dart';
-// Pastikan import ini sesuai dengan lokasi file editor ruangan objek Anda
 import 'package:mind_palace_manager/features/objects/presentation/editor/object_room_editor_page.dart';
 
 /// Enum untuk menentukan perilaku objek
@@ -381,6 +380,16 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
     );
   }
 
+  void _navigateToRoomEditor() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (c) =>
+            ObjectRoomEditorPage(objectDirectory: widget.objectDirectory),
+      ),
+    ).then((_) => _loadData());
+  }
+
   // --- UI BUILDERS ---
 
   @override
@@ -420,6 +429,7 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
           ],
         ),
         actions: [
+          // Toggle View List/Map
           IconButton(
             icon: Icon(_isListView ? Icons.map : Icons.list),
             tooltip: _isListView ? 'Lihat Peta/Gambar' : 'Lihat Daftar Objek',
@@ -430,27 +440,80 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
               });
             },
           ),
-          if (!isMapMode) // Tombol Editor Ruangan (Hanya di Mode Immersive)
-            IconButton(
-              icon: const Icon(Icons.edit_location_alt),
-              tooltip: 'Kelola Ruangan',
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (c) => ObjectRoomEditorPage(
-                      objectDirectory: widget.objectDirectory,
+
+          // --- MODIFIKASI: Menu Opsi Objek (Show Menu) ---
+          PopupMenuButton<String>(
+            onSelected: (v) {
+              switch (v) {
+                case 'toggle_edit':
+                  setState(() => _isEditMode = !_isEditMode);
+                  break;
+                case 'change_type':
+                  _toggleParentViewMode();
+                  break;
+                case 'change_image':
+                  _pickBackgroundImage();
+                  break;
+                case 'manage_rooms':
+                  _navigateToRoomEditor();
+                  break;
+              }
+            },
+            itemBuilder: (context) {
+              return [
+                PopupMenuItem(
+                  value: 'toggle_edit',
+                  child: Row(
+                    children: [
+                      Icon(
+                        _isEditMode ? Icons.check_circle : Icons.edit,
+                        color: _isEditMode ? Colors.green : null,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(_isEditMode ? 'Selesai Edit Isi' : 'Mode Edit Isi'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'change_type',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.swap_horiz),
+                      const SizedBox(width: 8),
+                      Text(
+                        isMapMode
+                            ? 'Ubah ke Mode Lokasi'
+                            : 'Ubah ke Mode Wadah',
+                      ),
+                    ],
+                  ),
+                ),
+                if (isMapMode)
+                  const PopupMenuItem(
+                    value: 'change_image',
+                    child: Row(
+                      children: [
+                        Icon(Icons.image),
+                        SizedBox(width: 8),
+                        Text('Ganti Gambar Wadah'),
+                      ],
                     ),
                   ),
-                ).then((_) => _loadData());
-              },
-            ),
-          IconButton(
-            icon: Icon(_isEditMode ? Icons.done : Icons.edit),
-            tooltip: _isEditMode ? 'Selesai Edit' : 'Edit Objek',
-            color: _isEditMode ? Colors.green : null,
-            onPressed: () => setState(() => _isEditMode = !_isEditMode),
+                if (!isMapMode)
+                  const PopupMenuItem(
+                    value: 'manage_rooms',
+                    child: Row(
+                      children: [
+                        Icon(Icons.meeting_room),
+                        SizedBox(width: 8),
+                        Text('Kelola Ruangan'),
+                      ],
+                    ),
+                  ),
+              ];
+            },
           ),
+          // --- SELESAI MODIFIKASI ---
         ],
       ),
       body: Column(
@@ -459,25 +522,11 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
             Container(
               color: Theme.of(context).colorScheme.surfaceVariant,
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  // Tombol Ganti Gambar hanya muncul jika Mode Wadah (karena Mode Ruangan gambar diurus Editor)
-                  if (isMapMode)
-                    TextButton.icon(
-                      icon: const Icon(Icons.image, size: 16),
-                      label: const Text('Ganti Gambar'),
-                      onPressed: _pickBackgroundImage,
-                    ),
-                  TextButton.icon(
-                    icon: Icon(
-                      isMapMode ? Icons.place : Icons.visibility,
-                      size: 16,
-                    ),
-                    label: const Text('Ubah Tipe Objek Ini'),
-                    onPressed: _toggleParentViewMode,
-                  ),
-                ],
+              width: double.infinity,
+              child: const Text(
+                "Mode Edit Aktif: Ketuk untuk tambah, Tahan untuk hapus.",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12),
               ),
             ),
           Expanded(child: mainContent),
@@ -489,10 +538,6 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
 
   Widget? _buildFloatingActionButton(bool isMapMode) {
     if (!_isEditMode) return null;
-
-    // Di List View: Selalu muncul
-    // Di Map Mode: Muncul jika sudah tap koordinat
-    // Di Immersive Mode: Muncul jika sudah tap koordinat (kalau mau penempatan manual)
 
     bool canAdd =
         _isListView ||
@@ -559,7 +604,7 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
     if (_currentRoom == null) {
       return const Center(
         child: Text(
-          'Belum ada ruangan.\nKlik ikon "Lokasi" di atas untuk mengelola ruangan.',
+          'Belum ada ruangan.\nKlik tombol menu (titik tiga) > Kelola Ruangan.',
         ),
       );
     }
