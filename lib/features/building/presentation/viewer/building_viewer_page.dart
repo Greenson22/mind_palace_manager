@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'dart:io';
 import 'dart:convert';
-import 'package:file_picker/file_picker.dart'; // Import File Picker
+import 'package:file_picker/file_picker.dart';
 import 'package:mind_palace_manager/app_settings.dart';
 import 'package:mind_palace_manager/features/building/presentation/editor/room_editor_page.dart';
 import 'package:mind_palace_manager/features/objects/presentation/recursive_object_page.dart';
@@ -29,7 +29,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
   List<dynamic> _roomObjects = []; // Daftar objek yang ditaruh di ruangan ini
   File? _roomObjectsJsonFile; // File penyimpanan data objek
   Directory? _roomObjectsRootDir; // Folder root objek untuk ruangan ini
-  Offset? _tappedCoords; // Koordinat tap saat mode edit untuk ADD baru
+  Offset? _tappedCoords; // Koordinat tap saat mode edit
 
   // Controller untuk Zoom/Pan Gambar Ruangan
   final TransformationController _transformationController =
@@ -210,21 +210,19 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
     final childDir = Directory(p.join(_roomObjectsRootDir!.path, folderId));
     await childDir.create();
 
-    // Buat file config di dalam folder objek anak
     final childJsonFile = File(p.join(childDir.path, 'object_data.json'));
     await childJsonFile.writeAsString(
       json.encode({"view_mode": viewMode, "image_path": null, "children": []}),
     );
 
-    // Data yang disimpan di list induk (Ruangan)
     final newObject = {
       "id": folderId,
       "name": name,
       "x": _tappedCoords!.dx,
       "y": _tappedCoords!.dy,
       "type": viewMode,
-      "icon_type": "default", // default | image
-      "icon_path": null, // path relatif jika image
+      "icon_type": "default",
+      "icon_path": null,
     };
 
     setState(() {
@@ -235,7 +233,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
     await _saveRoomObjects();
   }
 
-  // --- FUNGSI: EDIT / HAPUS OBJEK (BARU) ---
+  // --- FUNGSI: EDIT / HAPUS OBJEK ---
 
   Future<void> _showEditObjectDialog(Map<String, dynamic> obj) async {
     final nameController = TextEditingController(text: obj['name']);
@@ -243,7 +241,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
     String iconType = obj['icon_type'] ?? 'default';
     String? tempIconPath = obj['icon_path'];
 
-    // Helper untuk display path
     String getIconStatusText() {
       if (iconType == 'image' && tempIconPath != null) {
         return 'Gambar terpilih: ${p.basename(tempIconPath!)}';
@@ -263,7 +260,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 1. Ganti Nama
                     TextField(
                       controller: nameController,
                       decoration: const InputDecoration(
@@ -271,8 +267,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                       ),
                     ),
                     const SizedBox(height: 16),
-
-                    // 2. Ganti Tipe Perilaku
                     const Text(
                       'Tipe Perilaku:',
                       style: TextStyle(fontWeight: FontWeight.bold),
@@ -294,8 +288,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                           setDialogState(() => selectedType = val!),
                     ),
                     const SizedBox(height: 16),
-
-                    // 3. Ganti Ikon (Marker)
                     const Text(
                       'Tampilan Ikon (Marker):',
                       style: TextStyle(fontWeight: FontWeight.bold),
@@ -317,7 +309,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                         const Text('Foto Custom'),
                       ],
                     ),
-
                     if (iconType == 'image')
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -332,9 +323,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                               if (res != null &&
                                   res.files.single.path != null) {
                                 setDialogState(() {
-                                  // Simpan path absolut sementara (akan dicopy saat save)
                                   tempIconPath = res.files.single.path!;
-                                  // Tandai kalau ini file baru (bukan path relatif yang sudah ada)
                                 });
                               }
                             },
@@ -354,7 +343,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                 ),
               ),
               actions: [
-                // Tombol Hapus
                 TextButton(
                   style: TextButton.styleFrom(foregroundColor: Colors.red),
                   onPressed: () {
@@ -363,7 +351,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                   },
                   child: const Text('Hapus Objek'),
                 ),
-                // Tombol Simpan
                 ElevatedButton(
                   onPressed: () async {
                     if (nameController.text.trim().isNotEmpty) {
@@ -392,19 +379,16 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
     String newName,
     String newType,
     String newIconType,
-    String? newIconPath, // Bisa absolute (baru) atau relative (lama)
+    String? newIconPath,
   ) async {
-    // 1. Update Referensi di List Induk (_roomObjects)
     setState(() {
       originalObj['name'] = newName;
       originalObj['type'] = newType;
       originalObj['icon_type'] = newIconType;
     });
 
-    // 2. Handle Copy Gambar jika ada gambar baru yang dipilih
     if (newIconType == 'image' && newIconPath != null) {
       final File checkFile = File(newIconPath);
-      // Jika path yang dikirim adalah path absolute (file baru dari picker)
       if (checkFile.isAbsolute && await checkFile.exists()) {
         final objectDir = Directory(
           p.join(_roomObjectsRootDir!.path, originalObj['id']),
@@ -417,25 +401,16 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
         final destPath = p.join(objectDir.path, fileName);
 
         await checkFile.copy(destPath);
-
-        // Update path di object menjadi relatif terhadap folder objek
-        // Struktur: room_objects/{roomId}/{objId}/marker_icon.png
-        // Kita simpan relatif terhadap root folder objek (objId)
-        // Tapi di list induk, lebih mudah simpan relatif terhadap folder ruangan atau nama file saja
         originalObj['icon_path'] = fileName;
       } else {
-        // Jika tidak berubah (masih path relatif lama), biarkan
         originalObj['icon_path'] = newIconPath;
       }
     } else {
-      // Reset icon path jika kembali ke default
       originalObj['icon_path'] = null;
     }
 
-    // 3. Simpan List Induk
     await _saveRoomObjects();
 
-    // 4. Update Config Anak (agar tipe/behavior konsisten saat masuk)
     try {
       final childJsonFile = File(
         p.join(
@@ -447,17 +422,14 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
       if (await childJsonFile.exists()) {
         final content = await childJsonFile.readAsString();
         final data = json.decode(content);
-
-        // Update view_mode sesuai tipe baru
         data['view_mode'] = newType;
-
         await childJsonFile.writeAsString(json.encode(data));
       }
     } catch (e) {
       print("Gagal update config anak: $e");
     }
 
-    setState(() {}); // Refresh UI
+    setState(() {});
   }
 
   Future<void> _deleteObject(Map<String, dynamic> obj) async {
@@ -517,10 +489,8 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
 
   void _handleObjectTap(Map<String, dynamic> obj) {
     if (_isObjectEditMode) {
-      // Mode Edit: Buka Editor
       _showEditObjectDialog(obj);
     } else {
-      // Mode Lihat: Masuk ke Objek
       _enterObject(obj);
     }
   }
@@ -548,7 +518,23 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
     ).then((_) => _loadData());
   }
 
-  // --- UI BUILDERS ---
+  // --- FUNGSI TOGGLE MODE EDIT (Untuk Menu) ---
+  void _toggleObjectEditMode() {
+    setState(() {
+      _isObjectEditMode = !_isObjectEditMode;
+      _tappedCoords = null;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _isObjectEditMode
+              ? 'Mode Edit: Ketuk objek untuk ubah, ketuk area kosong untuk tambah.'
+              : 'Mode Lihat Aktif',
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -568,39 +554,44 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
           ],
         ),
         actions: [
-          // Tombol Toggle Mode Edit Objek
-          IconButton(
-            icon: Icon(_isObjectEditMode ? Icons.done : Icons.edit_attributes),
-            tooltip: _isObjectEditMode
-                ? 'Selesai Mengedit'
-                : 'Edit Objek (Tambah/Hapus/Ubah)',
-            color: _isObjectEditMode ? Colors.green : null,
-            onPressed: () {
-              setState(() {
-                _isObjectEditMode = !_isObjectEditMode;
-                _tappedCoords = null;
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    _isObjectEditMode
-                        ? 'Mode Edit: Ketuk objek untuk ubah, ketuk kosong untuk tambah.'
-                        : 'Mode Lihat Aktif',
-                  ),
-                  duration: const Duration(seconds: 2),
-                ),
-              );
-            },
-          ),
-
+          // --- MODIFIKASI: Memindahkan Edit Mode ke PopupMenuButton ---
           PopupMenuButton<String>(
             onSelected: (v) {
-              if (v == 'edit') _navigateToRoomEditor();
+              if (v == 'toggle_edit_mode') {
+                _toggleObjectEditMode();
+              } else if (v == 'edit_room_structure') {
+                _navigateToRoomEditor();
+              }
             },
             itemBuilder: (c) => [
+              PopupMenuItem(
+                value: 'toggle_edit_mode',
+                child: Row(
+                  children: [
+                    Icon(
+                      _isObjectEditMode
+                          ? Icons.check_circle
+                          : Icons.edit_attributes,
+                      color: _isObjectEditMode ? Colors.green : null,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _isObjectEditMode
+                          ? 'Selesai Edit Objek'
+                          : 'Mode Edit Objek',
+                    ),
+                  ],
+                ),
+              ),
               const PopupMenuItem(
-                value: 'edit',
-                child: Text('Edit Struktur Ruangan'),
+                value: 'edit_room_structure',
+                child: Row(
+                  children: [
+                    Icon(Icons.construction),
+                    SizedBox(width: 8),
+                    Text('Edit Struktur Ruangan'),
+                  ],
+                ),
               ),
             ],
           ),
@@ -660,7 +651,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                         GestureDetector(
                           onTapDown: (details) {
                             if (_isObjectEditMode) {
-                              // Hitung koordinat relatif untuk ADD NEW OBJECT
                               setState(() {
                                 _tappedCoords = Offset(
                                   details.localPosition.dx /
@@ -688,7 +678,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                           final String iconType = obj['icon_type'] ?? 'default';
                           final String? iconPath = obj['icon_path'];
 
-                          // Widget Icon Default
                           final IconData defaultIconData =
                               type == 'mapContainer'
                               ? Icons.inbox
@@ -699,7 +688,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
 
                           Widget markerWidget;
 
-                          // Cek apakah menggunakan Custom Image
                           if (iconType == 'image' && iconPath != null) {
                             final file = File(
                               p.join(
@@ -744,14 +732,12 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                                     : null,
                               );
                             } else {
-                              // Fallback jika file hilang
                               markerWidget = _buildDefaultMarker(
                                 defaultIconData,
                                 defaultColor,
                               );
                             }
                           } else {
-                            // Default Marker
                             markerWidget = _buildDefaultMarker(
                               defaultIconData,
                               defaultColor,
@@ -763,7 +749,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                             top: y * constraints.maxHeight - 20,
                             child: GestureDetector(
                               onTap: () => _handleObjectTap(obj),
-                              // Long press juga bisa trigger edit/delete sebagai shortcut
                               onLongPress: _isObjectEditMode
                                   ? () => _deleteObject(obj)
                                   : null,
@@ -773,7 +758,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     markerWidget,
-                                    // Label Nama (Selalu muncul di edit mode, opsional di view mode)
                                     if (_isObjectEditMode ||
                                         AppSettings.showRegionDistrictNames)
                                       Container(
@@ -803,7 +787,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                           );
                         }).toList(),
 
-                        // 3. INDIKATOR TAP (Hanya visual sesaat sebelum dialog muncul)
+                        // 3. INDIKATOR TAP
                         if (_isObjectEditMode && _tappedCoords != null)
                           Positioned(
                             left: _tappedCoords!.dx * constraints.maxWidth - 15,
@@ -875,9 +859,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
         boxShadow: const [BoxShadow(blurRadius: 4, color: Colors.black26)],
       ),
       child: Icon(
-        _isObjectEditMode
-            ? Icons.edit
-            : icon, // Icon berubah jadi pensil saat edit mode
+        _isObjectEditMode ? Icons.edit : icon,
         color: Colors.white,
         size: 20,
       ),
