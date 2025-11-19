@@ -4,6 +4,8 @@ import 'package:path/path.dart' as p;
 import 'dart:io';
 import 'dart:convert';
 import 'package:mind_palace_manager/app_settings.dart'; // Import AppSettings
+// --- BARU: Import RoomEditorPage ---
+import 'package:mind_palace_manager/features/building/presentation/editor/room_editor_page.dart';
 
 class BuildingViewerPage extends StatefulWidget {
   final Directory buildingDirectory;
@@ -81,7 +83,18 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
     }
   }
 
-  // --- BARU: Fungsi Export Gambar Ruangan ---
+  // --- Fungsi Navigasi ke Editor Ruangan ---
+  void _navigateToRoomEditor() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            RoomEditorPage(buildingDirectory: widget.buildingDirectory),
+      ),
+    );
+  }
+
+  // --- Fungsi Export Gambar Ruangan ---
   Future<void> _exportCurrentRoomImage() async {
     if (_currentRoom == null) return;
 
@@ -157,26 +170,40 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
       }
     }
   }
-  // --- SELESAI BARU ---
+  // --- SELESAI Fungsi Export Gambar Ruangan ---
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(p.basename(widget.buildingDirectory.path)),
-        // --- BARU: PopupMenuButton di AppBar ---
+        // --- PERUBAHAN: Menambahkan opsi ke Editor ---
         actions: [
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (String value) {
               if (value == 'export_room_image') {
                 _exportCurrentRoomImage();
+              } else if (value == 'edit_room_page') {
+                _navigateToRoomEditor();
               }
             },
             itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+              // Opsi Edit Ruangan
+              const PopupMenuItem<String>(
+                value: 'edit_room_page',
+                child: Row(
+                  children: [
+                    Icon(Icons.edit, color: Colors.orange),
+                    SizedBox(width: 8),
+                    Text('Buka Editor Ruangan'),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              // Opsi Export
               PopupMenuItem<String>(
                 value: 'export_room_image',
-                // Aktifkan hanya jika ada ruangan dan ruangan tersebut punya gambar
                 enabled: _currentRoom != null && _currentRoom!['image'] != null,
                 child: Row(
                   children: [
@@ -193,7 +220,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
             ],
           ),
         ],
-        // --- SELESAI BARU ---
+        // --- SELESAI PERUBAHAN ---
       ),
       body: _buildBody(),
     );
