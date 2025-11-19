@@ -3,24 +3,21 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:mind_palace_manager/app_settings.dart';
-// Import kelas helper baru
 import 'package:mind_palace_manager/features/settings/dialogs/wallpaper_sub_dialogs.dart';
 
-// Class yang memegang semua logika dan dialog terkait Wallpaper
 class WallpaperManagerDialogs {
   final BuildContext context;
-  final Function(VoidCallback fn)
-  setStateCallback; // Callback untuk update state di SettingsPage
-  final String selectedSlideshowBuildingName;
+  final Function(VoidCallback fn) setStateCallback;
+  final String
+  selectedSlideshowBuildingName; // Ini sekarang jadi label umum (Bangunan/Distrik)
   final Directory? selectedSlideshowBuildingDir;
 
-  // State lokal untuk dialog Slideshow/Solid/Gradient/Blur (nilai saat ini dari SettingsPage)
   double slideshowSpeed;
   double slideshowTransitionDuration;
   Color currentSolidColor;
   Color currentGradientColor1;
   Color currentGradientColor2;
-  double currentBlurStrength; // <-- FIX: Mengubah tipe data ke double
+  double currentBlurStrength;
 
   WallpaperManagerDialogs({
     required this.context,
@@ -35,7 +32,6 @@ class WallpaperManagerDialogs {
     required this.currentBlurStrength,
   });
 
-  // Fungsi yang dipertahankan: Memilih gambar statis dari galeri
   Future<void> _pickImageFromGallery() async {
     final result = await FilePicker.platform.pickFiles(type: FileType.image);
     if (result != null && result.files.single.path != null) {
@@ -44,9 +40,7 @@ class WallpaperManagerDialogs {
     }
   }
 
-  // --- MAIN DIALOG (Bottom Sheet) ---
   void showWallpaperSelectionDialog() {
-    // Inisialisasi helper dialog
     final subDialogs = WallpaperSubDialogs(
       context: context,
       setStateCallback: setStateCallback,
@@ -55,14 +49,13 @@ class WallpaperManagerDialogs {
       currentSolidColor: currentSolidColor,
       currentGradientColor1: currentGradientColor1,
       currentGradientColor2: currentGradientColor2,
-      currentBlurStrength: currentBlurStrength, // Sekarang bertipe double
+      currentBlurStrength: currentBlurStrength,
     );
 
     showModalBottomSheet(
       context: context,
       builder: (context) {
         return SafeArea(
-          // PERBAIKAN: Membungkus konten dengan SingleChildScrollView untuk mencegah overflow
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -81,7 +74,7 @@ class WallpaperManagerDialogs {
                   title: const Text('Warna Solid (Solid Color)'),
                   onTap: () {
                     Navigator.pop(context);
-                    subDialogs.showBackgroundSolidDialog(); // Delegasi
+                    subDialogs.showBackgroundSolidDialog();
                   },
                 ),
                 ListTile(
@@ -89,25 +82,46 @@ class WallpaperManagerDialogs {
                   title: const Text('Gradient'),
                   onTap: () {
                     Navigator.pop(context);
-                    subDialogs.showBackgroundGradientDialog(); // Delegasi
+                    subDialogs.showBackgroundGradientDialog();
                   },
                 ),
                 const Divider(height: 1),
 
+                // --- OPSI SLIDESHOW BANGUNAN ---
                 ListTile(
                   leading: const Icon(Icons.slideshow, color: Colors.purple),
                   title: const Text('Slideshow Ruangan (Bangunan)'),
                   subtitle: Text(
-                    // Menggunakan selectedSlideshowBuildingName dari state
-                    AppSettings.wallpaperMode == 'slideshow'
-                        ? 'Bangunan: ${selectedSlideshowBuildingName} (${AppSettings.slideshowSpeedSeconds.toStringAsFixed(0)}s)'
+                    (AppSettings.wallpaperMode == 'slideshow' &&
+                            AppSettings.slideshowSourceType == 'building')
+                        ? 'Aktif: ${selectedSlideshowBuildingName} (${AppSettings.slideshowSpeedSeconds.toStringAsFixed(0)}s)'
                         : 'Pilih bangunan untuk slideshow',
                   ),
                   onTap: () {
                     Navigator.pop(context);
-                    subDialogs.showSlideshowBuildingPicker(); // Delegasi
+                    subDialogs.showSlideshowBuildingPicker();
                   },
                 ),
+
+                // --- BARU: OPSI SLIDESHOW DISTRIK ---
+                ListTile(
+                  leading: const Icon(
+                    Icons.photo_album,
+                    color: Colors.deepPurple,
+                  ),
+                  title: const Text('Slideshow Ruangan (Distrik)'),
+                  subtitle: Text(
+                    (AppSettings.wallpaperMode == 'slideshow' &&
+                            AppSettings.slideshowSourceType == 'district')
+                        ? 'Aktif: ${selectedSlideshowBuildingName} (${AppSettings.slideshowSpeedSeconds.toStringAsFixed(0)}s)'
+                        : 'Pilih distrik untuk slideshow',
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    subDialogs.showSlideshowDistrictPicker();
+                  },
+                ),
+
                 const Divider(height: 1),
 
                 ListTile(
@@ -115,7 +129,7 @@ class WallpaperManagerDialogs {
                   title: const Text('Pilih Gambar Statis dari Galeri'),
                   onTap: () {
                     Navigator.pop(context);
-                    _pickImageFromGallery(); // Dipertahankan di kelas ini
+                    _pickImageFromGallery();
                   },
                 ),
                 ListTile(
@@ -123,7 +137,7 @@ class WallpaperManagerDialogs {
                   title: const Text('Pilih Gambar Ruangan Statis (Bangunan)'),
                   onTap: () {
                     Navigator.pop(context);
-                    subDialogs.showStaticRoomPicker(); // Delegasi
+                    subDialogs.showStaticRoomPicker();
                   },
                 ),
                 ListTile(
@@ -131,7 +145,7 @@ class WallpaperManagerDialogs {
                   title: const Text('Pilih Ikon Bangunan/Distrik Statis'),
                   onTap: () {
                     Navigator.pop(context);
-                    subDialogs.showIconPicker(); // Delegasi
+                    subDialogs.showIconPicker();
                   },
                 ),
                 const Divider(height: 1),
@@ -144,7 +158,7 @@ class WallpaperManagerDialogs {
                   subtitle: const Text('Berlaku untuk mode Gambar/Slideshow'),
                   onTap: () {
                     Navigator.pop(context);
-                    subDialogs.showBlurSettingsDialog(); // Delegasi
+                    subDialogs.showBlurSettingsDialog();
                   },
                 ),
 
@@ -164,7 +178,6 @@ class WallpaperManagerDialogs {
         );
       },
     ).then((_) {
-      // Pastikan state parent di-update setelah dialog ditutup
       setStateCallback(() {});
     });
   }

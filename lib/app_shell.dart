@@ -6,42 +6,36 @@ import 'package:mind_palace_manager/app_settings.dart';
 import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ui'; // Import untuk ImageFilter
+import 'dart:ui';
 import 'package:path/path.dart' as p;
+// --- BARU: Import helper loader gambar ---
+import 'package:mind_palace_manager/features/settings/helpers/wallpaper_image_loader.dart';
 
 class MainApp extends StatelessWidget {
+  // ... (MainApp tetap sama)
   const MainApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // ValueListenableBuilder untuk mendengarkan perubahan ThemeMode
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: AppSettings.themeMode,
       builder: (context, currentThemeMode, child) {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
           title: 'Mind Palace Manager',
-
-          // --- Konfigurasi Tema ---
           themeMode: currentThemeMode,
-
-          // Tema Terang (Light)
           theme: ThemeData(
             useMaterial3: true,
             brightness: Brightness.light,
             colorSchemeSeed: Colors.blue,
             appBarTheme: const AppBarTheme(centerTitle: true, elevation: 2),
           ),
-
-          // Tema Gelap (Dark)
           darkTheme: ThemeData(
             useMaterial3: true,
             brightness: Brightness.dark,
-            colorSchemeSeed:
-                Colors.blue, // Warna dasar tetap biru agar konsisten
+            colorSchemeSeed: Colors.blue,
             appBarTheme: const AppBarTheme(centerTitle: true, elevation: 2),
           ),
-
           home: const DashboardPage(),
         );
       },
@@ -57,12 +51,10 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
-  // --- SLIDESHOW STATE ---
   Timer? _slideshowTimer;
   List<String> _roomImagePaths = [];
   int _currentImageIndex = 0;
   bool _isLoadingSlideshow = false;
-  // --- SELESAI SLIDESHOW STATE ---
 
   @override
   void initState() {
@@ -76,13 +68,11 @@ class _DashboardPageState extends State<DashboardPage> {
     super.dispose();
   }
 
-  // Metode ini diperlukan untuk memicu rebuild DashboardPage saat kembali dari SettingsPage
   void _openSettings() {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const SettingsPage()),
     ).then((_) {
-      // Rebuild untuk memuat wallpaper baru
       setState(() {
         _checkAndStartSlideshow();
       });
@@ -92,14 +82,12 @@ class _DashboardPageState extends State<DashboardPage> {
   void _checkAndStartSlideshow() {
     _slideshowTimer?.cancel();
 
-    // Hanya aktifkan slideshow jika mode yang dipilih adalah 'slideshow'
     if (AppSettings.wallpaperMode == 'slideshow' &&
         AppSettings.slideshowBuildingPath != null) {
       _startSlideshowLogic();
     }
   }
 
-  // --- LOGIKA SLIDESHOW ---
   Future<void> _loadSlideshowImages() async {
     setState(() {
       _isLoadingSlideshow = true;
@@ -108,42 +96,57 @@ class _DashboardPageState extends State<DashboardPage> {
     _roomImagePaths.clear();
     _currentImageIndex = 0;
 
-    // Akses path melalui AppSettings
-    final buildingPath = AppSettings.slideshowBuildingPath;
-
-    if (buildingPath == null) {
+    final contentPath =
+        AppSettings.slideshowBuildingPath; // Bisa Bangunan/Distrik
+    if (contentPath == null) {
       _slideshowTimer?.cancel();
       setState(() => _isLoadingSlideshow = false);
       return;
     }
-
-    final buildingDir = Directory(buildingPath);
-    final buildingDataFile = File(p.join(buildingDir.path, 'data.json'));
-
-    if (!await buildingDataFile.exists()) {
+    final contentDir = Directory(contentPath);
+    if (!await contentDir.exists()) {
       _slideshowTimer?.cancel();
-      AppSettings.clearWallpaper();
+      AppSettings.clearWallpaper(); // Reset jika folder hilang
       setState(() => _isLoadingSlideshow = false);
       return;
     }
 
-    try {
-      final content = await buildingDataFile.readAsString();
-      Map<String, dynamic> buildingData = json.decode(content);
-      List<dynamic> rooms = buildingData['rooms'] ?? [];
+    // --- UPDATE LOGIKA ---
+    if (AppSettings.slideshowSourceType == 'district') {
+      // Jika Tipe adalah DISTRIK, gunakan helper loader
+      try {
+        final images = await WallpaperImageLoader.loadRoomImagesFromDistrict(
+          contentDir,
+        );
+        _roomImagePaths = images.map((e) => e.path).toList();
+      } catch (e) {
+        print("Error loading district slideshow: $e");
+      }
+    } else {
+      // Jika Tipe adalah BANGUNAN (Default logic)
+      // Kita masih bisa gunakan manual load atau helper, tapi manual lebih cepat untuk single file
+      final buildingDataFile = File(p.join(contentDir.path, 'data.json'));
+      if (await buildingDataFile.exists()) {
+        try {
+          final content = await buildingDataFile.readAsString();
+          Map<String, dynamic> buildingData = json.decode(content);
+          List<dynamic> rooms = buildingData['rooms'] ?? [];
 
-      for (var room in rooms) {
-        if (room['image'] != null) {
-          final relativeImagePath = room['image'];
-          final imagePath = p.join(buildingPath, relativeImagePath);
-          if (await File(imagePath).exists()) {
-            _roomImagePaths.add(imagePath);
+          for (var room in rooms) {
+            if (room['image'] != null) {
+              final relativeImagePath = room['image'];
+              final imagePath = p.join(contentPath, relativeImagePath);
+              if (await File(imagePath).exists()) {
+                _roomImagePaths.add(imagePath);
+              }
+            }
           }
+        } catch (e) {
+          print("Error loading building slideshow: $e");
         }
       }
-    } catch (e) {
-      print("Error loading slideshow images: $e");
     }
+    // ----------------------
 
     if (_roomImagePaths.length <= 1) {
       _slideshowTimer?.cancel();
@@ -171,7 +174,6 @@ class _DashboardPageState extends State<DashboardPage> {
       });
     });
   }
-  // --- SELESAI LOGIKA SLIDESHOW ---
 
   BoxFit _getBoxFit(String fitString) {
     switch (fitString) {
@@ -324,7 +326,6 @@ class _DashboardPageState extends State<DashboardPage> {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // --- Ikon Aplikasi di AppBar ---
             Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
@@ -332,13 +333,12 @@ class _DashboardPageState extends State<DashboardPage> {
                 shape: BoxShape.circle,
               ),
               child: Icon(
-                Icons.psychology, // Ikon representasi "Mind Palace"
+                Icons.psychology,
                 size: 24,
                 color: Theme.of(context).colorScheme.onPrimaryContainer,
               ),
             ),
             const SizedBox(width: 10),
-            // --- Teks Judul ---
             const Text(
               'Mind Palace Manager',
               style: TextStyle(fontWeight: FontWeight.bold),
@@ -350,13 +350,9 @@ class _DashboardPageState extends State<DashboardPage> {
 
       body: Stack(
         children: [
-          // 1. Background (Wallpaper/Solid/Gradient)
           Positioned.fill(child: backgroundWidget),
-
-          // 2. Overlay (Cover) Transparan dengan Opacity yang Bisa Diatur
           Positioned.fill(
             child: Container(
-              // Menggunakan setting opacity dari AppSettings
               color:
                   (Theme.of(context).brightness == Brightness.dark
                           ? Colors.black
@@ -364,8 +360,6 @@ class _DashboardPageState extends State<DashboardPage> {
                       .withOpacity(AppSettings.backgroundOverlayOpacity),
             ),
           ),
-
-          // 3. Foreground Content
           Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,

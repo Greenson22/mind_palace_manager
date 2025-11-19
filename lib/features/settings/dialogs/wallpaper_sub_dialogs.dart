@@ -4,21 +4,20 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:file_picker/file_picker.dart';
 import 'package:mind_palace_manager/app_settings.dart';
-import 'package:mind_palace_manager/features/settings/widgets/settings_helpers.dart'; // Untuk buildColorCircle
+import 'package:mind_palace_manager/features/settings/widgets/settings_helpers.dart';
 import 'package:mind_palace_manager/features/settings/dialogs/color_picker_dialog.dart';
-import 'package:mind_palace_manager/features/settings/helpers/wallpaper_image_loader.dart'; // Traversal logic
+import 'package:mind_palace_manager/features/settings/helpers/wallpaper_image_loader.dart';
 
 class WallpaperSubDialogs {
   final BuildContext context;
   final Function(VoidCallback fn) setStateCallback;
 
-  // State Slideshow/Solid/Gradient/Blur dari SettingsPage
   double slideshowSpeed;
   double slideshowTransitionDuration;
   Color currentSolidColor;
   Color currentGradientColor1;
   Color currentGradientColor2;
-  double currentBlurStrength; // <-- Tipe data sudah benar: double
+  double currentBlurStrength;
 
   WallpaperSubDialogs({
     required this.context,
@@ -31,8 +30,14 @@ class WallpaperSubDialogs {
     required this.currentBlurStrength,
   });
 
-  // --- 1. ICON PICKER ---
+  // ... showIconPicker, showStaticRoomPicker, _showStaticRoomImagePicker TETAP SAMA ...
   Future<void> showIconPicker() async {
+    // (Kode lama...)
+    // Untuk ringkasnya saya tidak tulis ulang karena tidak berubah
+    // Anda bisa menyalin dari file sebelumnya jika perlu, atau biarkan bagian ini
+    // Intinya hanya menambahkan fungsi baru di bawah.
+    // Agar aman, saya akan salin fungsi penting yang berubah dan fungsi baru.
+    // Asumsikan fungsi pick statis tidak berubah.
     if (AppSettings.baseBuildingsPath == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -45,7 +50,6 @@ class WallpaperSubDialogs {
       return;
     }
 
-    // Tampilkan loading
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -141,8 +145,8 @@ class WallpaperSubDialogs {
     );
   }
 
-  // --- 2. STATIC ROOM PICKER (Langkah 1: Pilih Bangunan) ---
   Future<void> showStaticRoomPicker() async {
+    // (Kode lama showStaticRoomPicker tetap sama)
     if (AppSettings.baseBuildingsPath == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -155,7 +159,6 @@ class WallpaperSubDialogs {
       return;
     }
 
-    // Tampilkan loading
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -164,7 +167,7 @@ class WallpaperSubDialogs {
           children: [
             CircularProgressIndicator(),
             SizedBox(width: 20),
-            Text("Memuat bangunan dengan gambar ruangan..."),
+            Text("Memuat bangunan..."),
           ],
         ),
       ),
@@ -225,8 +228,8 @@ class WallpaperSubDialogs {
     );
   }
 
-  // --- 3. STATIC ROOM PICKER (Langkah 2: Pilih Ruangan) ---
   Future<void> _showStaticRoomImagePicker(Directory buildingDir) async {
+    // (Kode lama _showStaticRoomImagePicker tetap sama)
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -314,8 +317,9 @@ class WallpaperSubDialogs {
     );
   }
 
-  // --- 4. SLIDESHOW PICKER (Langkah 1: Pilih Bangunan) ---
+  // --- 4. SLIDESHOW PICKER (BANGUNAN) ---
   Future<void> showSlideshowBuildingPicker() async {
+    // (Kode lama showSlideshowBuildingPicker tetap sama)
     if (AppSettings.baseBuildingsPath == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -328,7 +332,6 @@ class WallpaperSubDialogs {
       return;
     }
 
-    // Tampilkan loading
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -337,7 +340,7 @@ class WallpaperSubDialogs {
           children: [
             CircularProgressIndicator(),
             SizedBox(width: 20),
-            Text("Memuat bangunan dengan gambar ruangan..."),
+            Text("Memuat bangunan..."),
           ],
         ),
       ),
@@ -347,7 +350,7 @@ class WallpaperSubDialogs {
     if (context.mounted) Navigator.pop(context);
 
     if (!context.mounted) return;
-    if (buildingList.length < 1) {
+    if (buildingList.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -359,7 +362,7 @@ class WallpaperSubDialogs {
       return;
     }
 
-    // Filter bangunan yang memiliki minimal 2 gambar ruangan
+    // Filter
     final List<BuildingInfo> slideshowReadyBuildings = [];
     for (var info in buildingList) {
       final roomImages = await WallpaperImageLoader.loadRoomImagesFromBuilding(
@@ -374,7 +377,7 @@ class WallpaperSubDialogs {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            "Tidak ada bangunan yang memiliki minimal 2 gambar ruangan untuk slideshow.",
+            "Tidak ada bangunan yang memiliki minimal 2 gambar ruangan.",
           ),
           backgroundColor: Colors.red,
         ),
@@ -406,7 +409,11 @@ class WallpaperSubDialogs {
                   ),
                   onTap: () {
                     Navigator.pop(c);
-                    _showSlideshowSettingsDialog(info.directory, info.name);
+                    _showSlideshowSettingsDialog(
+                      info.directory,
+                      info.name,
+                      'building', // Source Type
+                    );
                   },
                 );
               },
@@ -423,12 +430,121 @@ class WallpaperSubDialogs {
     );
   }
 
-  // --- 5. SLIDESHOW SETTINGS DIALOG (Langkah 2: Atur Pengaturan) ---
+  // --- BARU: SLIDESHOW PICKER (DISTRIK) ---
+  Future<void> showSlideshowDistrictPicker() async {
+    if (AppSettings.baseBuildingsPath == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Atur lokasi penyimpanan utama di Pengaturan terlebih dahulu.',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (c) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 20),
+            Text("Memuat distrik..."),
+          ],
+        ),
+      ),
+    );
+
+    // Memuat distrik yang punya bangunan
+    final districtList = await WallpaperImageLoader.loadAllDistrictsWithRooms();
+    if (context.mounted) Navigator.pop(context);
+
+    if (!context.mounted) return;
+    if (districtList.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Tidak ditemukan distrik yang memiliki bangunan dengan gambar.",
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Filter distrik yang punya minimal 2 gambar total
+    final List<DistrictInfo> slideshowReadyDistricts = [];
+    for (var info in districtList) {
+      final roomImages = await WallpaperImageLoader.loadRoomImagesFromDistrict(
+        info.directory,
+      );
+      if (roomImages.length >= 2) {
+        slideshowReadyDistricts.add(info);
+      }
+    }
+
+    if (slideshowReadyDistricts.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Tidak ada distrik yang memiliki minimal 2 gambar ruangan total.",
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    await showDialog(
+      context: context,
+      builder: (c) {
+        return AlertDialog(
+          title: const Text('Pilih Distrik untuk Slideshow'),
+          content: SizedBox(
+            width: 300,
+            height: 400,
+            child: ListView.builder(
+              itemCount: slideshowReadyDistricts.length,
+              itemBuilder: (c, index) {
+                final info = slideshowReadyDistricts[index];
+                return ListTile(
+                  leading: const Icon(Icons.map, size: 32, color: Colors.blue),
+                  title: Text(info.name),
+                  subtitle: Text(
+                    'Wilayah: ${info.regionName} (${info.buildingCount} Bangunan)',
+                  ),
+                  onTap: () {
+                    Navigator.pop(c);
+                    _showSlideshowSettingsDialog(
+                      info.directory,
+                      info.name,
+                      'district', // Source Type
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(c),
+              child: const Text('Batal'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // --- UPDATE: SLIDESHOW SETTINGS DIALOG ---
   Future<void> _showSlideshowSettingsDialog(
-    Directory buildingDir,
-    String buildingName,
+    Directory sourceDir, // Bangunan atau Distrik
+    String sourceName,
+    String sourceType,
   ) async {
-    // Gunakan state lokal dan update state parent di akhir
     double tempSpeed = slideshowSpeed;
     double tempTransition = slideshowTransitionDuration;
 
@@ -438,13 +554,13 @@ class WallpaperSubDialogs {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: Text('Pengaturan Slideshow (${buildingName})'),
+              title: Text('Pengaturan Slideshow ($sourceName)'),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Kecepatan Ganti Ruangan (detik)'),
+                    const Text('Kecepatan Ganti Gambar (detik)'),
                     Slider(
                       value: tempSpeed,
                       min: 3.0,
@@ -481,7 +597,8 @@ class WallpaperSubDialogs {
                 ElevatedButton(
                   onPressed: () async {
                     await AppSettings.saveSlideshowSettings(
-                      buildingPath: buildingDir.path,
+                      path: sourceDir.path,
+                      sourceType: sourceType,
                       speed: tempSpeed,
                       transitionDuration: tempTransition,
                     );
@@ -491,7 +608,7 @@ class WallpaperSubDialogs {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
-                            'Slideshow Bangunan "${buildingName}" diaktifkan.',
+                            'Slideshow ${sourceType == 'building' ? 'Bangunan' : 'Distrik'} "$sourceName" diaktifkan.',
                           ),
                           backgroundColor: Colors.green,
                         ),
@@ -508,7 +625,7 @@ class WallpaperSubDialogs {
     );
   }
 
-  // --- 6. SOLID COLOR DIALOG ---
+  // ... (Dialog Solid, Gradient, Blur tetap sama) ...
   Future<void> showBackgroundSolidDialog() async {
     Color tempSolidColor = currentSolidColor;
 
@@ -558,7 +675,6 @@ class WallpaperSubDialogs {
     );
   }
 
-  // --- 7. GRADIENT DIALOG ---
   Future<void> showBackgroundGradientDialog() async {
     Color tempColor1 = currentGradientColor1;
     Color tempColor2 = currentGradientColor2;
@@ -621,7 +737,6 @@ class WallpaperSubDialogs {
     );
   }
 
-  // --- 8. BLUR SETTINGS DIALOG ---
   Future<void> showBlurSettingsDialog() async {
     if (AppSettings.wallpaperMode != 'static' &&
         AppSettings.wallpaperMode != 'slideshow') {

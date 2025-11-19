@@ -4,10 +4,41 @@ import 'package:path/path.dart' as p;
 import 'dart:io';
 import 'dart:convert';
 import 'package:mind_palace_manager/app_settings.dart';
-import 'package:mind_palace_manager/features/settings/widgets/settings_helpers.dart'; // For ImageSourceInfo, BuildingInfo
+
+class ImageSourceInfo {
+  final String path;
+  final String label;
+  final String? buildingPath;
+  ImageSourceInfo(this.path, this.label, {this.buildingPath});
+}
+
+class BuildingInfo {
+  final Directory directory;
+  final String name;
+  final String districtName;
+  final String regionName;
+  final String? iconType;
+  final dynamic iconData;
+  BuildingInfo(
+    this.directory,
+    this.name,
+    this.districtName,
+    this.regionName,
+    this.iconType,
+    this.iconData,
+  );
+}
+
+// --- BARU: Class helper untuk Distrik ---
+class DistrictInfo {
+  final Directory directory;
+  final String name;
+  final String regionName;
+  final int buildingCount; // Untuk info tambahan
+  DistrictInfo(this.directory, this.name, this.regionName, this.buildingCount);
+}
 
 class WallpaperImageLoader {
-  // --- UI Helper: Membangun kontainer ikon untuk daftar bangunan ---
   static Widget buildBuildingListIcon(
     String? iconType,
     dynamic iconData,
@@ -78,14 +109,12 @@ class WallpaperImageLoader {
     }
   }
 
-  // --- LOGIKA TRAVERSAL: Memuat semua ikon bangunan/distrik/wilayah ---
   static Future<List<ImageSourceInfo>> loadAllIconImages() async {
     final List<ImageSourceInfo> images = [];
     if (AppSettings.baseBuildingsPath == null) return images;
     final rootDir = Directory(AppSettings.baseBuildingsPath!);
     if (!await rootDir.exists()) return images;
 
-    // Traversal Wilayah
     await for (final regionEntity in rootDir.list()) {
       if (regionEntity is Directory) {
         final regionName = p.basename(regionEntity.path);
@@ -106,7 +135,6 @@ class WallpaperImageLoader {
           } catch (_) {}
         }
 
-        // Traversal Distrik
         await for (final districtEntity in regionEntity.list()) {
           if (districtEntity is Directory) {
             final districtName = p.basename(districtEntity.path);
@@ -132,7 +160,6 @@ class WallpaperImageLoader {
               } catch (_) {}
             }
 
-            // Traversal Bangunan
             await for (final buildingEntity in districtEntity.list()) {
               if (buildingEntity is Directory) {
                 final buildingDataFile = File(
@@ -170,7 +197,6 @@ class WallpaperImageLoader {
     return images;
   }
 
-  // --- LOGIKA TRAVERSAL: Memuat semua bangunan yang memiliki gambar ruangan ---
   static Future<List<BuildingInfo>> loadAllBuildingsWithRooms() async {
     final List<BuildingInfo> result = [];
     if (AppSettings.baseBuildingsPath == null) return result;
@@ -233,7 +259,51 @@ class WallpaperImageLoader {
     return result;
   }
 
-  // --- LOGIKA TRAVERSAL: Memuat semua gambar ruangan dari satu bangunan ---
+  // --- BARU: Memuat semua Distrik yang memiliki bangunan ---
+  static Future<List<DistrictInfo>> loadAllDistrictsWithRooms() async {
+    final List<DistrictInfo> result = [];
+    if (AppSettings.baseBuildingsPath == null) return result;
+    final rootDir = Directory(AppSettings.baseBuildingsPath!);
+    if (!await rootDir.exists()) return result;
+
+    await for (final regionEntity in rootDir.list()) {
+      if (regionEntity is Directory) {
+        final regionName = p.basename(regionEntity.path);
+        await for (final districtEntity in regionEntity.list()) {
+          if (districtEntity is Directory) {
+            final districtName = p.basename(districtEntity.path);
+            int buildingCount = 0;
+
+            // Cek apakah distrik memiliki bangunan dengan ruangan
+            // Kita hitung sekilas
+            try {
+              await for (final buildingEntity in districtEntity.list()) {
+                if (buildingEntity is Directory &&
+                    await File(
+                      p.join(buildingEntity.path, 'data.json'),
+                    ).exists()) {
+                  buildingCount++;
+                }
+              }
+            } catch (_) {}
+
+            if (buildingCount > 0) {
+              result.add(
+                DistrictInfo(
+                  districtEntity,
+                  districtName,
+                  regionName,
+                  buildingCount,
+                ),
+              );
+            }
+          }
+        }
+      }
+    }
+    return result;
+  }
+
   static Future<List<ImageSourceInfo>> loadRoomImagesFromBuilding(
     Directory buildingDir,
   ) async {
@@ -264,5 +334,26 @@ class WallpaperImageLoader {
     } catch (_) {}
 
     return images;
+  }
+
+  // --- BARU: Memuat semua gambar ruangan dari sebuah Distrik ---
+  static Future<List<ImageSourceInfo>> loadRoomImagesFromDistrict(
+    Directory districtDir,
+  ) async {
+    final List<ImageSourceInfo> allImages = [];
+
+    try {
+      await for (final buildingEntity in districtDir.list()) {
+        if (buildingEntity is Directory) {
+          // Gunakan fungsi existing untuk memuat ruangan dari bangunan ini
+          final buildingImages = await loadRoomImagesFromBuilding(
+            buildingEntity,
+          );
+          allImages.addAll(buildingImages);
+        }
+      }
+    } catch (_) {}
+
+    return allImages;
   }
 }

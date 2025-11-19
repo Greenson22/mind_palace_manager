@@ -1,10 +1,10 @@
 // lib/features/settings/settings_page.dart
+// ... (Imports)
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'dart:io';
 import 'package:mind_palace_manager/app_settings.dart';
 
-// --- Import Sections ---
 import 'package:mind_palace_manager/features/settings/sections/general_settings_section.dart';
 import 'package:mind_palace_manager/features/settings/sections/visualization_settings_section.dart';
 
@@ -16,11 +16,11 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  // --- Text Controllers ---
+  // ... (Controller declarations)
   late TextEditingController _folderController;
   late TextEditingController _exportPathController;
 
-  // --- State Visualisasi Peta ---
+  // ... (Visualization State declarations)
   late String _currentMapPinShape;
   late String _currentListIconShape;
   late bool _currentShowRegionOutline;
@@ -33,27 +33,25 @@ class _SettingsPageState extends State<SettingsPage> {
   late Color _currentRegionOutlineColor;
   late Color _currentRegionNameColor;
 
-  // --- State Visualisasi Objek ---
   late bool _defaultShowObjectIcons;
   late double _objectIconOpacity;
   late bool _interactableWhenHidden;
 
-  // --- State Umum / Wallpaper ---
+  // ... (General State declarations)
   late String _currentWallpaperFit;
   late String _currentWallpaperMode;
   late Color _currentSolidColor;
   late Color _currentGradientColor1;
   late Color _currentGradientColor2;
   late double _currentBlurStrength;
-
-  // --- BARU: State Overlay ---
   late double _currentOverlayOpacity;
 
   // --- SLIDESHOW STATE ---
   late double _slideshowSpeed;
   late double _slideshowTransitionDuration;
-  String _selectedSlideshowBuildingName = 'Pilih Bangunan';
-  Directory? _selectedSlideshowBuildingDir;
+  String _selectedSlideshowContentName =
+      'Pilih Sumber'; // Rename variabel agar general
+  Directory? _selectedSlideshowContentDir; // Rename variabel
 
   @override
   void initState() {
@@ -69,6 +67,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _loadAllStates() {
+    // ... (Load Visualization States)
     _currentMapPinShape = AppSettings.mapPinShape;
     _currentListIconShape = AppSettings.listIconShape;
     _currentShowRegionOutline = AppSettings.showRegionPinOutline;
@@ -86,14 +85,11 @@ class _SettingsPageState extends State<SettingsPage> {
     _interactableWhenHidden = AppSettings.interactableWhenHidden;
 
     _currentWallpaperFit = AppSettings.wallpaperFit;
-
     _currentWallpaperMode = AppSettings.wallpaperMode;
     _currentSolidColor = Color(AppSettings.solidColor.value);
     _currentGradientColor1 = Color(AppSettings.gradientColor1);
     _currentGradientColor2 = Color(AppSettings.gradientColor2);
     _currentBlurStrength = AppSettings.blurStrength.value;
-
-    // --- BARU: Load Overlay Opacity ---
     _currentOverlayOpacity = AppSettings.backgroundOverlayOpacity;
 
     _slideshowSpeed = AppSettings.slideshowSpeedSeconds;
@@ -101,15 +97,20 @@ class _SettingsPageState extends State<SettingsPage> {
         AppSettings.slideshowTransitionDurationSeconds;
 
     if (AppSettings.slideshowBuildingPath != null) {
-      _selectedSlideshowBuildingDir = Directory(
+      _selectedSlideshowContentDir = Directory(
         AppSettings.slideshowBuildingPath!,
       );
-      _selectedSlideshowBuildingName = p.basename(
+      // Nama Distrik atau Bangunan
+      _selectedSlideshowContentName = p.basename(
         AppSettings.slideshowBuildingPath!,
       );
+      if (AppSettings.slideshowSourceType == 'district') {
+        _selectedSlideshowContentName =
+            "[Distrik] $_selectedSlideshowContentName";
+      }
     } else {
-      _selectedSlideshowBuildingDir = null;
-      _selectedSlideshowBuildingName = 'Pilih Bangunan';
+      _selectedSlideshowContentDir = null;
+      _selectedSlideshowContentName = 'Pilih Sumber';
     }
   }
 
@@ -142,15 +143,15 @@ class _SettingsPageState extends State<SettingsPage> {
             currentWallpaperMode: _currentWallpaperMode,
 
             // State untuk dialog Wallpaper Manager
-            selectedSlideshowBuildingName: _selectedSlideshowBuildingName,
-            selectedSlideshowBuildingDir: _selectedSlideshowBuildingDir,
+            selectedSlideshowBuildingName:
+                _selectedSlideshowContentName, // Pass general name
+            selectedSlideshowBuildingDir: _selectedSlideshowContentDir,
             slideshowSpeed: _slideshowSpeed,
             slideshowTransitionDuration: _slideshowTransitionDuration,
             currentSolidColor: _currentSolidColor,
             currentGradientColor1: _currentGradientColor1,
             currentGradientColor2: _currentGradientColor2,
             currentBlurStrength: _currentBlurStrength,
-            // --- BARU ---
             currentOverlayOpacity: _currentOverlayOpacity,
             setStateCallback: _updateSettingsState,
           ),
@@ -158,6 +159,7 @@ class _SettingsPageState extends State<SettingsPage> {
           const SizedBox(height: 24),
 
           // --- 2. Visualization & Other Settings Section ---
+          // (Tetap sama, tidak ada perubahan)
           VisualizationSettingsSection(
             currentMapPinShape: _currentMapPinShape,
             currentRegionPinShape: _currentRegionPinShape,

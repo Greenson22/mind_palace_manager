@@ -1,33 +1,9 @@
 // lib/features/settings/widgets/settings_helpers.dart
 import 'package:flutter/material.dart';
-import 'dart:io';
 import 'package:mind_palace_manager/app_settings.dart'; // Digunakan untuk AppSettings.listIconShape
 
-// --- Class helper untuk menyimpan info gambar (dari settings_page.dart) ---
-class ImageSourceInfo {
-  final String path;
-  final String label;
-  final String? buildingPath; // Ditambahkan untuk hierarki ruangan
-  ImageSourceInfo(this.path, this.label, {this.buildingPath});
-}
-
-class BuildingInfo {
-  final Directory directory;
-  final String name;
-  final String districtName;
-  final String regionName;
-  final String? iconType;
-  final dynamic iconData;
-  BuildingInfo(
-    this.directory,
-    this.name,
-    this.districtName,
-    this.regionName,
-    this.iconType,
-    this.iconData,
-  );
-}
-// --- SELESAI Class helper ---
+// --- CATATAN: Class ImageSourceInfo dan BuildingInfo telah dipindahkan
+// ke wallpaper_image_loader.dart untuk menghindari konflik/duplikasi. ---
 
 Widget buildSectionHeader(BuildContext context, String title) {
   return Padding(
@@ -178,14 +154,12 @@ String getThemeModeLabel(ThemeMode mode) {
   }
 }
 
-// --- FUNGSI BARU (dipindahkan dari wallpaper_manager_dialogs.dart dan diubah menjadi public) ---
-String getWallpaperModeLabel(String mode, String slideshowBuildingName) {
+String getWallpaperModeLabel(String mode, String slideshowName) {
   switch (mode) {
     case 'static':
       return 'Wallpaper Statis diatur';
     case 'slideshow':
-      // Memerlukan nama bangunan dari AppSettings/parent state
-      return 'Slideshow Aktif: $slideshowBuildingName';
+      return 'Slideshow Aktif: $slideshowName';
     case 'solid':
       return 'Warna Solid Aktif';
     case 'gradient':
