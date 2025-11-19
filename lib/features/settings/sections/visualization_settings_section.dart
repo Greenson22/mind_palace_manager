@@ -17,6 +17,12 @@ class VisualizationSettingsSection extends StatefulWidget {
   final Color currentRegionNameColor;
   final String currentListIconShape;
 
+  // --- Parameter Baru untuk Visibilitas Objek ---
+  final bool defaultShowObjectIcons;
+  final double objectIconOpacity;
+  final bool interactableWhenHidden;
+  // ----------------------------------------------
+
   final Function(VoidCallback fn) setStateCallback;
 
   const VisualizationSettingsSection({
@@ -31,6 +37,11 @@ class VisualizationSettingsSection extends StatefulWidget {
     required this.currentRegionOutlineColor,
     required this.currentRegionNameColor,
     required this.currentListIconShape,
+    // --- Init Parameter Baru ---
+    required this.defaultShowObjectIcons,
+    required this.objectIconOpacity,
+    required this.interactableWhenHidden,
+    // ---------------------------
     required this.setStateCallback,
   });
 
@@ -41,7 +52,6 @@ class VisualizationSettingsSection extends StatefulWidget {
 
 class _VisualizationSettingsSectionState
     extends State<VisualizationSettingsSection> {
-  // State lokal untuk diubah oleh UI (akan disinkronkan ke parent di onChanged)
   late String _mapPinShape;
   late String _regionPinShape;
   late bool _showRegionOutline;
@@ -52,6 +62,12 @@ class _VisualizationSettingsSectionState
   late Color _regionOutlineColor;
   late Color _regionNameColor;
   late String _listIconShape;
+
+  // --- State Lokal Baru ---
+  late bool _defaultShowObjectIcons;
+  late double _objectIconOpacity;
+  late bool _interactableWhenHidden;
+  // -----------------------
 
   @override
   void initState() {
@@ -66,34 +82,61 @@ class _VisualizationSettingsSectionState
     _regionOutlineColor = widget.currentRegionOutlineColor;
     _regionNameColor = widget.currentRegionNameColor;
     _listIconShape = widget.currentListIconShape;
+
+    // --- Init State Baru ---
+    _defaultShowObjectIcons = widget.defaultShowObjectIcons;
+    _objectIconOpacity = widget.objectIconOpacity;
+    _interactableWhenHidden = widget.interactableWhenHidden;
   }
 
-  // Sinkronisasi state lokal dengan widget.currentXyz ketika parent berubah
   @override
   void didUpdateWidget(covariant VisualizationSettingsSection oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.currentMapPinShape != widget.currentMapPinShape)
+    if (oldWidget.currentMapPinShape != widget.currentMapPinShape) {
       _mapPinShape = widget.currentMapPinShape;
-    if (oldWidget.currentRegionPinShape != widget.currentRegionPinShape)
+    }
+    if (oldWidget.currentRegionPinShape != widget.currentRegionPinShape) {
       _regionPinShape = widget.currentRegionPinShape;
-    if (oldWidget.currentShowRegionOutline != widget.currentShowRegionOutline)
+    }
+    if (oldWidget.currentShowRegionOutline != widget.currentShowRegionOutline) {
       _showRegionOutline = widget.currentShowRegionOutline;
-    if (oldWidget.currentRegionOutlineWidth != widget.currentRegionOutlineWidth)
+    }
+    if (oldWidget.currentRegionOutlineWidth !=
+        widget.currentRegionOutlineWidth) {
       _regionOutlineWidth = widget.currentRegionOutlineWidth;
+    }
     if (oldWidget.currentRegionShapeStrokeWidth !=
-        widget.currentRegionShapeStrokeWidth)
+        widget.currentRegionShapeStrokeWidth) {
       _regionShapeStrokeWidth = widget.currentRegionShapeStrokeWidth;
+    }
     if (oldWidget.currentShowRegionDistrictNames !=
-        widget.currentShowRegionDistrictNames)
+        widget.currentShowRegionDistrictNames) {
       _showRegionDistrictNames = widget.currentShowRegionDistrictNames;
-    if (oldWidget.currentRegionPinColor != widget.currentRegionPinColor)
+    }
+    if (oldWidget.currentRegionPinColor != widget.currentRegionPinColor) {
       _regionPinColor = widget.currentRegionPinColor;
-    if (oldWidget.currentRegionOutlineColor != widget.currentRegionOutlineColor)
+    }
+    if (oldWidget.currentRegionOutlineColor !=
+        widget.currentRegionOutlineColor) {
       _regionOutlineColor = widget.currentRegionOutlineColor;
-    if (oldWidget.currentRegionNameColor != widget.currentRegionNameColor)
+    }
+    if (oldWidget.currentRegionNameColor != widget.currentRegionNameColor) {
       _regionNameColor = widget.currentRegionNameColor;
-    if (oldWidget.currentListIconShape != widget.currentListIconShape)
+    }
+    if (oldWidget.currentListIconShape != widget.currentListIconShape) {
       _listIconShape = widget.currentListIconShape;
+    }
+
+    // --- Update Widget Baru ---
+    if (oldWidget.defaultShowObjectIcons != widget.defaultShowObjectIcons) {
+      _defaultShowObjectIcons = widget.defaultShowObjectIcons;
+    }
+    if (oldWidget.objectIconOpacity != widget.objectIconOpacity) {
+      _objectIconOpacity = widget.objectIconOpacity;
+    }
+    if (oldWidget.interactableWhenHidden != widget.interactableWhenHidden) {
+      _interactableWhenHidden = widget.interactableWhenHidden;
+    }
   }
 
   @override
@@ -101,12 +144,12 @@ class _VisualizationSettingsSectionState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // --- 2. Visualisasi Peta (Distrik & Bangunan) ---
+        // --- Visualisasi Peta ---
         buildSectionHeader(context, 'Visualisasi Peta'),
         buildSettingsCard([
           ListTile(
-            leading: Icon(Icons.location_city, color: Colors.orange),
-            title: const Text('Pin Bangunan'),
+            leading: const Icon(Icons.location_city, color: Colors.orange),
+            title: const Text('Pin Bangunan (Peta Distrik)'),
             trailing: buildDropdown(
               context: context,
               value: _mapPinShape,
@@ -120,8 +163,8 @@ class _VisualizationSettingsSectionState
           ),
           const Divider(indent: 56),
           ListTile(
-            leading: Icon(Icons.map, color: Colors.green),
-            title: const Text('Pin Wilayah (Distrik)'),
+            leading: const Icon(Icons.map, color: Colors.green),
+            title: const Text('Pin Wilayah (Peta Dunia)'),
             trailing: buildDropdown(
               context: context,
               value: _regionPinShape,
@@ -133,7 +176,6 @@ class _VisualizationSettingsSectionState
               },
             ),
           ),
-
           if (_regionPinShape != 'Tidak Ada (Tanpa Latar)') ...[
             const Divider(indent: 56),
             buildSliderTile(
@@ -171,11 +213,59 @@ class _VisualizationSettingsSectionState
 
         const SizedBox(height: 24),
 
-        // --- 3. Detail & Outline ---
+        // --- BAGIAN BARU: Visualisasi Objek Dalam Ruangan ---
+        buildSectionHeader(context, 'Visualisasi Objek (Ruangan)'),
+        buildSettingsCard([
+          SwitchListTile(
+            secondary: const Icon(Icons.visibility, color: Colors.teal),
+            title: const Text('Tampilkan Ikon Secara Default'),
+            subtitle: const Text('Status awal saat membuka ruangan'),
+            value: _defaultShowObjectIcons,
+            onChanged: (bool value) async {
+              await AppSettings.saveDefaultShowObjectIcons(value);
+              widget.setStateCallback(() => _defaultShowObjectIcons = value);
+            },
+          ),
+          const Divider(indent: 56),
+          buildSliderTile(
+            icon: Icons.opacity,
+            color: Colors.teal,
+            title: 'Transparansi Ikon',
+            value: _objectIconOpacity,
+            min: 0.1,
+            max: 1.0,
+            divisions: 9,
+            onChanged: (val) async {
+              widget.setStateCallback(() => _objectIconOpacity = val);
+              await AppSettings.saveObjectIconOpacity(val);
+            },
+          ),
+          const Divider(indent: 56),
+          SwitchListTile(
+            secondary: const Icon(Icons.touch_app, color: Colors.teal),
+            title: const Text('Interaksi Saat Tersembunyi'),
+            subtitle: const Text(
+              'Izinkan klik objek meski ikon disembunyikan/transparan',
+            ),
+            value: _interactableWhenHidden,
+            onChanged: (bool value) async {
+              await AppSettings.saveInteractableWhenHidden(value);
+              widget.setStateCallback(() => _interactableWhenHidden = value);
+            },
+          ),
+        ]),
+
+        // ----------------------------------------------------
+        const SizedBox(height: 24),
+
+        // --- Detail & Outline ---
         buildSectionHeader(context, 'Detail Tampilan'),
         buildSettingsCard([
           SwitchListTile(
-            secondary: Icon(Icons.check_circle_outline, color: Colors.blueGrey),
+            secondary: const Icon(
+              Icons.check_circle_outline,
+              color: Colors.blueGrey,
+            ),
             title: const Text('Outline Pin Wilayah'),
             value: _showRegionOutline,
             onChanged: (bool value) async {
@@ -232,7 +322,7 @@ class _VisualizationSettingsSectionState
           ],
           const Divider(indent: 56),
           SwitchListTile(
-            secondary: Icon(Icons.text_fields, color: Colors.blueGrey),
+            secondary: const Icon(Icons.text_fields, color: Colors.blueGrey),
             title: const Text('Label Nama Distrik'),
             value: _showRegionDistrictNames,
             onChanged: (bool value) async {
@@ -261,11 +351,14 @@ class _VisualizationSettingsSectionState
 
         const SizedBox(height: 24),
 
-        // --- 4. Lainnya (Lanjutan) ---
+        // --- Lainnya ---
         buildSectionHeader(context, 'Lainnya'),
         buildSettingsCard([
           ListTile(
-            leading: Icon(Icons.format_list_bulleted, color: Colors.purple),
+            leading: const Icon(
+              Icons.format_list_bulleted,
+              color: Colors.purple,
+            ),
             title: const Text('Bentuk Ikon Daftar'),
             trailing: buildDropdown(
               context: context,

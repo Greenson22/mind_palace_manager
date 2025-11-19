@@ -8,11 +8,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:mind_palace_manager/app_settings.dart';
 import 'package:mind_palace_manager/features/objects/presentation/editor/object_room_editor_page.dart';
 
-/// Enum untuk menentukan perilaku objek
-enum ObjectViewMode {
-  mapContainer, // Seperti Distrik (Pin/Koordinat) - "Wadah"
-  immersiveView, // Seperti Ruangan (Navigasi) - "Lokasi"
-}
+enum ObjectViewMode { mapContainer, immersiveView }
 
 class RecursiveObjectPage extends StatefulWidget {
   final Directory objectDirectory;
@@ -31,37 +27,36 @@ class RecursiveObjectPage extends StatefulWidget {
 class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
   late File _jsonFile;
 
-  // State Data
   Map<String, dynamic> _objectData = {
-    "view_mode": "mapContainer", // Default: Seperti Distrik
+    "view_mode": "mapContainer",
     "image_path": null,
-    "children": [], // Daftar sub-objek
-    "rooms": [], // Daftar ruangan (jika mode immersive)
+    "children": [],
+    "rooms": [],
   };
 
   bool _isLoading = true;
-  bool _isEditMode = false; // Toggle antara Mode Lihat & Edit
-
-  // State Tampilan List/Peta
+  bool _isEditMode = false;
   bool _isListView = false;
+
+  // --- VISIBILITY STATE ---
+  late bool _showIcons;
+  // ------------------------
 
   File? _backgroundImageFile;
   double _imageAspectRatio = 1.0;
 
-  // State untuk Mode Ruangan (Immersive)
   Map<String, dynamic>? _currentRoom;
 
-  // Controller Zoom
   final TransformationController _transformationController =
       TransformationController();
 
-  // State Placement (Saat Edit Mode)
   Offset? _tappedCoords;
 
   @override
   void initState() {
     super.initState();
     _jsonFile = File(p.join(widget.objectDirectory.path, 'object_data.json'));
+    _showIcons = AppSettings.defaultShowObjectIcons;
     _loadData();
   }
 
@@ -84,9 +79,7 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
         final content = await _jsonFile.readAsString();
         _objectData = json.decode(content);
 
-        // Logic load gambar berdasarkan mode
         if (_objectData['view_mode'] == 'mapContainer') {
-          // Load gambar wadah utama
           final imgName = _objectData['image_path'];
           if (imgName != null) {
             _backgroundImageFile = File(
@@ -99,13 +92,11 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
             }
           }
         } else {
-          // Load ruangan pertama jika mode immersive
           final rooms = _objectData['rooms'] as List? ?? [];
           if (rooms.isNotEmpty) {
             if (_currentRoom == null) {
               _currentRoom = rooms[0];
             } else {
-              // Refresh current room data (untuk update koneksi/nama)
               _currentRoom = rooms.firstWhere(
                 (r) => r['id'] == _currentRoom!['id'],
                 orElse: () => rooms[0],
@@ -116,7 +107,6 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
           }
         }
       } else {
-        // Inisialisasi Data Baru
         await _saveData();
       }
     } catch (e) {
@@ -144,10 +134,9 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
     }
   }
 
-  // --- ACTIONS (EDIT MODE) ---
+  // --- ACTIONS ---
 
   Future<void> _pickBackgroundImage() async {
-    // Fungsi ini khusus untuk mengganti gambar di Mode Wadah (Peta)
     final result = await FilePicker.platform.pickFiles(type: FileType.image);
     if (result != null && result.files.single.path != null) {
       final sourceFile = File(result.files.single.path!);
@@ -155,7 +144,6 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
       final fileName = 'bg_${DateTime.now().millisecondsSinceEpoch}$extension';
       final destPath = p.join(widget.objectDirectory.path, fileName);
 
-      // Hapus gambar lama jika ada
       if (_objectData['image_path'] != null) {
         final oldFile = File(
           p.join(widget.objectDirectory.path, _objectData['image_path']),
@@ -179,13 +167,12 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
           ? 'immersiveView'
           : 'mapContainer';
 
-      // Reset state visual saat ganti mode
       _tappedCoords = null;
       _backgroundImageFile = null;
       _currentRoom = null;
 
       _saveData();
-      _loadData(); // Reload untuk menyesuaikan tampilan
+      _loadData();
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -199,7 +186,6 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
   // --- FUNGSI TAMBAH / EDIT CHILD ---
 
   Future<void> _createNewChild(String name, String viewMode) async {
-    // Koordinat default (tengah) jika dibuat dari List View atau tombol tambah
     double x = 0.5;
     double y = 0.5;
 
@@ -208,18 +194,15 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
       y = _tappedCoords!.dy;
     }
 
-    // 1. Buat Folder untuk Objek Anak
     final folderName = 'obj_${DateTime.now().millisecondsSinceEpoch}';
     final childDir = Directory(p.join(widget.objectDirectory.path, folderName));
     await childDir.create();
 
-    // 2. Buat data default anak
     final childJson = File(p.join(childDir.path, 'object_data.json'));
     await childJson.writeAsString(
       json.encode({"view_mode": viewMode, "children": [], "rooms": []}),
     );
 
-    // 3. Simpan referensi di parent
     String? parentRoomId;
     if (_objectData['view_mode'] == 'immersiveView' && _currentRoom != null) {
       parentRoomId = _currentRoom!['id'];
@@ -240,7 +223,7 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
 
     setState(() {
       (_objectData['children'] as List).add(newChild);
-      _tappedCoords = null; // Reset tap
+      _tappedCoords = null;
     });
 
     await _saveData();
@@ -404,11 +387,9 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
       child['icon_type'] = newIconType;
     });
 
-    // Handle Copy Image
     if (newIconType == 'image' && newIconPath != null) {
       final File checkFile = File(newIconPath);
       if (checkFile.isAbsolute && await checkFile.exists()) {
-        // Copy file baru ke folder anak
         final childDir = Directory(
           p.join(widget.objectDirectory.path, child['id']),
         );
@@ -421,13 +402,12 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
         await checkFile.copy(destPath);
         child['icon_path'] = fileName;
       } else {
-        child['icon_path'] = newIconPath; // Path relatif lama
+        child['icon_path'] = newIconPath;
       }
     } else {
       child['icon_path'] = null;
     }
 
-    // Update config anak
     try {
       final childJson = File(
         p.join(widget.objectDirectory.path, child['id'], 'object_data.json'),
@@ -465,14 +445,12 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
     );
 
     if (confirm == true) {
-      // Hapus Folder
       final childDir = Directory(
         p.join(widget.objectDirectory.path, child['id']),
       );
       if (await childDir.exists()) {
         await childDir.delete(recursive: true);
       }
-      // Hapus Data dari List
       setState(() {
         (_objectData['children'] as List).removeWhere(
           (e) => e['id'] == child['id'],
@@ -481,8 +459,6 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
       await _saveData();
     }
   }
-
-  // --- NAVIGATION (RECURSION) ---
 
   void _handleChildTap(Map<String, dynamic> child) {
     if (_isEditMode) {
@@ -504,7 +480,7 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
           objectName: child['name'],
         ),
       ),
-    ).then((_) => _loadData()); // Refresh saat kembali
+    ).then((_) => _loadData());
   }
 
   void _navigateToRoom(String roomId) {
@@ -513,17 +489,15 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
       final target = rooms.firstWhere((r) => r['id'] == roomId);
       setState(() {
         _currentRoom = target;
-        _tappedCoords = null; // Reset tap saat pindah ruangan
-        _isEditMode = false; // Matikan edit mode
+        _tappedCoords = null;
+        _isEditMode = false;
       });
     } catch (_) {}
   }
 
-  // --- DIALOGS ---
-
   Future<void> _showAddDialog() async {
     final nameController = TextEditingController();
-    String selectedType = 'mapContainer'; // Default
+    String selectedType = 'mapContainer';
 
     await showDialog(
       context: context,
@@ -592,8 +566,6 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
     ).then((_) => _loadData());
   }
 
-  // --- UI BUILDERS ---
-
   @override
   Widget build(BuildContext context) {
     final isMapMode = _objectData['view_mode'] == 'mapContainer';
@@ -606,13 +578,11 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
       mainContent = _buildListView();
     } else {
       if (isMapMode) {
-        mainContent = _buildInteractiveCanvas(true); // True = Map Mode Style
+        mainContent = _buildInteractiveCanvas(true);
       } else {
         mainContent = Column(
           children: [
-            Expanded(
-              child: _buildImmersiveRoomCanvas(),
-            ), // Canvas khusus ruangan
+            Expanded(child: _buildImmersiveRoomCanvas()),
             _buildBottomNavigationPanel(),
           ],
         );
@@ -642,7 +612,6 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
             },
           ),
 
-          // --- MENU TITIK TIGA (SHOW MENU) ---
           PopupMenuButton<String>(
             onSelected: (v) {
               switch (v) {
@@ -668,6 +637,9 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
                 case 'manage_rooms':
                   _navigateToRoomEditor();
                   break;
+                case 'toggle_icons':
+                  setState(() => _showIcons = !_showIcons);
+                  break;
               }
             },
             itemBuilder: (context) {
@@ -682,6 +654,19 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
                       ),
                       const SizedBox(width: 8),
                       Text(_isEditMode ? 'Selesai Edit Isi' : 'Mode Edit Isi'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'toggle_icons',
+                  child: Row(
+                    children: [
+                      Icon(
+                        _showIcons ? Icons.visibility : Icons.visibility_off,
+                        color: _showIcons ? Colors.blue : Colors.grey,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(_showIcons ? 'Sembunyikan Ikon' : 'Tampilkan Ikon'),
                     ],
                   ),
                 ),
@@ -758,13 +743,13 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
       return FloatingActionButton.extended(
         onPressed: _showAddDialog,
         icon: const Icon(Icons.add),
-        // --- LABEL DISEDERHANAKAN ---
         label: const Text('Tambah Objek'),
       );
     }
     return null;
   }
 
+  // --- WIDGET YANG SEBELUMNYA HILANG: _buildListView ---
   Widget _buildListView() {
     final children = _objectData['children'] as List? ?? [];
 
@@ -810,7 +795,6 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
     );
   }
 
-  // --- CANVAS KHUSUS MODE IMMERSIVE (RUANGAN) ---
   Widget _buildImmersiveRoomCanvas() {
     if (_currentRoom == null) {
       return const Center(
@@ -843,9 +827,7 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
     );
   }
 
-  // --- CORE: INTERACTIVE AREA (Gambar + Pin + Tap Detector) ---
   Widget _buildInteractiveCanvas(bool isMapStyle) {
-    // Ini biasanya dipakai oleh Mode Peta (Wadah)
     if (_backgroundImageFile == null) {
       return Center(
         child: Column(
@@ -876,6 +858,20 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
     required List children,
     required bool isMapStyle,
   }) {
+    double finalOpacity;
+    if (_isEditMode) {
+      finalOpacity = 1.0;
+    } else {
+      finalOpacity = _showIcons ? AppSettings.objectIconOpacity : 0.0;
+    }
+
+    bool isInteractable;
+    if (_isEditMode) {
+      isInteractable = true;
+    } else {
+      isInteractable = _showIcons ? true : AppSettings.interactableWhenHidden;
+    }
+
     return InteractiveViewer(
       transformationController: _transformationController,
       minScale: 0.5,
@@ -902,15 +898,30 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
                     imageFile,
                     width: constraints.maxWidth,
                     height: constraints.maxHeight,
-                    fit: BoxFit.contain, // Contain agar koordinat akurat
+                    fit: BoxFit.contain,
                   ),
 
-                  // Render Anak (Pin)
                   ...children.map((child) {
-                    return _buildChildWidget(child, constraints, isMapStyle);
+                    final double x = child['x'] ?? 0.5;
+                    final double y = child['y'] ?? 0.5;
+
+                    return Positioned(
+                      left: x * constraints.maxWidth - 20,
+                      top: y * constraints.maxHeight - 20,
+                      child: IgnorePointer(
+                        ignoring: !isInteractable,
+                        child: Opacity(
+                          opacity: finalOpacity,
+                          child: _buildChildWidget(
+                            child,
+                            constraints,
+                            isMapStyle,
+                          ),
+                        ),
+                      ),
+                    );
                   }).toList(),
 
-                  // Marker Tap (Posisi Baru)
                   if (_isEditMode && _tappedCoords != null)
                     Positioned(
                       left: _tappedCoords!.dx * constraints.maxWidth - 15,
@@ -935,8 +946,6 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
     BoxConstraints constraints,
     bool isMapStyle,
   ) {
-    final double x = child['x'] ?? 0.5;
-    final double y = child['y'] ?? 0.5;
     final String name = child['name'];
     final String type = child['type'] ?? 'mapContainer';
     final String iconType = child['icon_type'] ?? 'default';
@@ -949,7 +958,6 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
 
     Widget childContent;
 
-    // Cek jika menggunakan custom image marker
     if (iconType == 'image' && iconPath != null) {
       final file = File(
         p.join(widget.objectDirectory.path, child['id'], iconPath),
@@ -975,45 +983,40 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
               : null,
         );
       } else {
-        // Fallback
         childContent = _buildDefaultMarker(defaultIcon, color, isMapStyle);
       }
     } else {
-      // Default Marker
       childContent = _buildDefaultMarker(defaultIcon, color, isMapStyle);
     }
 
-    // Jika bukan mode map (immersive), tambahkan label di bawahnya
     if (!isMapStyle && iconType != 'image') {
       childContent = Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           childContent,
-          Container(
-            margin: const EdgeInsets.only(top: 2),
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-            decoration: BoxDecoration(
-              color: Colors.black54,
-              borderRadius: BorderRadius.circular(4),
+          if (_isEditMode ||
+              (_showIcons && AppSettings.showRegionDistrictNames))
+            Container(
+              margin: const EdgeInsets.only(top: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                name,
+                style: const TextStyle(color: Colors.white, fontSize: 10),
+              ),
             ),
-            child: Text(
-              name,
-              style: const TextStyle(color: Colors.white, fontSize: 10),
-            ),
-          ),
         ],
       );
     }
 
-    return Positioned(
-      left: x * constraints.maxWidth - 20,
-      top: y * constraints.maxHeight - 20,
-      child: GestureDetector(
-        onTap: () => _handleChildTap(child),
-        child: Tooltip(
-          message: "$name (${type == 'mapContainer' ? 'Wadah' : 'Lokasi'})",
-          child: childContent,
-        ),
+    return GestureDetector(
+      onTap: () => _handleChildTap(child),
+      child: Tooltip(
+        message: "$name (${type == 'mapContainer' ? 'Wadah' : 'Lokasi'})",
+        child: childContent,
       ),
     );
   }
@@ -1047,10 +1050,8 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
     }
   }
 
-  // --- Panel Navigasi Bawah (Disederhanakan) ---
   Widget _buildBottomNavigationPanel() {
     final connections = _currentRoom?['connections'] as List? ?? [];
-    // CATATAN: Objek anak tidak lagi ditampilkan di sini sesuai permintaan.
 
     return Container(
       width: double.infinity,
@@ -1066,7 +1067,6 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Bagian Header & Tombol Tambah
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -1090,7 +1090,6 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
           ),
           const SizedBox(height: 8),
 
-          // Bagian Koneksi Pintu
           if (connections.isNotEmpty) ...[
             Wrap(
               spacing: 8,

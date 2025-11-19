@@ -25,13 +25,15 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
   Map<String, dynamic>? _currentRoom;
 
   // --- STATE UNTUK OBJEK DALAM RUANGAN ---
-  bool _isObjectEditMode = false; // Mode Edit Objek
-  List<dynamic> _roomObjects = []; // Daftar objek yang ditaruh di ruangan ini
-  File? _roomObjectsJsonFile; // File penyimpanan data objek
-  Directory? _roomObjectsRootDir; // Folder root objek untuk ruangan ini
-  Offset? _tappedCoords; // Koordinat tap saat mode edit
+  bool _isObjectEditMode = false;
+  List<dynamic> _roomObjects = [];
+  File? _roomObjectsJsonFile;
+  Directory? _roomObjectsRootDir;
+  Offset? _tappedCoords;
 
-  // Controller untuk Zoom/Pan Gambar Ruangan
+  // --- VISIBILITY STATE (BARU) ---
+  late bool _showIcons; // Toggle lokal untuk visibilitas icon
+
   final TransformationController _transformationController =
       TransformationController();
 
@@ -41,6 +43,8 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
   void initState() {
     super.initState();
     _jsonFile = File(p.join(widget.buildingDirectory.path, 'data.json'));
+    // Inisialisasi toggle dari setting default
+    _showIcons = AppSettings.defaultShowObjectIcons;
     _loadData();
   }
 
@@ -90,8 +94,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
     });
   }
 
-  // --- LOGIKA MUAT & SIMPAN OBJEK ---
-
   Future<void> _loadRoomObjects(String roomId) async {
     _roomObjects = [];
     _roomObjectsRootDir = Directory(
@@ -126,8 +128,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
 
     await _roomObjectsJsonFile!.writeAsString(json.encode(data));
   }
-
-  // --- FUNGSI: TAMBAH OBJEK BARU ---
 
   Future<void> _showAddObjectDialog() async {
     if (_tappedCoords == null) return;
@@ -232,8 +232,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
 
     await _saveRoomObjects();
   }
-
-  // --- FUNGSI: EDIT / HAPUS OBJEK ---
 
   Future<void> _showEditObjectDialog(Map<String, dynamic> obj) async {
     final nameController = TextEditingController(text: obj['name']);
@@ -466,8 +464,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
     }
   }
 
-  // --- NAVIGASI ---
-
   void _navigateToRoom(String targetRoomId) async {
     try {
       final targetRoom = _rooms.firstWhere((r) => r['id'] == targetRoomId);
@@ -518,7 +514,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
     ).then((_) => _loadData());
   }
 
-  // --- FUNGSI TOGGLE MODE EDIT (Untuk Menu) ---
   void _toggleObjectEditMode() {
     setState(() {
       _isObjectEditMode = !_isObjectEditMode;
@@ -554,11 +549,15 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
           ],
         ),
         actions: [
-          // --- MODIFIKASI: Memindahkan Edit Mode ke PopupMenuButton ---
           PopupMenuButton<String>(
             onSelected: (v) {
               if (v == 'toggle_edit_mode') {
                 _toggleObjectEditMode();
+              } else if (v == 'toggle_icons') {
+                // --- LOGIC TOGGLE VISIBILITY ---
+                setState(() {
+                  _showIcons = !_showIcons;
+                });
               } else if (v == 'edit_room_structure') {
                 _navigateToRoomEditor();
               }
@@ -580,6 +579,20 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                           ? 'Selesai Edit Objek'
                           : 'Mode Edit Objek',
                     ),
+                  ],
+                ),
+              ),
+              // --- MENU TOGGLE ICON ---
+              PopupMenuItem(
+                value: 'toggle_icons',
+                child: Row(
+                  children: [
+                    Icon(
+                      _showIcons ? Icons.visibility : Icons.visibility_off,
+                      color: _showIcons ? Colors.blue : Colors.grey,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(_showIcons ? 'Sembunyikan Ikon' : 'Tampilkan Ikon'),
                   ],
                 ),
               ),
@@ -633,6 +646,28 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
       );
     }
 
+    // --- HITUNG LOGIKA VISIBILITAS ICONS ---
+    // 1. Opacity: Jika _showIcons = true -> pakai setting global (0.1-1.0). Jika false -> 0.0.
+    //    Kecuali dalam mode Edit, ikon selalu terlihat (opacity 1.0 atau minimal jelas).
+    double finalOpacity;
+    if (_isObjectEditMode) {
+      finalOpacity = 1.0; // Selalu terlihat saat edit
+    } else {
+      finalOpacity = _showIcons ? AppSettings.objectIconOpacity : 0.0;
+    }
+
+    // 2. Interactable:
+    //    - Mode Edit: Selalu true.
+    //    - Mode Lihat:
+    //       - Jika _showIcons = true -> true.
+    //       - Jika _showIcons = false -> ikuti setting interactableWhenHidden.
+    bool isInteractable;
+    if (_isObjectEditMode) {
+      isInteractable = true;
+    } else {
+      isInteractable = _showIcons ? true : AppSettings.interactableWhenHidden;
+    }
+
     return Column(
       children: [
         Expanded(
@@ -647,7 +682,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                   child: Center(
                     child: Stack(
                       children: [
-                        // 1. GAMBAR RUANGAN + DETECTOR TAP
                         GestureDetector(
                           onTapDown: (details) {
                             if (_isObjectEditMode) {
@@ -669,7 +703,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                           ),
                         ),
 
-                        // 2. RENDER OBJEK
+                        // RENDER OBJEK
                         ..._roomObjects.map((obj) {
                           final double x = obj['x'] ?? 0.5;
                           final double y = obj['y'] ?? 0.5;
@@ -744,50 +778,58 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                             );
                           }
 
+                          // Widget akhir untuk marker (dibungkus opacity dan ignorepointer)
+                          Widget finalMarker = GestureDetector(
+                            onTap: () => _handleObjectTap(obj),
+                            onLongPress: _isObjectEditMode
+                                ? () => _deleteObject(obj)
+                                : null,
+                            child: Tooltip(
+                              message: name,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  markerWidget,
+                                  if (_isObjectEditMode ||
+                                      (_showIcons &&
+                                          AppSettings.showRegionDistrictNames))
+                                    Container(
+                                      margin: const EdgeInsets.only(top: 2),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black54,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        name,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          );
+
+                          // --- TERAPKAN VISIBILITY LOGIC ---
                           return Positioned(
                             left: x * constraints.maxWidth - 20,
                             top: y * constraints.maxHeight - 20,
-                            child: GestureDetector(
-                              onTap: () => _handleObjectTap(obj),
-                              onLongPress: _isObjectEditMode
-                                  ? () => _deleteObject(obj)
-                                  : null,
-                              child: Tooltip(
-                                message: name,
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    markerWidget,
-                                    if (_isObjectEditMode ||
-                                        AppSettings.showRegionDistrictNames)
-                                      Container(
-                                        margin: const EdgeInsets.only(top: 2),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 4,
-                                          vertical: 2,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.black54,
-                                          borderRadius: BorderRadius.circular(
-                                            4,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          name,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 10,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
+                            child: IgnorePointer(
+                              ignoring: !isInteractable,
+                              child: Opacity(
+                                opacity: finalOpacity,
+                                child: finalMarker,
                               ),
                             ),
                           );
                         }).toList(),
 
-                        // 3. INDIKATOR TAP
                         if (_isObjectEditMode && _tappedCoords != null)
                           Positioned(
                             left: _tappedCoords!.dx * constraints.maxWidth - 15,
@@ -806,8 +848,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
             ),
           ),
         ),
-
-        // Panel Navigasi Ruangan
         Container(
           padding: const EdgeInsets.all(16.0),
           decoration: BoxDecoration(

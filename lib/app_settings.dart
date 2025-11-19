@@ -20,8 +20,7 @@ class AppSettings {
   static const String _exportPathKey = 'exportPath';
 
   // --- WALLPAPER & BACKGROUND KEYS ---
-  static const String _wallpaperModeKey =
-      'wallpaperMode'; // 'static', 'slideshow', 'solid', 'gradient', 'default'
+  static const String _wallpaperModeKey = 'wallpaperMode';
   static const String _slideshowBuildingPathKey = 'slideshowBuildingPath';
   static const String _slideshowSpeedKey = 'slideshowSpeedSeconds';
   static const String _slideshowTransitionDurationKey =
@@ -35,7 +34,12 @@ class AppSettings {
   static const String _gradientColor2Key = 'gradientColor2';
   static const String _blurStrengthKey = 'blurStrength';
   static const String _containmentBackgroundColorKey =
-      'containmentBackgroundColor'; // Kunci BARU untuk warna padding
+      'containmentBackgroundColor';
+
+  // --- OBJECT VISIBILITY KEYS (BARU) ---
+  static const String _defaultShowObjectIconsKey = 'defaultShowObjectIcons';
+  static const String _objectIconOpacityKey = 'objectIconOpacity';
+  static const String _interactableWhenHiddenKey = 'interactableWhenHidden';
   // --- END KEYS ---
 
   // --- STATIC VARIABLES ---
@@ -54,29 +58,32 @@ class AppSettings {
   static String? wallpaperPath;
 
   // --- WALLPAPER & BACKGROUND VARIABLES ---
-  static String wallpaperMode = 'default'; // Diubah dari wallpaperType
+  static String wallpaperMode = 'default';
   static String? slideshowBuildingPath;
   static double slideshowSpeedSeconds = 10.0;
   static double slideshowTransitionDurationSeconds = 1.0;
   static String wallpaperFit = 'cover';
 
-  // --- SOLID/GRADIENT/BLUR VARIABLES (DIUBAH MENJADI ValueNotifier) ---
+  // --- SOLID/GRADIENT/BLUR VARIABLES ---
   static ValueNotifier<int> solidColor = ValueNotifier(
     Colors.grey.shade900.value,
-  ); // Default dark
+  );
   static int gradientColor1 = Colors.blue.value;
   static int gradientColor2 = Colors.deepPurple.value;
-  static ValueNotifier<double> blurStrength = ValueNotifier(
-    5.0,
-  ); // Default blur
-
-  // --- VARIABEL BARU (Warna Latar Belakang Mode Contain) ---
+  static ValueNotifier<double> blurStrength = ValueNotifier(5.0);
   static ValueNotifier<int> containmentBackgroundColor = ValueNotifier(
     Colors.black.value,
-  ); // Default hitam
-  // --- SELESAI VARIABEL BARU ---
+  );
 
   static ValueNotifier<ThemeMode> themeMode = ValueNotifier(ThemeMode.system);
+
+  // --- OBJECT VISIBILITY VARIABLES (BARU) ---
+  // Default state saat membuka halaman viewer (On/Off)
+  static bool defaultShowObjectIcons = true;
+  // Tingkat transparansi saat icon ditampilkan (0.1 - 1.0)
+  static double objectIconOpacity = 1.0;
+  // Apakah icon masih bisa diklik saat disembunyikan?
+  static bool interactableWhenHidden = true;
   // --- END STATIC VARIABLES ---
 
   static Future<void> loadSettings() async {
@@ -102,7 +109,7 @@ class AppSettings {
 
     exportPath = prefs.getString(_exportPathKey);
 
-    // Load Wallpaper/Background Settings
+    // Load Wallpaper
     wallpaperPath = prefs.getString(_wallpaperPathKey);
     wallpaperMode = prefs.getString(_wallpaperModeKey) ?? 'default';
     slideshowBuildingPath = prefs.getString(_slideshowBuildingPathKey);
@@ -111,27 +118,30 @@ class AppSettings {
         prefs.getDouble(_slideshowTransitionDurationKey) ?? 1.0;
     wallpaperFit = prefs.getString(_wallpaperFitKey) ?? 'cover';
 
-    // Load Solid/Gradient/Blur/Containment Settings
+    // Load Solid/Gradient/Blur
     solidColor.value =
         prefs.getInt(_solidColorKey) ?? Colors.grey.shade900.value;
     gradientColor1 = prefs.getInt(_gradientColor1Key) ?? Colors.blue.value;
     gradientColor2 =
         prefs.getInt(_gradientColor2Key) ?? Colors.deepPurple.value;
     blurStrength.value = prefs.getDouble(_blurStrengthKey) ?? 5.0;
-
-    // MUAT VARIABEL BARU
     containmentBackgroundColor.value =
         prefs.getInt(_containmentBackgroundColorKey) ?? Colors.black.value;
+
+    // --- LOAD OBJECT VISIBILITY SETTINGS (BARU) ---
+    defaultShowObjectIcons = prefs.getBool(_defaultShowObjectIconsKey) ?? true;
+    objectIconOpacity = prefs.getDouble(_objectIconOpacityKey) ?? 1.0;
+    interactableWhenHidden = prefs.getBool(_interactableWhenHiddenKey) ?? true;
   }
 
-  // --- SAVE FUNCTIONS (BARU & DIUBAH) ---
+  // --- SAVE FUNCTIONS ---
 
-  // Mengatur Mode Background (Solid, Gradient, dll.)
+  // ... (Fungsi save yang lama tetap sama, tambahkan yang baru di bawah)
+
   static Future<void> saveBackgroundMode(String mode) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_wallpaperModeKey, mode);
     wallpaperMode = mode;
-    // Bersihkan path gambar jika mode diubah ke non-gambar/slideshow
     if (mode != 'static' && mode != 'slideshow') {
       await prefs.remove(_wallpaperPathKey);
       await prefs.remove(_slideshowBuildingPathKey);
@@ -140,21 +150,18 @@ class AppSettings {
     }
   }
 
-  // Mengatur Warna Solid (DIUBAH)
   static Future<void> saveSolidColor(int colorValue) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_solidColorKey, colorValue);
     solidColor.value = colorValue;
   }
 
-  // Mengatur Warna Background Containment (FUNGSI BARU)
   static Future<void> saveContainmentBackgroundColor(int colorValue) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_containmentBackgroundColorKey, colorValue);
     containmentBackgroundColor.value = colorValue;
   }
 
-  // Mengatur Warna Gradient
   static Future<void> saveGradientColor1(int colorValue) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_gradientColor1Key, colorValue);
@@ -167,21 +174,18 @@ class AppSettings {
     gradientColor2 = colorValue;
   }
 
-  // Mengatur Kekuatan Blur (DIUBAH)
   static Future<void> saveBlurStrength(double strength) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble(_blurStrengthKey, strength);
     blurStrength.value = strength;
   }
 
-  // Mengatur Mode Tampilan Gambar (Fit)
   static Future<void> saveWallpaperFit(String fit) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_wallpaperFitKey, fit);
     wallpaperFit = fit;
   }
 
-  // Mengatur Wallpaper Statis (Mengubah Mode)
   static Future<void> saveStaticWallpaper(String? path) async {
     final prefs = await SharedPreferences.getInstance();
     if (path == null) {
@@ -195,19 +199,16 @@ class AppSettings {
     slideshowBuildingPath = null;
   }
 
-  // Mengatur Slideshow (Mengubah Mode)
   static Future<void> saveSlideshowSettings({
     required String buildingPath,
     required double speed,
     required double transitionDuration,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-
     await prefs.setString(_wallpaperModeKey, 'slideshow');
     await prefs.setString(_slideshowBuildingPathKey, buildingPath);
     await prefs.setDouble(_slideshowSpeedKey, speed);
     await prefs.setDouble(_slideshowTransitionDurationKey, transitionDuration);
-
     await prefs.remove(_wallpaperPathKey);
 
     wallpaperMode = 'slideshow';
@@ -217,7 +218,6 @@ class AppSettings {
     wallpaperPath = null;
   }
 
-  // Menghapus Wallpaper/Background (Mengubah Mode ke Default)
   static Future<void> clearWallpaper() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_wallpaperModeKey, 'default');
@@ -228,8 +228,6 @@ class AppSettings {
     wallpaperPath = null;
     slideshowBuildingPath = null;
   }
-
-  // --- FUNGSI SAVE LAINNYA (Telah ada) ---
 
   static Future<void> saveExportPath(String path) async {
     final prefs = await SharedPreferences.getInstance();
@@ -308,6 +306,27 @@ class AppSettings {
     await prefs.setInt(_regionNameColorKey, colorValue);
     regionNameColor = colorValue;
   }
+
+  // --- SAVE FUNCTIONS UNTUK VISIBILITAS OBJEK (BARU) ---
+
+  static Future<void> saveDefaultShowObjectIcons(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_defaultShowObjectIconsKey, value);
+    defaultShowObjectIcons = value;
+  }
+
+  static Future<void> saveObjectIconOpacity(double value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_objectIconOpacityKey, value);
+    objectIconOpacity = value;
+  }
+
+  static Future<void> saveInteractableWhenHidden(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_interactableWhenHiddenKey, value);
+    interactableWhenHidden = value;
+  }
+  // ---------------------------------------------------
 
   static ThemeMode _getThemeModeFromString(String themeString) {
     switch (themeString) {

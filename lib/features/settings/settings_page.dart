@@ -4,10 +4,9 @@ import 'package:path/path.dart' as p;
 import 'dart:io';
 import 'package:mind_palace_manager/app_settings.dart';
 
-// --- BARU: Import Sections ---
+// --- Import Sections ---
 import 'package:mind_palace_manager/features/settings/sections/general_settings_section.dart';
 import 'package:mind_palace_manager/features/settings/sections/visualization_settings_section.dart';
-// --- SELESAI BARU ---
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -34,13 +33,19 @@ class _SettingsPageState extends State<SettingsPage> {
   late Color _currentRegionOutlineColor;
   late Color _currentRegionNameColor;
 
+  // --- State Visualisasi Objek (BARU) ---
+  late bool _defaultShowObjectIcons;
+  late double _objectIconOpacity;
+  late bool _interactableWhenHidden;
+  // --------------------------------------
+
   // --- State Umum / Wallpaper ---
   late String _currentWallpaperFit;
   late String _currentWallpaperMode;
   late Color _currentSolidColor;
   late Color _currentGradientColor1;
   late Color _currentGradientColor2;
-  late double _currentBlurStrength; // <-- FIX: Mengubah tipe data ke double
+  late double _currentBlurStrength;
 
   // --- SLIDESHOW STATE ---
   late double _slideshowSpeed;
@@ -58,11 +63,9 @@ class _SettingsPageState extends State<SettingsPage> {
       text: AppSettings.exportPath ?? 'Belum diatur',
     );
 
-    // --- Inisialisasi Semua State dari AppSettings ---
     _loadAllStates();
   }
 
-  // Helper untuk memuat/memuat ulang semua state dari AppSettings
   void _loadAllStates() {
     _currentMapPinShape = AppSettings.mapPinShape;
     _currentListIconShape = AppSettings.listIconShape;
@@ -76,13 +79,19 @@ class _SettingsPageState extends State<SettingsPage> {
     _currentRegionOutlineColor = Color(AppSettings.regionOutlineColor);
     _currentRegionNameColor = Color(AppSettings.regionNameColor);
 
+    // --- Load State Baru ---
+    _defaultShowObjectIcons = AppSettings.defaultShowObjectIcons;
+    _objectIconOpacity = AppSettings.objectIconOpacity;
+    _interactableWhenHidden = AppSettings.interactableWhenHidden;
+    // ---------------------
+
     _currentWallpaperFit = AppSettings.wallpaperFit;
 
     _currentWallpaperMode = AppSettings.wallpaperMode;
     _currentSolidColor = Color(AppSettings.solidColor.value);
     _currentGradientColor1 = Color(AppSettings.gradientColor1);
     _currentGradientColor2 = Color(AppSettings.gradientColor2);
-    _currentBlurStrength = AppSettings.blurStrength.value; // Memuat double
+    _currentBlurStrength = AppSettings.blurStrength.value;
     _slideshowSpeed = AppSettings.slideshowSpeedSeconds;
     _slideshowTransitionDuration =
         AppSettings.slideshowTransitionDurationSeconds;
@@ -107,7 +116,6 @@ class _SettingsPageState extends State<SettingsPage> {
     super.dispose();
   }
 
-  // Fungsi setter untuk mengupdate state dari widget anak dan memuat ulang semua data
   void _updateSettingsState(VoidCallback fn) {
     setState(() {
       fn();
@@ -155,6 +163,11 @@ class _SettingsPageState extends State<SettingsPage> {
             currentRegionOutlineColor: _currentRegionOutlineColor,
             currentRegionNameColor: _currentRegionNameColor,
             currentListIconShape: _currentListIconShape,
+            // --- Pass Parameter Baru ---
+            defaultShowObjectIcons: _defaultShowObjectIcons,
+            objectIconOpacity: _objectIconOpacity,
+            interactableWhenHidden: _interactableWhenHidden,
+            // ---------------------------
             setStateCallback: _updateSettingsState,
           ),
         ],
