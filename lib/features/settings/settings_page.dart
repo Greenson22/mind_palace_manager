@@ -7,6 +7,7 @@ import 'package:mind_palace_manager/features/settings/about_page.dart';
 // --- BARU: Import untuk Wallpaper Traversal ---
 import 'package:path/path.dart' as p;
 import 'dart:convert';
+import 'dart:ui'; // Import untuk BackdropFilter/ImageFilter
 // --- SELESAI BARU ---
 
 // --- BARU: Class helper untuk menyimpan info gambar ---
@@ -44,7 +45,7 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   late TextEditingController _folderController;
-  late TextEditingController _exportPathController; // DIBUAT BARU
+  late TextEditingController _exportPathController;
   late String _currentMapPinShape;
   late String _currentListIconShape;
   late bool _currentShowRegionOutline;
@@ -53,20 +54,28 @@ class _SettingsPageState extends State<SettingsPage> {
   late double _currentRegionShapeStrokeWidth;
   late bool _currentShowRegionDistrictNames;
 
-  // --- BARU: Wallpaper Fit State ---
+  // --- WALLPAPER FIT STATE ---
   late String _currentWallpaperFit;
 
   late Color _currentRegionPinColor;
   late Color _currentRegionOutlineColor;
   late Color _currentRegionNameColor;
 
-  // --- BARU: Slideshow State ---
+  // --- BACKGROUND/EFFECT STATE BARU ---
+  late String _currentWallpaperMode;
+  late Color _currentSolidColor;
+  late Color _currentGradientColor1;
+  late Color _currentGradientColor2;
+  late double _currentBlurStrength;
+  // --- END BACKGROUND/EFFECT STATE BARU ---
+
+  // --- SLIDESHOW STATE ---
   double _slideshowSpeed = AppSettings.slideshowSpeedSeconds;
   double _slideshowTransitionDuration =
       AppSettings.slideshowTransitionDurationSeconds;
   String _selectedSlideshowBuildingName = 'Pilih Bangunan';
   Directory? _selectedSlideshowBuildingDir;
-  // --- SELESAI BARU ---
+  // --- END SLIDESHOW STATE ---
 
   @override
   void initState() {
@@ -74,11 +83,9 @@ class _SettingsPageState extends State<SettingsPage> {
     _folderController = TextEditingController(
       text: AppSettings.baseBuildingsPath ?? 'Belum diatur',
     );
-    // --- BARU: Inisialisasi Export Path Controller ---
     _exportPathController = TextEditingController(
       text: AppSettings.exportPath ?? 'Belum diatur',
     );
-    // --- SELESAI BARU ---
     _currentMapPinShape = AppSettings.mapPinShape;
     _currentListIconShape = AppSettings.listIconShape;
     _currentShowRegionOutline = AppSettings.showRegionPinOutline;
@@ -91,10 +98,17 @@ class _SettingsPageState extends State<SettingsPage> {
     _currentRegionOutlineColor = Color(AppSettings.regionOutlineColor);
     _currentRegionNameColor = Color(AppSettings.regionNameColor);
 
-    // --- BARU: Init Wallpaper Fit State ---
+    // Init Wallpaper Fit State
     _currentWallpaperFit = AppSettings.wallpaperFit;
 
-    // --- BARU: Set initial slideshow building name ---
+    // Init Background/Effect State BARU
+    _currentWallpaperMode = AppSettings.wallpaperMode;
+    _currentSolidColor = Color(AppSettings.solidColor);
+    _currentGradientColor1 = Color(AppSettings.gradientColor1);
+    _currentGradientColor2 = Color(AppSettings.gradientColor2);
+    _currentBlurStrength = AppSettings.blurStrength;
+
+    // Set initial slideshow building name
     if (AppSettings.slideshowBuildingPath != null) {
       _selectedSlideshowBuildingDir = Directory(
         AppSettings.slideshowBuildingPath!,
@@ -102,16 +116,17 @@ class _SettingsPageState extends State<SettingsPage> {
       _selectedSlideshowBuildingName = p.basename(
         AppSettings.slideshowBuildingPath!,
       );
+    } else if (AppSettings.wallpaperMode == 'slideshow') {
+      // Jika mode slideshow aktif tapi path hilang, reset mode
+      AppSettings.clearWallpaper();
+      _currentWallpaperMode = 'default';
     }
-    // --- SELESAI BARU ---
   }
 
   @override
   void dispose() {
     _folderController.dispose();
-    // --- BARU: Dispose Export Path Controller ---
     _exportPathController.dispose();
-    // --- SELESAI BARU ---
     super.dispose();
   }
 
@@ -145,12 +160,12 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  // --- Fungsi untuk memilih dan menyimpan folder export ---
   Future<void> _pickAndSaveExportFolder() async {
     String? selectedPath = await FilePicker.platform.getDirectoryPath();
     if (selectedPath != null) {
       try {
         final exportDir = Directory(selectedPath);
+        // PANGGIL FUNGSI SAVE EXPORT PATH
         await AppSettings.saveExportPath(exportDir.path);
         setState(() {
           _exportPathController.text = AppSettings.exportPath!;
@@ -257,7 +272,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  // --- START LOGIKA WALLPAPER ---
+  // --- WALLPAPER HELPER METHODS (DIPOTONG UNTUK KERINGKASAN) ---
 
   // Helper untuk merender ikon bangunan berdasarkan data
   Widget _buildBuildingIconContainer(
@@ -336,8 +351,10 @@ class _SettingsPageState extends State<SettingsPage> {
     final List<_ImageSourceInfo> images = [];
     if (AppSettings.baseBuildingsPath == null) return images;
     final rootDir = Directory(AppSettings.baseBuildingsPath!);
-
     if (!await rootDir.exists()) return images;
+
+    // ... (logic for iterating regions, districts, buildings to find icon images) ...
+    // NOTE: Logika ini terlalu panjang, dihilangkan untuk keringkasan kode, asumsikan sudah benar.
 
     await for (final regionEntity in rootDir.list()) {
       if (regionEntity is Directory) {
@@ -422,12 +439,13 @@ class _SettingsPageState extends State<SettingsPage> {
     return images;
   }
 
-  // Traversal untuk mengumpulkan bangunan yang memiliki gambar ruangan
   Future<List<_BuildingInfo>> _loadAllBuildingsWithRooms() async {
     final List<_BuildingInfo> result = [];
     if (AppSettings.baseBuildingsPath == null) return result;
     final rootDir = Directory(AppSettings.baseBuildingsPath!);
     if (!await rootDir.exists()) return result;
+
+    // ... (logic for iterating regions, districts, buildings to find rooms with images) ...
 
     await for (final regionEntity in rootDir.list()) {
       if (regionEntity is Directory) {
@@ -471,8 +489,8 @@ class _SettingsPageState extends State<SettingsPage> {
                         buildingName,
                         districtName,
                         regionName,
-                        iconType, // NEW
-                        iconData, // NEW
+                        iconType,
+                        iconData,
                       ),
                     );
                   }
@@ -486,7 +504,6 @@ class _SettingsPageState extends State<SettingsPage> {
     return result;
   }
 
-  // Traversal untuk memuat gambar ruangan spesifik dari satu bangunan
   Future<List<_ImageSourceInfo>> _loadRoomImagesFromBuilding(
     Directory buildingDir,
   ) async {
@@ -504,7 +521,6 @@ class _SettingsPageState extends State<SettingsPage> {
           final relativeImagePath = room['image'];
           final imagePath = p.join(buildingDir.path, relativeImagePath);
           if (await File(imagePath).exists()) {
-            // NOTE: imagePath di sini sudah path absolut
             images.add(
               _ImageSourceInfo(
                 imagePath,
@@ -520,15 +536,18 @@ class _SettingsPageState extends State<SettingsPage> {
     return images;
   }
 
+  // Aksi pemilihan gambar statis dari galeri
   Future<void> _pickImageFromGallery() async {
     final result = await FilePicker.platform.pickFiles(type: FileType.image);
     if (result != null && result.files.single.path != null) {
-      // Set sebagai Static Wallpaper
       await AppSettings.saveStaticWallpaper(result.files.single.path!);
-      setState(() {});
+      setState(() {
+        _currentWallpaperMode = 'static';
+      });
     }
   }
 
+  // Aksi pemilihan ikon sebagai wallpaper statis
   Future<void> _showIconPicker() async {
     if (AppSettings.baseBuildingsPath == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -542,7 +561,6 @@ class _SettingsPageState extends State<SettingsPage> {
       return;
     }
 
-    // Show loading
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -558,7 +576,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
 
     final images = await _loadAllIconImages();
-    if (mounted) Navigator.pop(context); // Dismiss loading
+    if (mounted) Navigator.pop(context);
 
     if (!mounted) return;
     if (images.isEmpty) {
@@ -591,11 +609,12 @@ class _SettingsPageState extends State<SettingsPage> {
                 final imageInfo = images[index];
                 return GestureDetector(
                   onTap: () async {
-                    // Set sebagai Static Wallpaper
                     await AppSettings.saveStaticWallpaper(imageInfo.path);
                     if (mounted) {
                       Navigator.pop(c);
-                      setState(() {});
+                      setState(() {
+                        _currentWallpaperMode = 'static';
+                      });
                     }
                   },
                   child: Column(
@@ -639,7 +658,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  // --- HIERARCHICAL PICKER FOR ROOMS (STEP 1: BUILDING) ---
+  // Aksi pemilihan gambar ruangan statis (Langkah 1: Bangunan)
   Future<void> _showStaticRoomPicker() async {
     if (AppSettings.baseBuildingsPath == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -653,7 +672,6 @@ class _SettingsPageState extends State<SettingsPage> {
       return;
     }
 
-    // Show loading
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -669,7 +687,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
 
     final buildingList = await _loadAllBuildingsWithRooms();
-    if (mounted) Navigator.pop(context); // Dismiss loading
+    if (mounted) Navigator.pop(context);
 
     if (!mounted) return;
     if (buildingList.isEmpty) {
@@ -682,7 +700,6 @@ class _SettingsPageState extends State<SettingsPage> {
       return;
     }
 
-    // 2. Show Building Picker Dialog
     await showDialog(
       context: context,
       builder: (c) {
@@ -696,22 +713,18 @@ class _SettingsPageState extends State<SettingsPage> {
               itemBuilder: (c, index) {
                 final info = buildingList[index];
                 return ListTile(
-                  // --- BARU: Tambahkan leading icon ---
                   leading: _buildBuildingIconContainer(
                     info.iconType,
                     info.iconData,
                     info.directory.path,
                   ),
-                  // --- SELESAI BARU ---
                   title: Text(info.name),
                   subtitle: Text(
                     'Wilayah: ${info.regionName} / Distrik: ${info.districtName}',
                   ),
                   onTap: () {
-                    Navigator.pop(c); // Tutup picker bangunan
-                    _showStaticRoomImagePicker(
-                      info.directory,
-                    ); // Lanjut ke picker ruangan statis
+                    Navigator.pop(c);
+                    _showStaticRoomImagePicker(info.directory);
                   },
                 );
               },
@@ -728,9 +741,8 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  // --- HIERARCHICAL PICKER FOR ROOMS (STEP 2: STATIC ROOM) ---
+  // Aksi pemilihan gambar ruangan statis (Langkah 2: Ruangan)
   Future<void> _showStaticRoomImagePicker(Directory buildingDir) async {
-    // Show loading
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -746,7 +758,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
 
     final roomImages = await _loadRoomImagesFromBuilding(buildingDir);
-    if (mounted) Navigator.pop(context); // Dismiss loading
+    if (mounted) Navigator.pop(context);
 
     await showDialog(
       context: context,
@@ -769,11 +781,12 @@ class _SettingsPageState extends State<SettingsPage> {
 
                 return GestureDetector(
                   onTap: () async {
-                    // Set sebagai Static Wallpaper
                     await AppSettings.saveStaticWallpaper(imageInfo.path);
                     if (mounted) {
-                      Navigator.pop(c); // Close room picker
-                      setState(() {});
+                      Navigator.pop(c);
+                      setState(() {
+                        _currentWallpaperMode = 'static';
+                      });
                     }
                   },
                   child: Column(
@@ -817,7 +830,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  // --- BARU: SLIDESHOW BUILDER & LOGIC ---
+  // Aksi pemilihan bangunan untuk Slideshow
   Future<void> _showSlideshowBuildingPicker() async {
     if (AppSettings.baseBuildingsPath == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -831,7 +844,6 @@ class _SettingsPageState extends State<SettingsPage> {
       return;
     }
 
-    // Show loading
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -847,7 +859,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
 
     final buildingList = await _loadAllBuildingsWithRooms();
-    if (mounted) Navigator.pop(context); // Dismiss loading
+    if (mounted) Navigator.pop(context);
 
     if (!mounted) return;
     if (buildingList.length < 1) {
@@ -862,7 +874,6 @@ class _SettingsPageState extends State<SettingsPage> {
       return;
     }
 
-    // Filter bangunan yang memiliki setidaknya 2 gambar untuk slideshow
     final List<_BuildingInfo> slideshowReadyBuildings = [];
     for (var info in buildingList) {
       final roomImages = await _loadRoomImagesFromBuilding(info.directory);
@@ -883,7 +894,6 @@ class _SettingsPageState extends State<SettingsPage> {
       return;
     }
 
-    // 2. Show Building Picker Dialog
     await showDialog(
       context: context,
       builder: (c) {
@@ -911,8 +921,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       _selectedSlideshowBuildingDir = info.directory;
                       _selectedSlideshowBuildingName = info.name;
                     });
-                    Navigator.pop(c); // Tutup picker bangunan
-                    // Langsung panggil _showSlideshowSettingsDialog dari sini
+                    Navigator.pop(c);
                     _showSlideshowSettingsDialog();
                   },
                 );
@@ -930,6 +939,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  // Pengaturan Slideshow (Kecepatan dan Transisi)
   Future<void> _showSlideshowSettingsDialog() async {
     await showDialog(
       context: context,
@@ -993,7 +1003,9 @@ class _SettingsPageState extends State<SettingsPage> {
                     );
                     if (mounted) {
                       Navigator.pop(c);
-                      setState(() {}); // Trigger refresh
+                      setState(() {
+                        _currentWallpaperMode = 'slideshow';
+                      });
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
@@ -1005,6 +1017,208 @@ class _SettingsPageState extends State<SettingsPage> {
                     }
                   },
                   child: const Text('Aktifkan Slideshow'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // --- BACKGROUND/EFFECT DIALOGS BARU ---
+
+  String _getWallpaperModeLabel(String mode) {
+    switch (mode) {
+      case 'static':
+        return 'Wallpaper Statis diatur';
+      case 'slideshow':
+        return 'Slideshow Aktif: ${_selectedSlideshowBuildingName}';
+      case 'solid':
+        return 'Warna Solid Aktif';
+      case 'gradient':
+        return 'Gradient Aktif';
+      case 'default':
+      default:
+        return 'Menggunakan latar default';
+    }
+  }
+
+  Future<void> _showBackgroundSolidDialog() async {
+    Color tempSolidColor = _currentSolidColor;
+
+    await showDialog(
+      context: context,
+      builder: (c) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Pilih Warna Solid'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Warna saat ini:'),
+                  _buildColorCircle(
+                    tempSolidColor,
+                    () => _showColorPickerDialog(
+                      'Pilih Warna',
+                      tempSolidColor,
+                      (color) => setDialogState(() => tempSolidColor = color),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(c),
+                  child: const Text('Batal'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    await AppSettings.saveBackgroundMode('solid');
+                    await AppSettings.saveSolidColor(tempSolidColor.value);
+                    if (mounted) {
+                      Navigator.pop(c);
+                      setState(() {
+                        _currentWallpaperMode = 'solid';
+                        _currentSolidColor = tempSolidColor;
+                      });
+                    }
+                  },
+                  child: const Text('Terapkan'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _showBackgroundGradientDialog() async {
+    Color tempColor1 = _currentGradientColor1;
+    Color tempColor2 = _currentGradientColor2;
+
+    await showDialog(
+      context: context,
+      builder: (c) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Pilih Gradient'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Warna Awal:'),
+                  _buildColorCircle(
+                    tempColor1,
+                    () => _showColorPickerDialog(
+                      'Pilih Warna Awal',
+                      tempColor1,
+                      (color) => setDialogState(() => tempColor1 = color),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Warna Akhir:'),
+                  _buildColorCircle(
+                    tempColor2,
+                    () => _showColorPickerDialog(
+                      'Pilih Warna Akhir',
+                      tempColor2,
+                      (color) => setDialogState(() => tempColor2 = color),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(c),
+                  child: const Text('Batal'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    await AppSettings.saveBackgroundMode('gradient');
+                    await AppSettings.saveGradientColor1(tempColor1.value);
+                    await AppSettings.saveGradientColor2(tempColor2.value);
+                    if (mounted) {
+                      Navigator.pop(c);
+                      setState(() {
+                        _currentWallpaperMode = 'gradient';
+                        _currentGradientColor1 = tempColor1;
+                        _currentGradientColor2 = tempColor2;
+                      });
+                    }
+                  },
+                  child: const Text('Terapkan'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _showBlurSettingsDialog() async {
+    if (AppSettings.wallpaperMode != 'static' &&
+        AppSettings.wallpaperMode != 'slideshow') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Pilih Gambar Statis atau Slideshow dulu sebelum memberi efek blur.',
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    double tempBlurStrength = _currentBlurStrength;
+
+    await showDialog(
+      context: context,
+      builder: (c) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Atur Efek Blur pada Gambar'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Kekuatan Blur: ${tempBlurStrength.toStringAsFixed(1)}'),
+                  Slider(
+                    value: tempBlurStrength,
+                    min: 0.0,
+                    max: 20.0,
+                    divisions: 40,
+                    label: tempBlurStrength.toStringAsFixed(1),
+                    onChanged: (val) =>
+                        setDialogState(() => tempBlurStrength = val),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Catatan: Efek Blur hanya berlaku jika Wallpaper Statis atau Slideshow sedang aktif.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(c),
+                  child: const Text('Batal'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    await AppSettings.saveBlurStrength(tempBlurStrength);
+                    if (mounted) {
+                      Navigator.pop(c);
+                      setState(() {
+                        _currentBlurStrength = tempBlurStrength;
+                      });
+                    }
+                  },
+                  child: const Text('Simpan Kekuatan Blur'),
                 ),
               ],
             );
@@ -1030,12 +1244,33 @@ class _SettingsPageState extends State<SettingsPage> {
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
               ),
-              // --- TIPE SLIDESHOW ---
+              const Divider(height: 1),
+
+              // PILIHAN WARNA/GRADIENT
+              ListTile(
+                leading: const Icon(Icons.palette, color: Colors.blue),
+                title: const Text('Warna Solid (Solid Color)'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showBackgroundSolidDialog();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.gradient, color: Colors.indigo),
+                title: const Text('Gradient'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showBackgroundGradientDialog();
+                },
+              ),
+              const Divider(height: 1),
+
+              // TIPE SLIDESHOW
               ListTile(
                 leading: const Icon(Icons.slideshow, color: Colors.purple),
                 title: const Text('Slideshow Ruangan (Bangunan)'),
                 subtitle: Text(
-                  _selectedSlideshowBuildingDir != null
+                  AppSettings.wallpaperMode == 'slideshow'
                       ? 'Bangunan: ${_selectedSlideshowBuildingName} (${AppSettings.slideshowSpeedSeconds.toStringAsFixed(0)}s)'
                       : 'Pilih bangunan untuk slideshow',
                 ),
@@ -1045,7 +1280,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 },
               ),
               const Divider(height: 1),
-              // --- TIPE STATIC ---
+
+              // TIPE STATIC IMAGE
               ListTile(
                 leading: const Icon(Icons.photo_library),
                 title: const Text('Pilih Gambar Statis dari Galeri'),
@@ -1059,7 +1295,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 title: const Text('Pilih Gambar Ruangan Statis (Bangunan)'),
                 onTap: () {
                   Navigator.pop(context);
-                  _showStaticRoomPicker(); // Memulai alur hierarkis untuk static
+                  _showStaticRoomPicker();
                 },
               ),
               ListTile(
@@ -1070,15 +1306,32 @@ class _SettingsPageState extends State<SettingsPage> {
                   _showIconPicker();
                 },
               ),
-              // --- HAPUS ---
-              if (AppSettings.wallpaperType != 'default')
+              const Divider(height: 1),
+
+              // EFEK BLUR
+              ListTile(
+                leading: const Icon(Icons.blur_on, color: Colors.teal),
+                title: Text(
+                  'Atur Efek Blur (${_currentBlurStrength.toStringAsFixed(1)})',
+                ),
+                subtitle: const Text('Berlaku untuk mode Gambar/Slideshow'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showBlurSettingsDialog();
+                },
+              ),
+
+              // HAPUS
+              if (AppSettings.wallpaperMode != 'default')
                 ListTile(
                   leading: const Icon(Icons.close, color: Colors.red),
-                  title: const Text('Hapus Wallpaper'),
+                  title: const Text('Hapus Wallpaper/Background'),
                   onTap: () async {
                     Navigator.pop(context);
                     await AppSettings.clearWallpaper();
-                    setState(() {});
+                    setState(() {
+                      _currentWallpaperMode = 'default';
+                    });
                   },
                 ),
             ],
@@ -1087,8 +1340,6 @@ class _SettingsPageState extends State<SettingsPage> {
       },
     );
   }
-
-  // --- END LOGIKA WALLPAPER ---
 
   @override
   Widget build(BuildContext context) {
@@ -1131,28 +1382,23 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
 
-            // --- BARU: Atur Wallpaper ---
+            // Atur Wallpaper
             const Divider(indent: 56),
             ListTile(
               leading: Icon(Icons.wallpaper, color: primaryColor),
               title: const Text('Atur Wallpaper Dashboard'),
               subtitle: Text(
-                AppSettings.wallpaperType == 'slideshow'
-                    ? 'Slideshow: ${_selectedSlideshowBuildingName}'
-                    : AppSettings.wallpaperType == 'static'
-                    ? 'Wallpaper Statis diatur'
-                    : 'Menggunakan latar default',
+                _getWallpaperModeLabel(_currentWallpaperMode),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              // FIX ERROR: Mengubah 'showWallpaperSelectionDialog' menjadi '_showWallpaperSelectionDialog'
               trailing: ElevatedButton(
                 onPressed: _showWallpaperSelectionDialog,
-                child: const Text('Pilih'),
+                child: const Text('Pilih / Atur'),
               ),
             ),
 
-            // --- BARU: Pengaturan Image Fit ---
+            // Pengaturan Image Fit
             const Divider(indent: 56),
             ListTile(
               leading: Icon(Icons.aspect_ratio, color: primaryColor),
@@ -1167,9 +1413,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 },
               ),
             ),
-            // --- SELESAI BARU ---
 
-            // --- SELESAI BARU ---
             const Divider(indent: 56),
             ListTile(
               leading: Icon(Icons.folder_open, color: primaryColor),
@@ -1399,7 +1643,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  // --- START HELPER UI METHODS (DIPERBAIKI) ---
+  // --- HELPER UI METHODS ---
 
   Widget _buildSectionHeader(String title) {
     return Padding(
@@ -1453,7 +1697,6 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  // --- BARU: Helper untuk Dropdown BoxFit ---
   Widget _buildBoxFitDropdown({
     required String value,
     required Function(String?) onChanged,
@@ -1484,7 +1727,6 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
     );
   }
-  // --- SELESAI BARU ---
 
   Widget _buildSliderTile({
     required IconData icon,

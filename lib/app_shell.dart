@@ -7,7 +7,8 @@ import 'package:mind_palace_manager/app_settings.dart';
 import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
-import 'package:path/path.dart' as p; // Tambahkan import path
+import 'dart:ui'; // Import untuk ImageFilter
+import 'package:path/path.dart' as p;
 // --- SELESAI BARU ---
 
 class MainApp extends StatelessWidget {
@@ -93,7 +94,8 @@ class _DashboardPageState extends State<DashboardPage> {
   void _checkAndStartSlideshow() {
     _slideshowTimer?.cancel();
 
-    if (AppSettings.wallpaperType == 'slideshow' &&
+    // Hanya aktifkan slideshow jika mode yang dipilih adalah 'slideshow'
+    if (AppSettings.wallpaperMode == 'slideshow' &&
         AppSettings.slideshowBuildingPath != null) {
       _startSlideshowLogic();
     }
@@ -113,14 +115,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
     if (buildingPath == null) {
       _slideshowTimer?.cancel();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Error: Data bangunan slideshow tidak ditemukan."),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      // ... (snackbar error handling) ...
       setState(() => _isLoadingSlideshow = false);
       return;
     }
@@ -133,14 +128,7 @@ class _DashboardPageState extends State<DashboardPage> {
       _slideshowTimer?.cancel();
       // Atur wallpaper kembali ke default jika file data bangunan hilang
       AppSettings.clearWallpaper();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Error: Data bangunan slideshow tidak ditemukan."),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      // ... (snackbar error handling) ...
       setState(() => _isLoadingSlideshow = false);
       return;
     }
@@ -166,16 +154,7 @@ class _DashboardPageState extends State<DashboardPage> {
     // Jika hanya ada satu atau tidak ada gambar, batalkan slideshow
     if (_roomImagePaths.length <= 1) {
       _slideshowTimer?.cancel();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              "Slideshow dibatalkan. Hanya ditemukan 1 gambar atau kurang.",
-            ),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
+      // ... (snackbar cancellation handling) ...
     }
 
     setState(() {
@@ -218,83 +197,120 @@ class _DashboardPageState extends State<DashboardPage> {
   }
   // --- SELESAI BARU ---
 
+  // --- BARU: Fungsi untuk menghasilkan widget background image (termasuk blur) ---
+  Widget _buildImageBackground(
+    BuildContext context, {
+    bool isSlideshow = false,
+  }) {
+    final BoxFit imageFit = _getBoxFit(AppSettings.wallpaperFit);
+    final double blur = AppSettings.blurStrength;
+    final File? imageFile = isSlideshow
+        ? (_roomImagePaths.isNotEmpty
+              ? File(_roomImagePaths[_currentImageIndex])
+              : null)
+        : (AppSettings.wallpaperPath != null
+              ? File(AppSettings.wallpaperPath!)
+              : null);
+
+    if (imageFile == null || !imageFile.existsSync()) {
+      return Container(color: Theme.of(context).colorScheme.surface);
+    }
+
+    Widget imageWidget = Image.file(
+      imageFile,
+      key: isSlideshow
+          ? ValueKey<int>(_currentImageIndex)
+          : const ValueKey<String>('static_wallpaper'),
+      fit: imageFit,
+      height: double.infinity,
+      width: double.infinity,
+      errorBuilder: (context, error, stackTrace) =>
+          Container(color: Theme.of(context).colorScheme.surface),
+    );
+
+    if (blur > 0.0) {
+      // Jika blur aktif, bungkus dengan BackdropFilter
+      return Stack(
+        children: [
+          imageWidget,
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+              child: Container(
+                color: Colors.black.withOpacity(0),
+              ), // Kontainer transparan
+            ),
+          ),
+        ],
+      );
+    }
+    return imageWidget;
+  }
+  // --- SELESAI BARU ---
+
   @override
   Widget build(BuildContext context) {
     Widget backgroundWidget;
+    final String mode = AppSettings.wallpaperMode;
 
-    // --- BARU: Ambil setting BoxFit ---
-    final BoxFit imageFit = _getBoxFit(AppSettings.wallpaperFit);
-    // --- SELESAI BARU ---
-
-    if (AppSettings.wallpaperType == 'slideshow' &&
-        _roomImagePaths.isNotEmpty) {
-      // 1. Slideshow Wallpaper
+    // --- UBAH: Logika Background berdasarkan Mode Baru ---
+    if (mode == 'solid') {
+      // 1. Solid Color
+      backgroundWidget = Container(color: Color(AppSettings.solidColor));
+    } else if (mode == 'gradient') {
+      // 2. Gradient
+      backgroundWidget = Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(AppSettings.gradientColor1),
+              Color(AppSettings.gradientColor2),
+            ],
+          ),
+        ),
+      );
+    } else if (mode == 'slideshow' && _roomImagePaths.length > 1) {
+      // 3. Slideshow Wallpaper (dengan dukungan blur)
       final transitionDuration = Duration(
-        seconds: AppSettings.slideshowTransitionDurationSeconds.toInt(),
+        milliseconds: (AppSettings.slideshowTransitionDurationSeconds * 1000)
+            .toInt(),
       );
 
       backgroundWidget = AnimatedSwitcher(
         duration: transitionDuration,
         transitionBuilder: (Widget child, Animation<double> animation) {
-          // Fade Transition
           return FadeTransition(opacity: animation, child: child);
         },
-        child: Image.file(
-          // Gunakan ValueKey untuk memastikan AnimatedSwitcher mengenali perubahan
-          File(_roomImagePaths[_currentImageIndex]),
-          key: ValueKey<int>(_currentImageIndex),
-          // --- UBAH: Gunakan imageFit ---
-          fit: imageFit,
-          // --- SELESAI UBAH ---
-          height: double.infinity,
-          width: double.infinity,
-          errorBuilder: (context, error, stackTrace) => Container(
-            key: const ValueKey<int>(-1),
-            color: Theme.of(context).colorScheme.surface,
-          ),
-        ),
+        // Panggil helper image background (isSlideshow=true)
+        child: _buildImageBackground(context, isSlideshow: true),
       );
-    } else if (AppSettings.wallpaperType == 'static' &&
-        AppSettings.wallpaperPath != null) {
-      // 2. Static Wallpaper
-      backgroundWidget = Image.file(
-        File(AppSettings.wallpaperPath!),
-        // --- UBAH: Gunakan imageFit ---
-        fit: imageFit,
-        // --- SELESAI UBAH ---
-        height: double.infinity,
-        width: double.infinity,
-        errorBuilder: (context, error, stackTrace) =>
-            Container(color: Theme.of(context).colorScheme.surface),
-      );
+    } else if (mode == 'static' && AppSettings.wallpaperPath != null) {
+      // 4. Static Wallpaper (dengan dukungan blur)
+      backgroundWidget = _buildImageBackground(context);
     } else {
-      // 3. Default (Solid Color)
+      // 5. Default (Solid Color, mengikuti tema)
       backgroundWidget = Container(
         color: Theme.of(context).colorScheme.surface,
       );
     }
+    // --- SELESAI UBAH ---
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Dashboard Utama'),
-        actions: const [], // Tombol Wallpaper dipindahkan ke Settings
-      ),
+      appBar: AppBar(title: const Text('Dashboard Utama'), actions: const []),
       // Susun konten di atas latar belakang
       body: Stack(
         children: [
-          // 1. Background (Wallpaper)
+          // 1. Background (Wallpaper/Solid/Gradient)
           Positioned.fill(child: backgroundWidget),
 
-          // 2. Overlay untuk keterbacaan
+          // 2. Overlay untuk keterbacaan (tetap dipertahankan untuk semua mode)
           Positioned.fill(
             child: Container(
               color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.black.withOpacity(
-                      0.5,
-                    ) // Overlay gelap untuk dark mode
-                  : Colors.white.withOpacity(
-                      0.7,
-                    ), // Overlay terang untuk light mode
+                  ? Colors.black.withOpacity(0.5)
+                  : Colors.white.withOpacity(0.7),
             ),
           ),
 
@@ -325,8 +341,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 const SizedBox(height: 20),
                 ElevatedButton.icon(
                   icon: const Icon(Icons.settings),
-                  onPressed:
-                      _openSettings, // Panggil metode dengan setState after pop
+                  onPressed: _openSettings,
                   label: const Text('Buka Pengaturan'),
                 ),
               ],

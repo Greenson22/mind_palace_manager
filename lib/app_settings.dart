@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AppSettings {
-  // ... keys yang sudah ada ...
+  // --- KEYS ---
   static const String _basePathKey = 'baseBuildingsPath';
   static const String _mapPinShapeKey = 'mapPinShape';
   static const String _listIconShapeKey = 'listIconShape';
@@ -19,20 +19,24 @@ class AppSettings {
   static const String _themeModeKey = 'themeMode';
   static const String _exportPathKey = 'exportPath';
 
-  // --- BARU: Key untuk Wallpaper Slideshow ---
-  static const String _wallpaperTypeKey =
-      'wallpaperType'; // 'static', 'slideshow', 'default'
+  // --- WALLPAPER & BACKGROUND KEYS ---
+  static const String _wallpaperModeKey =
+      'wallpaperMode'; // 'static', 'slideshow', 'solid', 'gradient', 'default'
   static const String _slideshowBuildingPathKey = 'slideshowBuildingPath';
   static const String _slideshowSpeedKey = 'slideshowSpeedSeconds';
   static const String _slideshowTransitionDurationKey =
       'slideshowTransitionDurationSeconds';
-  // --- BARU TAMBAHAN: Key untuk Wallpaper Fit ---
-  static const String _wallpaperFitKey =
-      'wallpaperFit'; // 'cover', 'contain', 'fill', 'none'
-  // --- SELESAI BARU ---
+  static const String _wallpaperFitKey = 'wallpaperFit';
   static const String _wallpaperPathKey = 'wallpaperPath';
 
-  // ... variabel statis yang sudah ada ...
+  // --- SOLID/GRADIENT/BLUR KEYS ---
+  static const String _solidColorKey = 'solidColor';
+  static const String _gradientColor1Key = 'gradientColor1';
+  static const String _gradientColor2Key = 'gradientColor2';
+  static const String _blurStrengthKey = 'blurStrength';
+  // --- END KEYS ---
+
+  // --- STATIC VARIABLES ---
   static String? baseBuildingsPath;
   static String mapPinShape = 'Bulat';
   static String listIconShape = 'Bulat';
@@ -47,17 +51,21 @@ class AppSettings {
   static String? exportPath;
   static String? wallpaperPath;
 
-  // --- BARU: Variabel statis untuk Slideshow ---
-  static String wallpaperType = 'default';
+  // --- WALLPAPER & BACKGROUND VARIABLES ---
+  static String wallpaperMode = 'default'; // Diubah dari wallpaperType
   static String? slideshowBuildingPath;
-  static double slideshowSpeedSeconds = 10.0; // Default 10 detik
-  static double slideshowTransitionDurationSeconds = 1.0; // Default 1 detik
+  static double slideshowSpeedSeconds = 10.0;
+  static double slideshowTransitionDurationSeconds = 1.0;
+  static String wallpaperFit = 'cover';
 
-  // --- BARU TAMBAHAN: Variabel statis untuk Wallpaper Fit ---
-  static String wallpaperFit =
-      'cover'; // Default: 'cover' (Full Screen tanpa distorsi)
+  // --- SOLID/GRADIENT/BLUR VARIABLES ---
+  static int solidColor = Colors.grey.shade900.value; // Default dark
+  static int gradientColor1 = Colors.blue.value;
+  static int gradientColor2 = Colors.deepPurple.value;
+  static double blurStrength = 5.0; // Default blur
 
   static ValueNotifier<ThemeMode> themeMode = ValueNotifier(ThemeMode.system);
+  // --- END STATIC VARIABLES ---
 
   static Future<void> loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
@@ -82,39 +90,88 @@ class AppSettings {
 
     exportPath = prefs.getString(_exportPathKey);
 
-    // --- BARU: Load Wallpaper Settings ---
+    // Load Wallpaper/Background Settings
     wallpaperPath = prefs.getString(_wallpaperPathKey);
-    wallpaperType = prefs.getString(_wallpaperTypeKey) ?? 'default';
+    wallpaperMode = prefs.getString(_wallpaperModeKey) ?? 'default';
     slideshowBuildingPath = prefs.getString(_slideshowBuildingPathKey);
     slideshowSpeedSeconds = prefs.getDouble(_slideshowSpeedKey) ?? 10.0;
     slideshowTransitionDurationSeconds =
         prefs.getDouble(_slideshowTransitionDurationKey) ?? 1.0;
-    // --- BARU TAMBAHAN: Load Wallpaper Fit ---
     wallpaperFit = prefs.getString(_wallpaperFitKey) ?? 'cover';
+
+    // Load Solid/Gradient/Blur Settings
+    solidColor = prefs.getInt(_solidColorKey) ?? Colors.grey.shade900.value;
+    gradientColor1 = prefs.getInt(_gradientColor1Key) ?? Colors.blue.value;
+    gradientColor2 =
+        prefs.getInt(_gradientColor2Key) ?? Colors.deepPurple.value;
+    blurStrength = prefs.getDouble(_blurStrengthKey) ?? 5.0;
   }
 
-  // --- BARU TAMBAHAN: Fungsi Save Wallpaper Fit ---
+  // --- SAVE FUNCTIONS (BARU & DIUBAH) ---
+
+  // Mengatur Mode Background (Solid, Gradient, dll.)
+  static Future<void> saveBackgroundMode(String mode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_wallpaperModeKey, mode);
+    wallpaperMode = mode;
+    // Bersihkan path gambar jika mode diubah ke non-gambar/slideshow
+    if (mode != 'static' && mode != 'slideshow') {
+      await prefs.remove(_wallpaperPathKey);
+      await prefs.remove(_slideshowBuildingPathKey);
+      wallpaperPath = null;
+      slideshowBuildingPath = null;
+    }
+  }
+
+  // Mengatur Warna Solid
+  static Future<void> saveSolidColor(int colorValue) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_solidColorKey, colorValue);
+    solidColor = colorValue;
+  }
+
+  // Mengatur Warna Gradient
+  static Future<void> saveGradientColor1(int colorValue) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_gradientColor1Key, colorValue);
+    gradientColor1 = colorValue;
+  }
+
+  static Future<void> saveGradientColor2(int colorValue) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_gradientColor2Key, colorValue);
+    gradientColor2 = colorValue;
+  }
+
+  // Mengatur Kekuatan Blur
+  static Future<void> saveBlurStrength(double strength) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_blurStrengthKey, strength);
+    blurStrength = strength;
+  }
+
+  // Mengatur Mode Tampilan Gambar (Fit)
   static Future<void> saveWallpaperFit(String fit) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_wallpaperFitKey, fit);
     wallpaperFit = fit;
   }
 
-  // --- BARU: Fungsi Save Wallpaper (Static/Clear) ---
+  // Mengatur Wallpaper Statis (Mengubah Mode)
   static Future<void> saveStaticWallpaper(String? path) async {
     final prefs = await SharedPreferences.getInstance();
     if (path == null) {
       await prefs.remove(_wallpaperPathKey);
-      await prefs.setString(_wallpaperTypeKey, 'default');
+      await prefs.setString(_wallpaperModeKey, 'default');
     } else {
       await prefs.setString(_wallpaperPathKey, path);
-      await prefs.setString(_wallpaperTypeKey, 'static');
+      await prefs.setString(_wallpaperModeKey, 'static');
     }
     wallpaperPath = path;
     slideshowBuildingPath = null;
   }
 
-  // --- BARU: Fungsi Save Slideshow Settings ---
+  // Mengatur Slideshow (Mengubah Mode)
   static Future<void> saveSlideshowSettings({
     required String buildingPath,
     required double speed,
@@ -122,34 +179,34 @@ class AppSettings {
   }) async {
     final prefs = await SharedPreferences.getInstance();
 
-    await prefs.setString(_wallpaperTypeKey, 'slideshow');
+    await prefs.setString(_wallpaperModeKey, 'slideshow');
     await prefs.setString(_slideshowBuildingPathKey, buildingPath);
     await prefs.setDouble(_slideshowSpeedKey, speed);
     await prefs.setDouble(_slideshowTransitionDurationKey, transitionDuration);
 
-    // Clear static path
     await prefs.remove(_wallpaperPathKey);
 
-    wallpaperType = 'slideshow';
+    wallpaperMode = 'slideshow';
     slideshowBuildingPath = buildingPath;
     slideshowSpeedSeconds = speed;
     slideshowTransitionDurationSeconds = transitionDuration;
     wallpaperPath = null;
   }
 
-  // --- BARU: Fungsi Clear Wallpaper (Universal) ---
+  // Menghapus Wallpaper/Background (Mengubah Mode ke Default)
   static Future<void> clearWallpaper() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_wallpaperTypeKey, 'default');
+    await prefs.setString(_wallpaperModeKey, 'default');
     await prefs.remove(_wallpaperPathKey);
     await prefs.remove(_slideshowBuildingPathKey);
 
-    wallpaperType = 'default';
+    wallpaperMode = 'default';
     wallpaperPath = null;
     slideshowBuildingPath = null;
   }
 
-  // ... (sisa fungsi save lainnya) ...
+  // --- FUNGSI SAVE LAINNYA (Telah ada) ---
+
   static Future<void> saveExportPath(String path) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_exportPathKey, path);
@@ -158,21 +215,8 @@ class AppSettings {
 
   static Future<void> saveThemeMode(ThemeMode mode) async {
     final prefs = await SharedPreferences.getInstance();
-    themeMode.value = mode; // Update notifier
+    themeMode.value = mode;
     await prefs.setString(_themeModeKey, mode.toString().split('.').last);
-  }
-
-  // Helper konversi String ke ThemeMode
-  static ThemeMode _getThemeModeFromString(String themeString) {
-    switch (themeString) {
-      case 'light':
-        return ThemeMode.light;
-      case 'dark':
-        return ThemeMode.dark;
-      case 'system':
-      default:
-        return ThemeMode.system;
-    }
   }
 
   static Future<void> saveBaseBuildingsPath(String path) async {
@@ -239,5 +283,17 @@ class AppSettings {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_regionNameColorKey, colorValue);
     regionNameColor = colorValue;
+  }
+
+  static ThemeMode _getThemeModeFromString(String themeString) {
+    switch (themeString) {
+      case 'light':
+        return ThemeMode.light;
+      case 'dark':
+        return ThemeMode.dark;
+      case 'system':
+      default:
+        return ThemeMode.system;
+    }
   }
 }
