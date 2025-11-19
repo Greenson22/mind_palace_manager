@@ -33,11 +33,10 @@ class _SettingsPageState extends State<SettingsPage> {
   late Color _currentRegionOutlineColor;
   late Color _currentRegionNameColor;
 
-  // --- State Visualisasi Objek (BARU) ---
+  // --- State Visualisasi Objek ---
   late bool _defaultShowObjectIcons;
   late double _objectIconOpacity;
   late bool _interactableWhenHidden;
-  // --------------------------------------
 
   // --- State Umum / Wallpaper ---
   late String _currentWallpaperFit;
@@ -46,6 +45,9 @@ class _SettingsPageState extends State<SettingsPage> {
   late Color _currentGradientColor1;
   late Color _currentGradientColor2;
   late double _currentBlurStrength;
+
+  // --- BARU: State Overlay ---
+  late double _currentOverlayOpacity;
 
   // --- SLIDESHOW STATE ---
   late double _slideshowSpeed;
@@ -79,11 +81,9 @@ class _SettingsPageState extends State<SettingsPage> {
     _currentRegionOutlineColor = Color(AppSettings.regionOutlineColor);
     _currentRegionNameColor = Color(AppSettings.regionNameColor);
 
-    // --- Load State Baru ---
     _defaultShowObjectIcons = AppSettings.defaultShowObjectIcons;
     _objectIconOpacity = AppSettings.objectIconOpacity;
     _interactableWhenHidden = AppSettings.interactableWhenHidden;
-    // ---------------------
 
     _currentWallpaperFit = AppSettings.wallpaperFit;
 
@@ -92,6 +92,10 @@ class _SettingsPageState extends State<SettingsPage> {
     _currentGradientColor1 = Color(AppSettings.gradientColor1);
     _currentGradientColor2 = Color(AppSettings.gradientColor2);
     _currentBlurStrength = AppSettings.blurStrength.value;
+
+    // --- BARU: Load Overlay Opacity ---
+    _currentOverlayOpacity = AppSettings.backgroundOverlayOpacity;
+
     _slideshowSpeed = AppSettings.slideshowSpeedSeconds;
     _slideshowTransitionDuration =
         AppSettings.slideshowTransitionDurationSeconds;
@@ -146,6 +150,8 @@ class _SettingsPageState extends State<SettingsPage> {
             currentGradientColor1: _currentGradientColor1,
             currentGradientColor2: _currentGradientColor2,
             currentBlurStrength: _currentBlurStrength,
+            // --- BARU ---
+            currentOverlayOpacity: _currentOverlayOpacity,
             setStateCallback: _updateSettingsState,
           ),
 
@@ -163,11 +169,9 @@ class _SettingsPageState extends State<SettingsPage> {
             currentRegionOutlineColor: _currentRegionOutlineColor,
             currentRegionNameColor: _currentRegionNameColor,
             currentListIconShape: _currentListIconShape,
-            // --- Pass Parameter Baru ---
             defaultShowObjectIcons: _defaultShowObjectIcons,
             objectIconOpacity: _objectIconOpacity,
             interactableWhenHidden: _interactableWhenHidden,
-            // ---------------------------
             setStateCallback: _updateSettingsState,
           ),
         ],

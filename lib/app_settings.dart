@@ -35,6 +35,8 @@ class AppSettings {
   static const String _blurStrengthKey = 'blurStrength';
   static const String _containmentBackgroundColorKey =
       'containmentBackgroundColor';
+  // --- BARU: Key Transparansi Overlay ---
+  static const String _backgroundOverlayOpacityKey = 'backgroundOverlayOpacity';
 
   // --- OBJECT VISIBILITY KEYS (BARU) ---
   static const String _defaultShowObjectIconsKey = 'defaultShowObjectIcons';
@@ -74,15 +76,14 @@ class AppSettings {
   static ValueNotifier<int> containmentBackgroundColor = ValueNotifier(
     Colors.black.value,
   );
+  // --- BARU: Variable Transparansi Overlay (Default 0.5) ---
+  static double backgroundOverlayOpacity = 0.5;
 
   static ValueNotifier<ThemeMode> themeMode = ValueNotifier(ThemeMode.system);
 
   // --- OBJECT VISIBILITY VARIABLES (BARU) ---
-  // Default state saat membuka halaman viewer (On/Off)
   static bool defaultShowObjectIcons = true;
-  // Tingkat transparansi saat icon ditampilkan (0.1 - 1.0)
   static double objectIconOpacity = 1.0;
-  // Apakah icon masih bisa diklik saat disembunyikan?
   static bool interactableWhenHidden = true;
   // --- END STATIC VARIABLES ---
 
@@ -128,6 +129,10 @@ class AppSettings {
     containmentBackgroundColor.value =
         prefs.getInt(_containmentBackgroundColorKey) ?? Colors.black.value;
 
+    // --- LOAD OVERLAY OPACITY ---
+    backgroundOverlayOpacity =
+        prefs.getDouble(_backgroundOverlayOpacityKey) ?? 0.5;
+
     // --- LOAD OBJECT VISIBILITY SETTINGS (BARU) ---
     defaultShowObjectIcons = prefs.getBool(_defaultShowObjectIconsKey) ?? true;
     objectIconOpacity = prefs.getDouble(_objectIconOpacityKey) ?? 1.0;
@@ -135,8 +140,6 @@ class AppSettings {
   }
 
   // --- SAVE FUNCTIONS ---
-
-  // ... (Fungsi save yang lama tetap sama, tambahkan yang baru di bawah)
 
   static Future<void> saveBackgroundMode(String mode) async {
     final prefs = await SharedPreferences.getInstance();
@@ -160,6 +163,13 @@ class AppSettings {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_containmentBackgroundColorKey, colorValue);
     containmentBackgroundColor.value = colorValue;
+  }
+
+  // --- BARU: Save Background Overlay Opacity ---
+  static Future<void> saveBackgroundOverlayOpacity(double value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_backgroundOverlayOpacityKey, value);
+    backgroundOverlayOpacity = value;
   }
 
   static Future<void> saveGradientColor1(int colorValue) async {

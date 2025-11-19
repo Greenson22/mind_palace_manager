@@ -113,7 +113,6 @@ class _DashboardPageState extends State<DashboardPage> {
 
     if (buildingPath == null) {
       _slideshowTimer?.cancel();
-      // ... (snackbar error handling) ...
       setState(() => _isLoadingSlideshow = false);
       return;
     }
@@ -123,9 +122,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
     if (!await buildingDataFile.exists()) {
       _slideshowTimer?.cancel();
-      // Atur wallpaper kembali ke default jika file data bangunan hilang
       AppSettings.clearWallpaper();
-      // ... (snackbar error handling) ...
       setState(() => _isLoadingSlideshow = false);
       return;
     }
@@ -148,10 +145,8 @@ class _DashboardPageState extends State<DashboardPage> {
       print("Error loading slideshow images: $e");
     }
 
-    // Jika hanya ada satu atau tidak ada gambar, batalkan slideshow
     if (_roomImagePaths.length <= 1) {
       _slideshowTimer?.cancel();
-      // ... (snackbar cancellation handling) ...
     }
 
     setState(() {
@@ -178,7 +173,6 @@ class _DashboardPageState extends State<DashboardPage> {
   }
   // --- SELESAI LOGIKA SLIDESHOW ---
 
-  // Helper untuk konversi string ke BoxFit
   BoxFit _getBoxFit(String fitString) {
     switch (fitString) {
       case 'contain':
@@ -193,13 +187,10 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  // --- FUNGSI _buildImageBackground YANG DIPERBARUI ---
   Widget _buildImageBackground(
     BuildContext context, {
     bool isSlideshow = false,
   }) {
-    // Untuk memastikan perubahan setting langsung diterapkan, bungkus dengan ValueListenableBuilder
-    // untuk setting yang akan dimanipulasi: blur dan containmentBackgroundColor
     return ValueListenableBuilder<int>(
       valueListenable: AppSettings.containmentBackgroundColor,
       builder: (context, containmentColorValue, child) {
@@ -215,12 +206,10 @@ class _DashboardPageState extends State<DashboardPage> {
                       ? File(AppSettings.wallpaperPath!)
                       : null);
 
-            // Default fallback jika tidak ada gambar
             if (imageFile == null || !imageFile.existsSync()) {
               return Container(color: Theme.of(context).colorScheme.surface);
             }
 
-            // 1. Widget Gambar Utama (dengan BoxFit yang dipilih)
             Widget foregroundImage = Image.file(
               imageFile,
               key: isSlideshow
@@ -233,83 +222,67 @@ class _DashboardPageState extends State<DashboardPage> {
                   Container(color: Theme.of(context).colorScheme.surface),
             );
 
-            // 2. Logic Kustom untuk Padding Background saat imageFit = BoxFit.contain
             if (imageFit == BoxFit.contain) {
-              // --- BARU: Gunakan setting baru (containmentColorValue) ---
               final Color containmentColor = Color(containmentColorValue);
               Widget paddingBackground;
 
               if (blur > 0.0) {
-                // Jika blur aktif: gunakan gambar yang sama, paskan (cover), lalu blur.
                 paddingBackground = Stack(
                   children: [
                     Image.file(
                       imageFile,
-                      fit: BoxFit.cover, // Fill the entire container
+                      fit: BoxFit.cover,
                       height: double.infinity,
                       width: double.infinity,
                     ),
-                    // BackdropFilter untuk Blur
                     Positioned.fill(
                       child: BackdropFilter(
                         filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-                        // Overlay tipis untuk memperkuat efek blur
                         child: Container(color: Colors.black.withOpacity(0.2)),
                       ),
                     ),
                   ],
                 );
               } else {
-                // Jika blur tidak aktif: gunakan warna solid dari setting containment baru
                 paddingBackground = Container(color: containmentColor);
               }
 
-              // Gabungkan Background Padding + Foreground Image (Contained)
               return Stack(
                 children: [
                   Positioned.fill(child: paddingBackground),
-                  foregroundImage, // foregroundImage already uses BoxFit.contain
+                  foregroundImage,
                 ],
               );
             }
 
-            // 3. Logic Normal (Cover, Fill, None) - Blur applied over the image itself
             if (blur > 0.0) {
-              // Jika blur aktif, bungkus dengan BackdropFilter
               return Stack(
                 children: [
                   foregroundImage,
                   Positioned.fill(
                     child: BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-                      child: Container(
-                        color: Colors.black.withOpacity(0),
-                      ), // Kontainer transparan
+                      child: Container(color: Colors.black.withOpacity(0)),
                     ),
                   ),
                 ],
               );
             }
-            // Default return (tidak ada contain, tidak ada blur)
             return foregroundImage;
           },
         );
       },
     );
   }
-  // --- SELESAI FUNGSI _buildImageBackground YANG DIPERBARUI ---
 
   @override
   Widget build(BuildContext context) {
     Widget backgroundWidget;
     final String mode = AppSettings.wallpaperMode;
 
-    // --- UBAH: Logika Background berdasarkan Mode Baru ---
     if (mode == 'solid') {
-      // 1. Solid Color - MENGGUNAKAN AppSettings.solidColor
       backgroundWidget = Container(color: Color(AppSettings.solidColor.value));
     } else if (mode == 'gradient') {
-      // 2. Gradient
       backgroundWidget = Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -323,7 +296,6 @@ class _DashboardPageState extends State<DashboardPage> {
         ),
       );
     } else if (mode == 'slideshow' && _roomImagePaths.length > 1) {
-      // 3. Slideshow Wallpaper (dengan dukungan blur)
       final transitionDuration = Duration(
         milliseconds: (AppSettings.slideshowTransitionDurationSeconds * 1000)
             .toInt(),
@@ -334,34 +306,62 @@ class _DashboardPageState extends State<DashboardPage> {
         transitionBuilder: (Widget child, Animation<double> animation) {
           return FadeTransition(opacity: animation, child: child);
         },
-        // Panggil helper image background (isSlideshow=true)
         child: _buildImageBackground(context, isSlideshow: true),
       );
     } else if (mode == 'static' && AppSettings.wallpaperPath != null) {
-      // 4. Static Wallpaper (dengan dukungan blur)
       backgroundWidget = _buildImageBackground(context);
     } else {
-      // 5. Default (Solid Color, mengikuti tema)
       backgroundWidget = Container(
         color: Theme.of(context).colorScheme.surface,
       );
     }
-    // --- SELESAI UBAH ---
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Dashboard Utama'), actions: const []),
-      // Susun konten di atas latar belakang
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // --- Ikon Aplikasi di AppBar ---
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primaryContainer,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.psychology, // Ikon representasi "Mind Palace"
+                size: 24,
+                color: Theme.of(context).colorScheme.onPrimaryContainer,
+              ),
+            ),
+            const SizedBox(width: 10),
+            // --- Teks Judul ---
+            const Text(
+              'Mind Palace Manager',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        actions: const [],
+      ),
+
       body: Stack(
         children: [
           // 1. Background (Wallpaper/Solid/Gradient)
           Positioned.fill(child: backgroundWidget),
 
-          // 2. Overlay untuk keterbacaan (tetap dipertahankan untuk semua mode)
+          // 2. Overlay (Cover) Transparan dengan Opacity yang Bisa Diatur
           Positioned.fill(
             child: Container(
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.black.withOpacity(0.5)
-                  : Colors.white.withOpacity(0.7),
+              // Menggunakan setting opacity dari AppSettings
+              color:
+                  (Theme.of(context).brightness == Brightness.dark
+                          ? Colors.black
+                          : Colors.white)
+                      .withOpacity(AppSettings.backgroundOverlayOpacity),
             ),
           ),
 
@@ -370,7 +370,6 @@ class _DashboardPageState extends State<DashboardPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Ikon besar dekoratif
                 Icon(
                   Icons.castle_outlined,
                   size: 100,

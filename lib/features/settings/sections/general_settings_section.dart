@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import 'package:mind_palace_manager/app_settings.dart';
-import 'package:mind_palace_manager/features/settings/widgets/settings_helpers.dart'; // Import helper baru
+import 'package:mind_palace_manager/features/settings/widgets/settings_helpers.dart';
 import 'package:mind_palace_manager/features/settings/dialogs/wallpaper_manager_dialogs.dart';
 
 class GeneralSettingsSection extends StatelessWidget {
@@ -19,7 +19,11 @@ class GeneralSettingsSection extends StatelessWidget {
   final Color currentSolidColor;
   final Color currentGradientColor1;
   final Color currentGradientColor2;
-  final double currentBlurStrength; // <-- Tipe data sudah benar: double
+  final double currentBlurStrength;
+
+  // --- BARU: Variabel Opacity ---
+  final double currentOverlayOpacity;
+
   final Function(VoidCallback fn) setStateCallback;
 
   const GeneralSettingsSection({
@@ -36,6 +40,8 @@ class GeneralSettingsSection extends StatelessWidget {
     required this.currentGradientColor1,
     required this.currentGradientColor2,
     required this.currentBlurStrength,
+    // --- BARU ---
+    required this.currentOverlayOpacity,
     required this.setStateCallback,
   });
 
@@ -103,7 +109,7 @@ class GeneralSettingsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final primaryColor = Theme.of(context).colorScheme.primary;
 
-    // Inisialisasi WallpaperManagerDialogs (sekarang sebagai orkestrator)
+    // Inisialisasi WallpaperManagerDialogs
     final dialogs = WallpaperManagerDialogs(
       context: context,
       setStateCallback: setStateCallback,
@@ -114,7 +120,7 @@ class GeneralSettingsSection extends StatelessWidget {
       currentSolidColor: currentSolidColor,
       currentGradientColor1: currentGradientColor1,
       currentGradientColor2: currentGradientColor2,
-      currentBlurStrength: currentBlurStrength, // Pass the correct double value
+      currentBlurStrength: currentBlurStrength,
     );
 
     return Column(
@@ -153,7 +159,6 @@ class GeneralSettingsSection extends StatelessWidget {
             leading: Icon(Icons.wallpaper, color: primaryColor),
             title: const Text('Atur Wallpaper Dashboard'),
             subtitle: Text(
-              // Menggunakan fungsi helper publik
               getWallpaperModeLabel(
                 currentWallpaperMode,
                 selectedSlideshowBuildingName,
@@ -183,6 +188,23 @@ class GeneralSettingsSection extends StatelessWidget {
             ),
           ),
 
+          // --- BARU: Slider Transparansi Overlay ---
+          const Divider(indent: 56),
+          buildSliderTile(
+            icon: Icons.opacity, // Ikon yang cocok untuk opacity
+            color: primaryColor,
+            title: 'Transparansi Cover',
+            value: currentOverlayOpacity,
+            min: 0.0,
+            max: 1.0,
+            divisions: 20, // Step 0.05
+            onChanged: (val) async {
+              await AppSettings.saveBackgroundOverlayOpacity(val);
+              setStateCallback(() {});
+            },
+          ),
+
+          // ---------------------------------------
           const Divider(indent: 56),
           ListTile(
             leading: Icon(Icons.folder_open, color: primaryColor),
