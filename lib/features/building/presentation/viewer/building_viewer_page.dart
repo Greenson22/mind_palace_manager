@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'dart:io';
 import 'dart:convert';
+import 'package:file_picker/file_picker.dart'; // Import File Picker
 import 'package:mind_palace_manager/app_settings.dart';
 import 'package:mind_palace_manager/features/building/presentation/editor/room_editor_page.dart';
-// Import Halaman Objek Rekursif (Pastikan file ini sudah dibuat sesuai jawaban sebelumnya)
 import 'package:mind_palace_manager/features/objects/presentation/recursive_object_page.dart';
 
 class BuildingViewerPage extends StatefulWidget {
@@ -25,11 +25,15 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
   Map<String, dynamic>? _currentRoom;
 
   // --- STATE UNTUK OBJEK DALAM RUANGAN ---
-  bool _isObjectEditMode = false; // Mode menaruh objek
+  bool _isObjectEditMode = false; // Mode Edit Objek
   List<dynamic> _roomObjects = []; // Daftar objek yang ditaruh di ruangan ini
   File? _roomObjectsJsonFile; // File penyimpanan data objek
   Directory? _roomObjectsRootDir; // Folder root objek untuk ruangan ini
-  Offset? _tappedCoords; // Koordinat tap saat mode edit
+  Offset? _tappedCoords; // Koordinat tap saat mode edit untuk ADD baru
+
+  // Controller untuk Zoom/Pan Gambar Ruangan
+  final TransformationController _transformationController =
+      TransformationController();
 
   List<dynamic> get _rooms => _buildingData['rooms'] as List? ?? [];
 
@@ -38,6 +42,12 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
     super.initState();
     _jsonFile = File(p.join(widget.buildingDirectory.path, 'data.json'));
     _loadData();
+  }
+
+  @override
+  void dispose() {
+    _transformationController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -58,7 +68,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
       }
 
       if (_rooms.isNotEmpty) {
-        // Pertahankan ruangan saat ini jika ada (berguna saat refresh)
         if (_currentRoom != null) {
           final found = _rooms.firstWhere(
             (r) => r['id'] == _currentRoom!['id'],
@@ -68,8 +77,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
         } else {
           _currentRoom = _rooms[0];
         }
-
-        // --- BARU: Muat objek-objek untuk ruangan yang aktif ---
         await _loadRoomObjects(_currentRoom!['id']);
       } else {
         _error = 'Bangunan ini belum memiliki ruangan.';
@@ -87,7 +94,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
 
   Future<void> _loadRoomObjects(String roomId) async {
     _roomObjects = [];
-    // Struktur folder: building/room_objects/{roomId}/object_data.json
     _roomObjectsRootDir = Directory(
       p.join(widget.buildingDirectory.path, 'room_objects', roomId.toString()),
     );
@@ -109,7 +115,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
         print("Error parsing room objects: $e");
       }
     } else {
-      // Inisialisasi file baru jika belum ada
       await _saveRoomObjects();
     }
   }
@@ -117,21 +122,18 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
   Future<void> _saveRoomObjects() async {
     if (_roomObjectsJsonFile == null) return;
 
-    final data = {
-      "view_mode": "root", // Root level (ruangan) dianggap container
-      "children": _roomObjects,
-    };
+    final data = {"view_mode": "root", "children": _roomObjects};
 
     await _roomObjectsJsonFile!.writeAsString(json.encode(data));
   }
 
-  // --- LOGIKA MENAMBAH OBJEK BARU ---
+  // --- FUNGSI: TAMBAH OBJEK BARU ---
 
   Future<void> _showAddObjectDialog() async {
     if (_tappedCoords == null) return;
 
     final nameController = TextEditingController();
-    String selectedType = 'mapContainer'; // Default: Tipe Distrik
+    String selectedType = 'mapContainer';
 
     await showDialog(
       context: context,
@@ -153,24 +155,21 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    'Pilih Tipe Tampilan:',
+                    'Pilih Tipe Perilaku:',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 8),
                   RadioListTile<String>(
-                    title: const Text('Seperti Distrik (Wadah)'),
-                    subtitle: const Text(
-                      'Cocok untuk lemari, laci, kotak. Menggunakan Pin.',
-                    ),
+                    title: const Text('Wadah (Container)'),
+                    subtitle: const Text('Seperti Distrik. Berisi item lain.'),
                     value: 'mapContainer',
                     groupValue: selectedType,
                     onChanged: (val) =>
                         setDialogState(() => selectedType = val!),
                   ),
                   RadioListTile<String>(
-                    title: const Text('Seperti Ruangan (Lokasi)'),
+                    title: const Text('Lokasi (Immersive)'),
                     subtitle: const Text(
-                      'Cocok untuk masuk ke dunia lain. Menggunakan Navigasi.',
+                      'Seperti Ruangan. Bisa masuk ke dalam.',
                     ),
                     value: 'immersiveView',
                     groupValue: selectedType,
@@ -207,42 +206,258 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
   Future<void> _createNewObject(String name, String viewMode) async {
     if (_roomObjectsRootDir == null || _tappedCoords == null) return;
 
-    // 1. Buat ID unik (folder name)
     final folderId = 'obj_${DateTime.now().millisecondsSinceEpoch}';
     final childDir = Directory(p.join(_roomObjectsRootDir!.path, folderId));
     await childDir.create();
 
-    // 2. Buat data awal untuk objek tersebut sesuai Tipe yang dipilih
+    // Buat file config di dalam folder objek anak
     final childJsonFile = File(p.join(childDir.path, 'object_data.json'));
     await childJsonFile.writeAsString(
-      json.encode({
-        "view_mode": viewMode, // <-- Tipe disimpan di sini
-        "image_path": null,
-        "children": [],
-      }),
+      json.encode({"view_mode": viewMode, "image_path": null, "children": []}),
     );
 
-    // 3. Tambahkan ke daftar objek ruangan ini
+    // Data yang disimpan di list induk (Ruangan)
     final newObject = {
       "id": folderId,
       "name": name,
       "x": _tappedCoords!.dx,
       "y": _tappedCoords!.dy,
-      "type": viewMode, // Simpan tipe juga di parent untuk referensi ikon
+      "type": viewMode,
+      "icon_type": "default", // default | image
+      "icon_path": null, // path relatif jika image
     };
 
     setState(() {
       _roomObjects.add(newObject);
-      _tappedCoords = null; // Reset tap
+      _tappedCoords = null;
     });
 
     await _saveRoomObjects();
+  }
 
-    if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Objek "$name" berhasil dibuat.')));
+  // --- FUNGSI: EDIT / HAPUS OBJEK (BARU) ---
+
+  Future<void> _showEditObjectDialog(Map<String, dynamic> obj) async {
+    final nameController = TextEditingController(text: obj['name']);
+    String selectedType = obj['type'] ?? 'mapContainer';
+    String iconType = obj['icon_type'] ?? 'default';
+    String? tempIconPath = obj['icon_path'];
+
+    // Helper untuk display path
+    String getIconStatusText() {
+      if (iconType == 'image' && tempIconPath != null) {
+        return 'Gambar terpilih: ${p.basename(tempIconPath!)}';
+      }
+      return 'Menggunakan Ikon Standar';
     }
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text('Edit: ${obj['name']}'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 1. Ganti Nama
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Nama Objek',
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // 2. Ganti Tipe Perilaku
+                    const Text(
+                      'Tipe Perilaku:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    DropdownButton<String>(
+                      value: selectedType,
+                      isExpanded: true,
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'mapContainer',
+                          child: Text('Wadah (Container)'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'immersiveView',
+                          child: Text('Lokasi (Immersive)'),
+                        ),
+                      ],
+                      onChanged: (val) =>
+                          setDialogState(() => selectedType = val!),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // 3. Ganti Ikon (Marker)
+                    const Text(
+                      'Tampilan Ikon (Marker):',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    Row(
+                      children: [
+                        Radio<String>(
+                          value: 'default',
+                          groupValue: iconType,
+                          onChanged: (v) => setDialogState(() => iconType = v!),
+                        ),
+                        const Text('Default'),
+                        const SizedBox(width: 16),
+                        Radio<String>(
+                          value: 'image',
+                          groupValue: iconType,
+                          onChanged: (v) => setDialogState(() => iconType = v!),
+                        ),
+                        const Text('Foto Custom'),
+                      ],
+                    ),
+
+                    if (iconType == 'image')
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.image),
+                            label: const Text('Pilih Foto Marker'),
+                            onPressed: () async {
+                              final res = await FilePicker.platform.pickFiles(
+                                type: FileType.image,
+                              );
+                              if (res != null &&
+                                  res.files.single.path != null) {
+                                setDialogState(() {
+                                  // Simpan path absolut sementara (akan dicopy saat save)
+                                  tempIconPath = res.files.single.path!;
+                                  // Tandai kalau ini file baru (bukan path relatif yang sudah ada)
+                                });
+                              }
+                            },
+                          ),
+                          Text(
+                            getIconStatusText(),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                // Tombol Hapus
+                TextButton(
+                  style: TextButton.styleFrom(foregroundColor: Colors.red),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _deleteObject(obj);
+                  },
+                  child: const Text('Hapus Objek'),
+                ),
+                // Tombol Simpan
+                ElevatedButton(
+                  onPressed: () async {
+                    if (nameController.text.trim().isNotEmpty) {
+                      Navigator.pop(context);
+                      await _updateObject(
+                        obj,
+                        nameController.text.trim(),
+                        selectedType,
+                        iconType,
+                        tempIconPath,
+                      );
+                    }
+                  },
+                  child: const Text('Simpan'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _updateObject(
+    Map<String, dynamic> originalObj,
+    String newName,
+    String newType,
+    String newIconType,
+    String? newIconPath, // Bisa absolute (baru) atau relative (lama)
+  ) async {
+    // 1. Update Referensi di List Induk (_roomObjects)
+    setState(() {
+      originalObj['name'] = newName;
+      originalObj['type'] = newType;
+      originalObj['icon_type'] = newIconType;
+    });
+
+    // 2. Handle Copy Gambar jika ada gambar baru yang dipilih
+    if (newIconType == 'image' && newIconPath != null) {
+      final File checkFile = File(newIconPath);
+      // Jika path yang dikirim adalah path absolute (file baru dari picker)
+      if (checkFile.isAbsolute && await checkFile.exists()) {
+        final objectDir = Directory(
+          p.join(_roomObjectsRootDir!.path, originalObj['id']),
+        );
+        if (!await objectDir.exists()) await objectDir.create();
+
+        final ext = p.extension(newIconPath);
+        final fileName =
+            'marker_icon${DateTime.now().millisecondsSinceEpoch}$ext';
+        final destPath = p.join(objectDir.path, fileName);
+
+        await checkFile.copy(destPath);
+
+        // Update path di object menjadi relatif terhadap folder objek
+        // Struktur: room_objects/{roomId}/{objId}/marker_icon.png
+        // Kita simpan relatif terhadap root folder objek (objId)
+        // Tapi di list induk, lebih mudah simpan relatif terhadap folder ruangan atau nama file saja
+        originalObj['icon_path'] = fileName;
+      } else {
+        // Jika tidak berubah (masih path relatif lama), biarkan
+        originalObj['icon_path'] = newIconPath;
+      }
+    } else {
+      // Reset icon path jika kembali ke default
+      originalObj['icon_path'] = null;
+    }
+
+    // 3. Simpan List Induk
+    await _saveRoomObjects();
+
+    // 4. Update Config Anak (agar tipe/behavior konsisten saat masuk)
+    try {
+      final childJsonFile = File(
+        p.join(
+          _roomObjectsRootDir!.path,
+          originalObj['id'],
+          'object_data.json',
+        ),
+      );
+      if (await childJsonFile.exists()) {
+        final content = await childJsonFile.readAsString();
+        final data = json.decode(content);
+
+        // Update view_mode sesuai tipe baru
+        data['view_mode'] = newType;
+
+        await childJsonFile.writeAsString(json.encode(data));
+      }
+    } catch (e) {
+      print("Gagal update config anak: $e");
+    }
+
+    setState(() {}); // Refresh UI
   }
 
   Future<void> _deleteObject(Map<String, dynamic> obj) async {
@@ -268,12 +483,10 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
     );
 
     if (confirm == true) {
-      // Hapus folder
       final childDir = Directory(p.join(_roomObjectsRootDir!.path, obj['id']));
       if (await childDir.exists()) {
         await childDir.delete(recursive: true);
       }
-      // Hapus dari list
       setState(() {
         _roomObjects.removeWhere((e) => e['id'] == obj['id']);
       });
@@ -288,9 +501,9 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
       final targetRoom = _rooms.firstWhere((r) => r['id'] == targetRoomId);
       setState(() {
         _currentRoom = targetRoom;
-        _isObjectEditMode = false; // Matikan edit mode saat pindah ruangan
+        _isObjectEditMode = false;
+        _tappedCoords = null;
       });
-      // Muat objek untuk ruangan baru
       await _loadRoomObjects(targetRoomId);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -302,9 +515,17 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
     }
   }
 
-  void _enterObject(Map<String, dynamic> obj) {
-    if (_isObjectEditMode) return; // Jangan masuk jika sedang mode edit
+  void _handleObjectTap(Map<String, dynamic> obj) {
+    if (_isObjectEditMode) {
+      // Mode Edit: Buka Editor
+      _showEditObjectDialog(obj);
+    } else {
+      // Mode Lihat: Masuk ke Objek
+      _enterObject(obj);
+    }
+  }
 
+  void _enterObject(Map<String, dynamic> obj) {
     final childDir = Directory(p.join(_roomObjectsRootDir!.path, obj['id']));
     Navigator.push(
       context,
@@ -314,7 +535,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
           objectName: obj['name'],
         ),
       ),
-    ).then((_) => _loadData()); // Refresh saat kembali
+    ).then((_) => _loadData());
   }
 
   void _navigateToRoomEditor() {
@@ -326,6 +547,8 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
       ),
     ).then((_) => _loadData());
   }
+
+  // --- UI BUILDERS ---
 
   @override
   Widget build(BuildContext context) {
@@ -347,26 +570,24 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
         actions: [
           // Tombol Toggle Mode Edit Objek
           IconButton(
-            icon: Icon(
-              _isObjectEditMode ? Icons.done : Icons.add_circle_outline,
-            ),
+            icon: Icon(_isObjectEditMode ? Icons.done : Icons.edit_attributes),
             tooltip: _isObjectEditMode
-                ? 'Selesai Menaruh Objek'
-                : 'Taruh Objek',
+                ? 'Selesai Mengedit'
+                : 'Edit Objek (Tambah/Hapus/Ubah)',
             color: _isObjectEditMode ? Colors.green : null,
             onPressed: () {
               setState(() {
                 _isObjectEditMode = !_isObjectEditMode;
-                _tappedCoords = null; // Reset coords saat toggle
+                _tappedCoords = null;
               });
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
                     _isObjectEditMode
-                        ? 'Ketuk pada gambar untuk menaruh objek'
-                        : 'Mode lihat aktif',
+                        ? 'Mode Edit: Ketuk objek untuk ubah, ketuk kosong untuk tambah.'
+                        : 'Mode Lihat Aktif',
                   ),
-                  duration: const Duration(seconds: 1),
+                  duration: const Duration(seconds: 2),
                 ),
               );
             },
@@ -421,44 +642,25 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
       );
     }
 
-    // Widget Stack Utama
     return Column(
       children: [
-        // Area Gambar Interaktif + Objek Overlay
         Expanded(
           child: Container(
             color: Colors.black12,
             child: LayoutBuilder(
               builder: (context, constraints) {
                 return InteractiveViewer(
-                  panEnabled: true,
+                  transformationController: _transformationController,
                   minScale: 1.0,
                   maxScale: 4.0,
                   child: Center(
-                    // AspectRatio dihapus agar InteractiveViewer menghandle ukuran
-                    // Kita pakai Stack untuk menumpuk Pin di atas Gambar
                     child: Stack(
                       children: [
                         // 1. GAMBAR RUANGAN + DETECTOR TAP
                         GestureDetector(
                           onTapDown: (details) {
                             if (_isObjectEditMode) {
-                              // Hitung koordinat relatif terhadap ukuran gambar yang dirender
-                              // Karena Image.file menggunakan BoxFit.contain, kita perlu trik sedikit
-                              // atau sederhananya, asumsikan stack ini membungkus gambar pas.
-                              // Untuk akurasi tinggi, Image harus di-wrap LayoutBuilder.
-
-                              final RenderBox box =
-                                  context.findRenderObject() as RenderBox;
-                              // Namun, karena struktur widget yang kompleks, cara termudah adalah
-                              // mendapatkan posisi relatif terhadap parent Stack ini.
-
-                              // Sederhananya kita pakai localPosition dari constraints parent jika gambar fit cover/contain
-                              // Di sini kita pakai ukuran constraints yang diteruskan Image.
-
-                              // FIX: Agar akurat, kita gunakan width/height dari constraints
-                              // Asumsi gambar memenuhi lebar/tinggi (fit contain)
-
+                              // Hitung koordinat relatif untuk ADD NEW OBJECT
                               setState(() {
                                 _tappedCoords = Offset(
                                   details.localPosition.dx /
@@ -467,7 +669,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                                       constraints.maxHeight,
                                 );
                               });
-
                               _showAddObjectDialog();
                             }
                           },
@@ -478,56 +679,101 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                           ),
                         ),
 
-                        // 2. PIN OBJEK (Render Objek)
+                        // 2. RENDER OBJEK
                         ..._roomObjects.map((obj) {
                           final double x = obj['x'] ?? 0.5;
                           final double y = obj['y'] ?? 0.5;
                           final String type = obj['type'] ?? 'mapContainer';
+                          final String name = obj['name'] ?? 'Objek';
+                          final String iconType = obj['icon_type'] ?? 'default';
+                          final String? iconPath = obj['icon_path'];
 
-                          // Ikon berbeda berdasarkan tipe
-                          final IconData icon = type == 'mapContainer'
-                              ? Icons
-                                    .inbox // Kotak
-                              : Icons.touch_app; // Jari/Lokasi
-                          final Color color = type == 'mapContainer'
+                          // Widget Icon Default
+                          final IconData defaultIconData =
+                              type == 'mapContainer'
+                              ? Icons.inbox
+                              : Icons.touch_app;
+                          final Color defaultColor = type == 'mapContainer'
                               ? Colors.blue
                               : Colors.orange;
 
+                          Widget markerWidget;
+
+                          // Cek apakah menggunakan Custom Image
+                          if (iconType == 'image' && iconPath != null) {
+                            final file = File(
+                              p.join(
+                                _roomObjectsRootDir!.path,
+                                obj['id'],
+                                iconPath,
+                              ),
+                            );
+                            if (file.existsSync()) {
+                              markerWidget = Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2,
+                                  ),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      blurRadius: 4,
+                                      color: Colors.black26,
+                                    ),
+                                  ],
+                                  image: DecorationImage(
+                                    image: FileImage(file),
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                                child: _isObjectEditMode
+                                    ? Container(
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: Colors.black.withOpacity(0.3),
+                                        ),
+                                        child: const Icon(
+                                          Icons.edit,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                      )
+                                    : null,
+                              );
+                            } else {
+                              // Fallback jika file hilang
+                              markerWidget = _buildDefaultMarker(
+                                defaultIconData,
+                                defaultColor,
+                              );
+                            }
+                          } else {
+                            // Default Marker
+                            markerWidget = _buildDefaultMarker(
+                              defaultIconData,
+                              defaultColor,
+                            );
+                          }
+
                           return Positioned(
-                            left: x * constraints.maxWidth - 20, // Center
+                            left: x * constraints.maxWidth - 20,
                             top: y * constraints.maxHeight - 20,
                             child: GestureDetector(
-                              onTap: () => _enterObject(obj),
+                              onTap: () => _handleObjectTap(obj),
+                              // Long press juga bisa trigger edit/delete sebagai shortcut
                               onLongPress: _isObjectEditMode
                                   ? () => _deleteObject(obj)
                                   : null,
                               child: Tooltip(
-                                message: obj['name'],
+                                message: name,
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: BoxDecoration(
-                                        color: color.withOpacity(0.8),
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: Colors.white,
-                                          width: 2,
-                                        ),
-                                        boxShadow: const [
-                                          BoxShadow(
-                                            blurRadius: 4,
-                                            color: Colors.black26,
-                                          ),
-                                        ],
-                                      ),
-                                      child: Icon(
-                                        icon,
-                                        color: Colors.white,
-                                        size: 20,
-                                      ),
-                                    ),
+                                    markerWidget,
+                                    // Label Nama (Selalu muncul di edit mode, opsional di view mode)
                                     if (_isObjectEditMode ||
                                         AppSettings.showRegionDistrictNames)
                                       Container(
@@ -543,7 +789,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                                           ),
                                         ),
                                         child: Text(
-                                          obj['name'],
+                                          name,
                                           style: const TextStyle(
                                             color: Colors.white,
                                             fontSize: 10,
@@ -557,7 +803,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                           );
                         }).toList(),
 
-                        // 3. INDIKATOR TAP (Edit Mode)
+                        // 3. INDIKATOR TAP (Hanya visual sesaat sebelum dialog muncul)
                         if (_isObjectEditMode && _tappedCoords != null)
                           Positioned(
                             left: _tappedCoords!.dx * constraints.maxWidth - 15,
@@ -577,7 +823,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
           ),
         ),
 
-        // Panel Bawah: Navigasi Ruangan (Tetap Ada)
+        // Panel Navigasi Ruangan
         Container(
           padding: const EdgeInsets.all(16.0),
           decoration: BoxDecoration(
@@ -616,6 +862,25 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildDefaultMarker(IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.8),
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 2),
+        boxShadow: const [BoxShadow(blurRadius: 4, color: Colors.black26)],
+      ),
+      child: Icon(
+        _isObjectEditMode
+            ? Icons.edit
+            : icon, // Icon berubah jadi pensil saat edit mode
+        color: Colors.white,
+        size: 20,
+      ),
     );
   }
 }
