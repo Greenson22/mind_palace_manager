@@ -380,7 +380,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                 ),
               ),
               actions: [
-                // --- TOMBOL HAPUS ---
                 TextButton(
                   style: TextButton.styleFrom(foregroundColor: Colors.red),
                   onPressed: () {
@@ -389,19 +388,14 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                   },
                   child: const Text('Hapus'),
                 ),
-                // --- TOMBOL PINDAH POSISI (BARU) ---
                 TextButton.icon(
                   icon: const Icon(Icons.open_with),
                   label: const Text('Pindah'),
                   onPressed: () {
-                    Navigator.pop(context); // Tutup dialog
-                    _startMovingObject(
-                      obj['id'],
-                      obj['name'],
-                    ); // Mulai mode pindah
+                    Navigator.pop(context);
+                    _startMovingObject(obj['id'], obj['name']);
                   },
                 ),
-                // --- TOMBOL SIMPAN ---
                 ElevatedButton(
                   onPressed: () async {
                     if (nameController.text.trim().isNotEmpty) {
@@ -526,7 +520,15 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
         _tappedCoords = null;
         _movingObjectId = null;
       });
+
+      // --- LOAD OBJECTS ---
       await _loadRoomObjects(targetRoomId);
+
+      // --- PERBAIKAN: Refresh UI setelah objek dimuat ---
+      if (mounted) {
+        setState(() {});
+      }
+      // --------------------------------------------------
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -539,10 +541,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
 
   void _handleObjectTap(Map<String, dynamic> obj) {
     if (_isObjectEditMode) {
-      // Jika sedang mode pindah, tap objek tidak melakukan apa-apa
-      // (user harus tap background untuk meletakkan)
       if (_movingObjectId != null) return;
-
       _showEditObjectDialog(obj);
     } else {
       _enterObject(obj);
@@ -759,7 +758,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
                                   details.localPosition.dy /
                                   constraints.maxHeight;
 
-                              // LOGIKA UTAMA: Pindah atau Tambah
                               if (_movingObjectId != null) {
                                 _confirmMoveObject(x, y);
                               } else {
@@ -859,7 +857,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage> {
 
                           Widget finalMarker = GestureDetector(
                             onTap: () => _handleObjectTap(obj),
-                            // Hapus onLongPress
                             child: Tooltip(
                               message: name,
                               child: Column(
