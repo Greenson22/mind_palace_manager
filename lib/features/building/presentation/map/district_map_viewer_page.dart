@@ -247,7 +247,7 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
     );
   }
 
-  // --- BARU: Fungsi Export Peta ---
+  // --- Fungsi Export Peta (PNG Screenshot) yang sudah ada ---
   Future<void> _exportMapImage() async {
     if (_mapImageFile == null) return;
     if (AppSettings.exportPath == null) {
@@ -279,7 +279,7 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
       final now = DateTime.now();
       final districtName = p.basename(widget.districtDirectory.path);
       final fileName =
-          'district_map_${districtName}_${now.year}${now.month}${now.day}_${now.hour}${now.minute}${now.second}.png';
+          'district_map_export_png_${districtName}_${now.year}${now.month}${now.day}_${now.hour}${now.minute}${now.second}.png';
       final file = File(p.join(AppSettings.exportPath!, fileName));
 
       await file.writeAsBytes(pngBytes);
@@ -305,6 +305,63 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
       }
     }
   }
+
+  // --- BARU: Fungsi Export File Asli Peta ---
+  Future<void> _exportOriginalMapFile() async {
+    if (_mapImageFile == null || !await _mapImageFile!.exists()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('File gambar peta asli tidak ditemukan.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+    if (AppSettings.exportPath == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Atur folder export di Pengaturan terlebih dahulu.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      final districtName = p.basename(widget.districtDirectory.path);
+      final fileName = p.basename(_mapImageFile!.path);
+      final now = DateTime.now();
+      final newFileName =
+          'district_map_original_${districtName}_${now.year}${now.month}${now.day}_${now.hour}${now.minute}${now.second}${p.extension(fileName)}';
+      final destinationPath = p.join(AppSettings.exportPath!, newFileName);
+
+      await _mapImageFile!.copy(destinationPath);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'File peta asli berhasil diexport ke: ${destinationPath}',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal export file peta asli: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
   // --- SELESAI BARU ---
 
   @override
@@ -320,8 +377,10 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (String value) {
-              if (value == 'export') {
+              if (value == 'export_png') {
                 _exportMapImage();
+              } else if (value == 'export_original') {
+                _exportOriginalMapFile();
               } else if (value == 'list') {
                 _openBuildingList();
               }
@@ -338,15 +397,32 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
                 ),
               ),
               const PopupMenuItem<String>(
-                value: 'export',
+                value: 'export_png',
                 child: Row(
                   children: [
                     Icon(Icons.ios_share),
                     SizedBox(width: 8),
-                    Text('Export Peta (PNG)'),
+                    Text('Export Peta (PNG Screenshot)'),
                   ],
                 ),
               ),
+              // --- BARU: Opsi Export File Asli ---
+              PopupMenuItem<String>(
+                value: 'export_original',
+                enabled: _mapImageFile != null,
+                child: Row(
+                  children: [
+                    const Icon(Icons.file_copy, color: Colors.blue),
+                    const SizedBox(width: 8),
+                    Text(
+                      _mapImageFile != null
+                          ? 'Export File Asli Peta'
+                          : 'Tidak Ada File Peta',
+                    ),
+                  ],
+                ),
+              ),
+              // --- SELESAI BARU ---
             ],
           ),
           // --- SELESAI BARU ---
