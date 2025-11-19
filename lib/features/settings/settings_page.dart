@@ -14,6 +14,9 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   late TextEditingController _folderController;
+  // --- BARU: Controller untuk Export Path ---
+  late TextEditingController _exportPathController;
+  // --- SELESAI BARU ---
   late String _currentMapPinShape;
   late String _currentListIconShape;
   late bool _currentShowRegionOutline;
@@ -32,6 +35,11 @@ class _SettingsPageState extends State<SettingsPage> {
     _folderController = TextEditingController(
       text: AppSettings.baseBuildingsPath ?? 'Belum diatur',
     );
+    // --- BARU: Inisialisasi Export Path Controller ---
+    _exportPathController = TextEditingController(
+      text: AppSettings.exportPath ?? 'Belum diatur',
+    );
+    // --- SELESAI BARU ---
     _currentMapPinShape = AppSettings.mapPinShape;
     _currentListIconShape = AppSettings.listIconShape;
     _currentShowRegionOutline = AppSettings.showRegionPinOutline;
@@ -48,6 +56,9 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void dispose() {
     _folderController.dispose();
+    // --- BARU: Dispose Export Path Controller ---
+    _exportPathController.dispose();
+    // --- SELESAI BARU ---
     super.dispose();
   }
 
@@ -80,6 +91,38 @@ class _SettingsPageState extends State<SettingsPage> {
       }
     }
   }
+
+  // --- BARU: Fungsi untuk memilih dan menyimpan folder export ---
+  Future<void> _pickAndSaveExportFolder() async {
+    String? selectedPath = await FilePicker.platform.getDirectoryPath();
+    if (selectedPath != null) {
+      try {
+        final exportDir = Directory(selectedPath);
+        await AppSettings.saveExportPath(exportDir.path);
+        setState(() {
+          _exportPathController.text = AppSettings.exportPath!;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Folder export peta berhasil diperbarui'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Gagal mengatur folder export: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+  // --- SELESAI BARU ---
 
   void _showColorPickerDialog(
     String title,
@@ -218,6 +261,23 @@ class _SettingsPageState extends State<SettingsPage> {
                 tooltip: 'Ubah Folder',
               ),
             ),
+            // --- BARU: Lokasi Export Peta ---
+            const Divider(indent: 56),
+            ListTile(
+              leading: Icon(Icons.save_alt, color: primaryColor),
+              title: const Text('Lokasi Export Peta'),
+              subtitle: Text(
+                _exportPathController.text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: IconButton(
+                icon: const Icon(Icons.folder_open),
+                onPressed: _pickAndSaveExportFolder,
+                tooltip: 'Ubah Folder Export',
+              ),
+            ),
+            // --- SELESAI BARU ---
           ]),
 
           const SizedBox(height: 24),

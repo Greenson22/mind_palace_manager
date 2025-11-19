@@ -7,6 +7,8 @@ import 'package:path/path.dart' as p;
 import 'package:mind_palace_manager/app_settings.dart';
 import 'package:mind_palace_manager/features/building/presentation/viewer/building_viewer_page.dart';
 import 'package:mind_palace_manager/features/building/presentation/management/district_building_management_page.dart';
+// --- BARU: Untuk RepaintBoundary ---
+import 'package:flutter/rendering.dart';
 
 class DistrictMapViewerPage extends StatefulWidget {
   final Directory districtDirectory;
@@ -25,6 +27,10 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
   File? _mapImageFile;
   List<Map<String, dynamic>> _placements = [];
   double _imageAspectRatio = 1.0;
+
+  // --- BARU: Key untuk menangkap gambar ---
+  final GlobalKey _globalKey = GlobalKey();
+  // --- SELESAI BARU ---
 
   @override
   void initState() {
@@ -241,17 +247,109 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
     );
   }
 
+  // --- BARU: Fungsi Export Peta ---
+  Future<void> _exportMapImage() async {
+    if (_mapImageFile == null) return;
+    if (AppSettings.exportPath == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Atur folder export di Pengaturan terlebih dahulu.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      final boundary =
+          _globalKey.currentContext!.findRenderObject()
+              as RenderRepaintBoundary?;
+
+      if (boundary == null) {
+        throw Exception('Gagal menemukan RenderBoundary.');
+      }
+
+      const pixelRatio = 3.0;
+      final image = await boundary.toImage(pixelRatio: pixelRatio);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      final pngBytes = byteData!.buffer.asUint8List();
+
+      final now = DateTime.now();
+      final districtName = p.basename(widget.districtDirectory.path);
+      final fileName =
+          'district_map_${districtName}_${now.year}${now.month}${now.day}_${now.hour}${now.minute}${now.second}.png';
+      final file = File(p.join(AppSettings.exportPath!, fileName));
+
+      await file.writeAsBytes(pngBytes);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Peta berhasil diexport ke: ${file.path}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Gagal export peta: Pastikan peta tidak di-zoom atau pinch. Error: $e',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+  // --- SELESAI BARU ---
+
   @override
   Widget build(BuildContext context) {
+    // Tampilkan nama distrik di AppBar
+    final districtName = p.basename(widget.districtDirectory.path);
+
     return Scaffold(
       appBar: AppBar(
-        title: Text('Peta: ${p.basename(widget.districtDirectory.path)}'),
+        title: Text('Peta: $districtName'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.list_alt),
-            tooltip: 'Lihat Daftar Bangunan',
-            onPressed: _openBuildingList,
+          // --- BARU: PopupMenuButton untuk List & Export ---
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (String value) {
+              if (value == 'export') {
+                _exportMapImage();
+              } else if (value == 'list') {
+                _openBuildingList();
+              }
+            },
+            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+              const PopupMenuItem<String>(
+                value: 'list',
+                child: Row(
+                  children: [
+                    Icon(Icons.list_alt),
+                    SizedBox(width: 8),
+                    Text('Lihat Daftar Bangunan'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'export',
+                child: Row(
+                  children: [
+                    Icon(Icons.ios_share),
+                    SizedBox(width: 8),
+                    Text('Export Peta (PNG)'),
+                  ],
+                ),
+              ),
+            ],
           ),
+          // --- SELESAI BARU ---
         ],
       ),
       body: _buildBody(),
@@ -277,76 +375,81 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        return InteractiveViewer(
-          panEnabled: true,
-          minScale: 1.0,
-          maxScale: 5.0,
-          child: Center(
-            child: AspectRatio(
-              aspectRatio: _imageAspectRatio,
-              child: LayoutBuilder(
-                builder: (context, imageConstraints) {
-                  return Stack(
-                    children: [
-                      Image.file(
-                        _mapImageFile!,
-                        width: imageConstraints.maxWidth,
-                        height: imageConstraints.maxHeight,
-                        fit: BoxFit.cover,
-                      ),
-                      // Mengganti variabel iterator 'p' menjadi 'item' untuk menghindari konflik dengan alias 'p' (path)
-                      ..._placements.map((item) {
-                        final String name = item['building_folder_name'];
-                        final double x = item['map_x'];
-                        final double y = item['map_y'];
-                        // Ambil ukuran (default 30.0 jika data lama)
-                        final double size = item['size'] != null
-                            ? (item['size'] as num).toDouble()
-                            : 30.0;
+        // --- BARU: Wrap dengan RepaintBoundary ---
+        return RepaintBoundary(
+          key: _globalKey,
+          child: InteractiveViewer(
+            panEnabled: true,
+            minScale: 1.0,
+            maxScale: 5.0,
+            child: Center(
+              child: AspectRatio(
+                aspectRatio: _imageAspectRatio,
+                child: LayoutBuilder(
+                  builder: (context, imageConstraints) {
+                    return Stack(
+                      children: [
+                        Image.file(
+                          _mapImageFile!,
+                          width: imageConstraints.maxWidth,
+                          height: imageConstraints.maxHeight,
+                          fit: BoxFit.cover,
+                        ),
+                        // Mengganti variabel iterator 'p' menjadi 'item' untuk menghindari konflik dengan alias 'p' (path)
+                        ..._placements.map((item) {
+                          final String name = item['building_folder_name'];
+                          final double x = item['map_x'];
+                          final double y = item['map_y'];
+                          // Ambil ukuran (default 30.0 jika data lama)
+                          final double size = item['size'] != null
+                              ? (item['size'] as num).toDouble()
+                              : 30.0;
 
-                        // --- Cek eksistensi folder bangunan ---
-                        final buildingDir = Directory(
-                          p.join(widget.districtDirectory.path, name),
-                        );
-                        if (!buildingDir.existsSync()) {
-                          // Jika folder bangunan sudah dihapus, jangan tampilkan pin
-                          return const SizedBox.shrink();
-                        }
-                        // ------------------------------------------
+                          // --- Cek eksistensi folder bangunan ---
+                          final buildingDir = Directory(
+                            p.join(widget.districtDirectory.path, name),
+                          );
+                          if (!buildingDir.existsSync()) {
+                            // Jika folder bangunan sudah dihapus, jangan tampilkan pin
+                            return const SizedBox.shrink();
+                          }
+                          // ------------------------------------------
 
-                        return Positioned(
-                          // Geser posisi sebesar setengah ukuran agar titik tengahnya pas
-                          left: x * imageConstraints.maxWidth - (size / 2),
-                          top: y * imageConstraints.maxHeight - (size / 2),
-                          child: Tooltip(
-                            message: name,
-                            child: GestureDetector(
-                              onTap: () => _navigateToBuilding(name),
-                              child: FutureBuilder<Map<String, dynamic>>(
-                                future: _getBuildingIconData(name),
-                                builder: (context, snapshot) {
-                                  if (!snapshot.hasData) {
-                                    return _buildMapPinWidget({
-                                      'type': null,
-                                    }, size);
-                                  }
-                                  return _buildMapPinWidget(
-                                    snapshot.data!,
-                                    size,
-                                  );
-                                },
+                          return Positioned(
+                            // Geser posisi sebesar setengah ukuran agar titik tengahnya pas
+                            left: x * imageConstraints.maxWidth - (size / 2),
+                            top: y * imageConstraints.maxHeight - (size / 2),
+                            child: Tooltip(
+                              message: name,
+                              child: GestureDetector(
+                                onTap: () => _navigateToBuilding(name),
+                                child: FutureBuilder<Map<String, dynamic>>(
+                                  future: _getBuildingIconData(name),
+                                  builder: (context, snapshot) {
+                                    if (!snapshot.hasData) {
+                                      return _buildMapPinWidget({
+                                        'type': null,
+                                      }, size);
+                                    }
+                                    return _buildMapPinWidget(
+                                      snapshot.data!,
+                                      size,
+                                    );
+                                  },
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      }),
-                    ],
-                  );
-                },
+                          );
+                        }),
+                      ],
+                    );
+                  },
+                ),
               ),
             ),
           ),
         );
+        // --- SELESAI BARU ---
       },
     );
   }

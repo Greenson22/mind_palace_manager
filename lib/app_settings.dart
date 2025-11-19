@@ -16,9 +16,10 @@ class AppSettings {
   static const String _regionPinColorKey = 'regionPinColor';
   static const String _regionOutlineColorKey = 'regionOutlineColor';
   static const String _regionNameColorKey = 'regionNameColor';
-
-  // --- BARU: Key untuk Tema ---
   static const String _themeModeKey = 'themeMode';
+
+  // --- BARU: Key untuk Export Path ---
+  static const String _exportPathKey = 'exportPath';
 
   // ... variabel statis yang sudah ada ...
   static String? baseBuildingsPath;
@@ -33,8 +34,9 @@ class AppSettings {
   static int regionOutlineColor = Colors.white.value;
   static int regionNameColor = Colors.white.value;
 
-  // --- BARU: Notifier untuk Tema ---
-  // Menggunakan ValueNotifier agar UI bisa mendengar perubahan
+  // --- BARU: Variabel statis untuk Export Path ---
+  static String? exportPath;
+
   static ValueNotifier<ThemeMode> themeMode = ValueNotifier(ThemeMode.system);
 
   static Future<void> loadSettings() async {
@@ -55,9 +57,18 @@ class AppSettings {
         prefs.getInt(_regionOutlineColorKey) ?? Colors.white.value;
     regionNameColor = prefs.getInt(_regionNameColorKey) ?? Colors.white.value;
 
-    // --- BARU: Load Tema ---
     final themeString = prefs.getString(_themeModeKey) ?? 'system';
     themeMode.value = _getThemeModeFromString(themeString);
+
+    // --- BARU: Load Export Path ---
+    exportPath = prefs.getString(_exportPathKey);
+  }
+
+  // --- BARU: Fungsi Save Export Path ---
+  static Future<void> saveExportPath(String path) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_exportPathKey, path);
+    exportPath = path;
   }
 
   // ... fungsi save yang lama ...
@@ -82,7 +93,6 @@ class AppSettings {
     }
   }
 
-  // ... (sisa fungsi save lainnya biarkan saja) ...
   static Future<void> saveBaseBuildingsPath(String path) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_basePathKey, path);

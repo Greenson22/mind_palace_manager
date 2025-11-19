@@ -8,6 +8,8 @@ import 'package:mind_palace_manager/app_settings.dart';
 import 'package:mind_palace_manager/features/building/presentation/map/district_map_viewer_page.dart';
 // --- TAMBAHAN: Import Daftar Distrik ---
 import 'package:mind_palace_manager/features/region/presentation/management/region_detail_page.dart';
+// --- TAMBAH: Untuk RepaintBoundary ---
+import 'package:flutter/rendering.dart';
 
 class RegionMapViewerPage extends StatefulWidget {
   final Directory regionDirectory;
@@ -21,6 +23,9 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
   File? _mapImageFile;
   List<Map<String, dynamic>> _placements = [];
   double _imageAspectRatio = 1.0;
+  // --- BARU: Key untuk menangkap gambar ---
+  final GlobalKey _globalKey = GlobalKey();
+  // --- SELESAI BARU ---
 
   @override
   void initState() {
@@ -229,78 +234,168 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
     );
   }
 
+  // --- BARU: Fungsi Export Peta ---
+  Future<void> _exportMapImage() async {
+    if (_mapImageFile == null) return;
+    if (AppSettings.exportPath == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Atur folder export di Pengaturan terlebih dahulu.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      final boundary =
+          _globalKey.currentContext!.findRenderObject()
+              as RenderRepaintBoundary?;
+
+      if (boundary == null) {
+        throw Exception('Gagal menemukan RenderBoundary.');
+      }
+
+      final pixelRatio = 3.0;
+      final image = await boundary.toImage(pixelRatio: pixelRatio);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      final pngBytes = byteData!.buffer.asUint8List();
+
+      final now = DateTime.now();
+      final regionName = p.basename(widget.regionDirectory.path);
+      final fileName =
+          'region_map_${regionName}_${now.year}${now.month}${now.day}_${now.hour}${now.minute}${now.second}.png';
+      final file = File(p.join(AppSettings.exportPath!, fileName));
+
+      await file.writeAsBytes(pngBytes);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Peta berhasil diexport ke: ${file.path}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Gagal export peta: Pastikan peta tidak di-zoom atau pinch. Error: $e',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+  // --- SELESAI BARU ---
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Peta Wilayah'),
         actions: [
-          // --- TAMBAHAN: Tombol Navigasi ke Daftar Distrik ---
-          IconButton(
-            icon: const Icon(Icons.list_alt),
-            tooltip: 'Lihat Daftar Distrik',
-            onPressed: _openDistrictList,
+          // --- PERUBAHAN: Menggabungkan aksi ke PopupMenuButton ---
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (String value) {
+              if (value == 'export') {
+                _exportMapImage();
+              } else if (value == 'list') {
+                _openDistrictList();
+              }
+            },
+            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+              const PopupMenuItem<String>(
+                value: 'list',
+                child: Row(
+                  children: [
+                    Icon(Icons.list_alt),
+                    SizedBox(width: 8),
+                    Text('Lihat Daftar Distrik'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'export',
+                child: Row(
+                  children: [
+                    Icon(Icons.ios_share),
+                    SizedBox(width: 8),
+                    Text('Export Peta (PNG)'),
+                  ],
+                ),
+              ),
+            ],
           ),
+          // --- SELESAI PERUBAHAN ---
         ],
       ),
       body: _mapImageFile == null
           ? const Center(child: Text('Tidak ada peta.'))
-          : InteractiveViewer(
-              minScale: 1.0,
-              maxScale: 5.0,
-              child: Center(
-                child: AspectRatio(
-                  aspectRatio: _imageAspectRatio,
-                  child: LayoutBuilder(
-                    builder: (c, cons) {
-                      return Stack(
-                        children: [
-                          Image.file(
-                            _mapImageFile!,
-                            width: cons.maxWidth,
-                            height: cons.maxHeight,
-                            fit: BoxFit.cover,
-                          ),
-                          ..._placements.map((pl) {
-                            final name = pl['district_folder_name'];
+          // --- BARU: Wrap dengan RepaintBoundary ---
+          : RepaintBoundary(
+              key: _globalKey,
+              child: InteractiveViewer(
+                minScale: 1.0,
+                maxScale: 5.0,
+                child: Center(
+                  child: AspectRatio(
+                    aspectRatio: _imageAspectRatio,
+                    child: LayoutBuilder(
+                      builder: (c, cons) {
+                        return Stack(
+                          children: [
+                            Image.file(
+                              _mapImageFile!,
+                              width: cons.maxWidth,
+                              height: cons.maxHeight,
+                              fit: BoxFit.cover,
+                            ),
+                            ..._placements.map((pl) {
+                              final name = pl['district_folder_name'];
 
-                            // --- BARU: Cek eksistensi folder distrik ---
-                            final districtDir = Directory(
-                              p.join(widget.regionDirectory.path, name),
-                            );
-                            if (!districtDir.existsSync()) {
-                              return const SizedBox.shrink();
-                            }
-                            // ------------------------------------------
+                              final districtDir = Directory(
+                                p.join(widget.regionDirectory.path, name),
+                              );
+                              if (!districtDir.existsSync()) {
+                                return const SizedBox.shrink();
+                              }
 
-                            return Positioned(
-                              left: pl['map_x'] * cons.maxWidth - 20,
-                              top: pl['map_y'] * cons.maxHeight - 20,
-                              child: GestureDetector(
-                                onTap: () => _goToDistrictMap(name),
-                                child: Tooltip(
-                                  message: name,
-                                  child: FutureBuilder<Map<String, dynamic>>(
-                                    future: _getDistrictIconData(name),
-                                    builder: (context, snapshot) {
-                                      if (!snapshot.hasData) {
-                                        return _buildMapPinWidget({
-                                          'type': null,
-                                        }, name);
-                                      }
-                                      return _buildMapPinWidget(
-                                        snapshot.data!,
-                                        name,
-                                      );
-                                    },
+                              return Positioned(
+                                left: pl['map_x'] * cons.maxWidth - 20,
+                                top: pl['map_y'] * cons.maxHeight - 20,
+                                child: GestureDetector(
+                                  onTap: () => _goToDistrictMap(name),
+                                  child: Tooltip(
+                                    message: name,
+                                    child: FutureBuilder<Map<String, dynamic>>(
+                                      future: _getDistrictIconData(name),
+                                      builder: (context, snapshot) {
+                                        if (!snapshot.hasData) {
+                                          return _buildMapPinWidget({
+                                            'type': null,
+                                          }, name);
+                                        }
+                                        return _buildMapPinWidget(
+                                          snapshot.data!,
+                                          name,
+                                        );
+                                      },
+                                    ),
                                   ),
                                 ),
-                              ),
-                            );
-                          }),
-                        ],
-                      );
-                    },
+                              );
+                            }),
+                          ],
+                        );
+                      },
+                    ),
                   ),
                 ),
               ),
