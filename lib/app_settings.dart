@@ -19,7 +19,14 @@ class AppSettings {
   static const String _themeModeKey = 'themeMode';
   static const String _exportPathKey = 'exportPath';
 
-  // --- BARU: Key untuk Wallpaper ---
+  // --- BARU: Key untuk Wallpaper Slideshow ---
+  static const String _wallpaperTypeKey =
+      'wallpaperType'; // 'static', 'slideshow', 'default'
+  static const String _slideshowBuildingPathKey = 'slideshowBuildingPath';
+  static const String _slideshowSpeedKey = 'slideshowSpeedSeconds';
+  static const String _slideshowTransitionDurationKey =
+      'slideshowTransitionDurationSeconds';
+  // --- SELESAI BARU ---
   static const String _wallpaperPathKey = 'wallpaperPath';
 
   // ... variabel statis yang sudah ada ...
@@ -35,9 +42,13 @@ class AppSettings {
   static int regionOutlineColor = Colors.white.value;
   static int regionNameColor = Colors.white.value;
   static String? exportPath;
-
-  // --- BARU: Variabel statis untuk Wallpaper ---
   static String? wallpaperPath;
+
+  // --- BARU: Variabel statis untuk Slideshow ---
+  static String wallpaperType = 'default';
+  static String? slideshowBuildingPath;
+  static double slideshowSpeedSeconds = 10.0; // Default 10 detik
+  static double slideshowTransitionDurationSeconds = 1.0; // Default 1 detik
 
   static ValueNotifier<ThemeMode> themeMode = ValueNotifier(ThemeMode.system);
 
@@ -64,19 +75,62 @@ class AppSettings {
 
     exportPath = prefs.getString(_exportPathKey);
 
-    // --- BARU: Load Wallpaper Path ---
+    // --- BARU: Load Wallpaper Settings ---
     wallpaperPath = prefs.getString(_wallpaperPathKey);
+    wallpaperType = prefs.getString(_wallpaperTypeKey) ?? 'default';
+    slideshowBuildingPath = prefs.getString(_slideshowBuildingPathKey);
+    slideshowSpeedSeconds = prefs.getDouble(_slideshowSpeedKey) ?? 10.0;
+    slideshowTransitionDurationSeconds =
+        prefs.getDouble(_slideshowTransitionDurationKey) ?? 1.0;
   }
 
-  // --- BARU: Fungsi Save Wallpaper Path ---
-  static Future<void> saveWallpaperPath(String? path) async {
+  // --- BARU: Fungsi Save Wallpaper (Static/Clear) ---
+  static Future<void> saveStaticWallpaper(String? path) async {
     final prefs = await SharedPreferences.getInstance();
     if (path == null) {
       await prefs.remove(_wallpaperPathKey);
+      await prefs.setString(_wallpaperTypeKey, 'default');
     } else {
       await prefs.setString(_wallpaperPathKey, path);
+      await prefs.setString(_wallpaperTypeKey, 'static');
     }
     wallpaperPath = path;
+    slideshowBuildingPath = null;
+  }
+
+  // --- BARU: Fungsi Save Slideshow Settings ---
+  static Future<void> saveSlideshowSettings({
+    required String buildingPath,
+    required double speed,
+    required double transitionDuration,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.setString(_wallpaperTypeKey, 'slideshow');
+    await prefs.setString(_slideshowBuildingPathKey, buildingPath);
+    await prefs.setDouble(_slideshowSpeedKey, speed);
+    await prefs.setDouble(_slideshowTransitionDurationKey, transitionDuration);
+
+    // Clear static path
+    await prefs.remove(_wallpaperPathKey);
+
+    wallpaperType = 'slideshow';
+    slideshowBuildingPath = buildingPath;
+    slideshowSpeedSeconds = speed;
+    slideshowTransitionDurationSeconds = transitionDuration;
+    wallpaperPath = null;
+  }
+
+  // --- BARU: Fungsi Clear Wallpaper (Universal) ---
+  static Future<void> clearWallpaper() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_wallpaperTypeKey, 'default');
+    await prefs.remove(_wallpaperPathKey);
+    await prefs.remove(_slideshowBuildingPathKey);
+
+    wallpaperType = 'default';
+    wallpaperPath = null;
+    slideshowBuildingPath = null;
   }
 
   // ... (sisa fungsi save lainnya) ...

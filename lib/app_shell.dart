@@ -4,9 +4,11 @@ import 'package:mind_palace_manager/features/building/presentation/management/bu
 import 'package:mind_palace_manager/features/settings/settings_page.dart';
 // --- BARU: Import AppSettings ---
 import 'package:mind_palace_manager/app_settings.dart';
-// --- PERBAIKAN: Hanya pertahankan import yang dibutuhkan untuk display ---
 import 'dart:io';
-// --- SELESAI PERBAIKAN ---
+import 'dart:async';
+import 'dart:convert';
+import 'package:path/path.dart' as p; // Tambahkan import path
+// --- SELESAI BARU ---
 
 class MainApp extends StatelessWidget {
   const MainApp({super.key});
@@ -56,33 +58,197 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
+  // --- SLIDESHOW STATE ---
+  Timer? _slideshowTimer;
+  List<String> _roomImagePaths = [];
+  int _currentImageIndex = 0;
+  bool _isLoadingSlideshow = false;
+  // --- SELESAI SLIDESHOW STATE ---
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAndStartSlideshow();
+  }
+
+  @override
+  void dispose() {
+    _slideshowTimer?.cancel();
+    super.dispose();
+  }
+
   // Metode ini diperlukan untuk memicu rebuild DashboardPage saat kembali dari SettingsPage
   void _openSettings() {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const SettingsPage()),
-    ).then(
-      (_) => setState(() {
-        // Rebuild untuk memuat wallpaper baru
-      }),
-    );
+    ).then((_) {
+      // Rebuild untuk memuat wallpaper baru
+      setState(() {
+        _checkAndStartSlideshow();
+      });
+    });
   }
+
+  void _checkAndStartSlideshow() {
+    _slideshowTimer?.cancel();
+
+    if (AppSettings.wallpaperType == 'slideshow' &&
+        AppSettings.slideshowBuildingPath != null) {
+      _startSlideshowLogic();
+    }
+  }
+
+  // --- LOGIKA SLIDESHOW ---
+  Future<void> _loadSlideshowImages() async {
+    setState(() {
+      _isLoadingSlideshow = true;
+    });
+
+    _roomImagePaths.clear();
+    _currentImageIndex = 0;
+
+    // --- PERBAIKAN ERROR: Akses path melalui AppSettings ---
+    final buildingPath = AppSettings.slideshowBuildingPath;
+
+    if (buildingPath == null) {
+      _slideshowTimer?.cancel();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Error: Data bangunan slideshow tidak ditemukan."),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      setState(() => _isLoadingSlideshow = false);
+      return;
+    }
+    // --- SELESAI PERBAIKAN ---
+
+    final buildingDir = Directory(buildingPath);
+    final buildingDataFile = File(p.join(buildingDir.path, 'data.json'));
+
+    if (!await buildingDataFile.exists()) {
+      _slideshowTimer?.cancel();
+      // Atur wallpaper kembali ke default jika file data bangunan hilang
+      AppSettings.clearWallpaper();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Error: Data bangunan slideshow tidak ditemukan."),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      setState(() => _isLoadingSlideshow = false);
+      return;
+    }
+
+    try {
+      final content = await buildingDataFile.readAsString();
+      Map<String, dynamic> buildingData = json.decode(content);
+      List<dynamic> rooms = buildingData['rooms'] ?? [];
+
+      for (var room in rooms) {
+        if (room['image'] != null) {
+          final relativeImagePath = room['image'];
+          final imagePath = p.join(buildingPath, relativeImagePath);
+          if (await File(imagePath).exists()) {
+            _roomImagePaths.add(imagePath);
+          }
+        }
+      }
+    } catch (e) {
+      print("Error loading slideshow images: $e");
+    }
+
+    // Jika hanya ada satu atau tidak ada gambar, batalkan slideshow
+    if (_roomImagePaths.length <= 1) {
+      _slideshowTimer?.cancel();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              "Slideshow dibatalkan. Hanya ditemukan 1 gambar atau kurang.",
+            ),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    }
+
+    setState(() {
+      _isLoadingSlideshow = false;
+      _currentImageIndex = 0;
+    });
+  }
+
+  void _startSlideshowLogic() async {
+    await _loadSlideshowImages();
+
+    if (_roomImagePaths.length <= 1) return;
+
+    final slideDuration = Duration(
+      seconds: AppSettings.slideshowSpeedSeconds.toInt(),
+    );
+
+    _slideshowTimer?.cancel();
+    _slideshowTimer = Timer.periodic(slideDuration, (timer) {
+      setState(() {
+        _currentImageIndex = (_currentImageIndex + 1) % _roomImagePaths.length;
+      });
+    });
+  }
+  // --- SELESAI LOGIKA SLIDESHOW ---
 
   @override
   Widget build(BuildContext context) {
-    // Tentukan widget latar belakang
-    Widget backgroundWidget = AppSettings.wallpaperPath != null
-        ? Image.file(
-            File(AppSettings.wallpaperPath!),
-            fit: BoxFit.cover,
-            height: double.infinity,
-            width: double.infinity,
-            errorBuilder: (context, error, stackTrace) =>
-                Container(color: Theme.of(context).colorScheme.surface),
-          )
-        : Container(
+    Widget backgroundWidget;
+
+    if (AppSettings.wallpaperType == 'slideshow' &&
+        _roomImagePaths.isNotEmpty) {
+      // 1. Slideshow Wallpaper
+      final transitionDuration = Duration(
+        seconds: AppSettings.slideshowTransitionDurationSeconds.toInt(),
+      );
+
+      backgroundWidget = AnimatedSwitcher(
+        duration: transitionDuration,
+        transitionBuilder: (Widget child, Animation<double> animation) {
+          // Fade Transition
+          return FadeTransition(opacity: animation, child: child);
+        },
+        child: Image.file(
+          // Gunakan ValueKey untuk memastikan AnimatedSwitcher mengenali perubahan
+          File(_roomImagePaths[_currentImageIndex]),
+          key: ValueKey<int>(_currentImageIndex),
+          fit: BoxFit.cover,
+          height: double.infinity,
+          width: double.infinity,
+          errorBuilder: (context, error, stackTrace) => Container(
+            key: const ValueKey<int>(-1),
             color: Theme.of(context).colorScheme.surface,
-          ); // Latar Default
+          ),
+        ),
+      );
+    } else if (AppSettings.wallpaperType == 'static' &&
+        AppSettings.wallpaperPath != null) {
+      // 2. Static Wallpaper
+      backgroundWidget = Image.file(
+        File(AppSettings.wallpaperPath!),
+        fit: BoxFit.cover,
+        height: double.infinity,
+        width: double.infinity,
+        errorBuilder: (context, error, stackTrace) =>
+            Container(color: Theme.of(context).colorScheme.surface),
+      );
+    } else {
+      // 3. Default (Solid Color)
+      backgroundWidget = Container(
+        color: Theme.of(context).colorScheme.surface,
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
