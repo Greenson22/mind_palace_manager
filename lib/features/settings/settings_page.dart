@@ -22,7 +22,16 @@ class _BuildingInfo {
   final String name;
   final String districtName;
   final String regionName;
-  _BuildingInfo(this.directory, this.name, this.districtName, this.regionName);
+  final String? iconType;
+  final dynamic iconData;
+  _BuildingInfo(
+    this.directory,
+    this.name,
+    this.districtName,
+    this.regionName,
+    this.iconType,
+    this.iconData,
+  );
 }
 // --- SELESAI BARU ---
 
@@ -225,6 +234,78 @@ class _SettingsPageState extends State<SettingsPage> {
 
   // --- START LOGIKA WALLPAPER ---
 
+  // Helper untuk merender ikon bangunan berdasarkan data
+  Widget _buildBuildingIconContainer(
+    String? iconType,
+    dynamic iconData,
+    String buildingPath,
+  ) {
+    double size = 40.0;
+    Widget child = const Icon(Icons.location_city, size: 24);
+    File? imageFile;
+
+    if (iconType == 'text' &&
+        iconData != null &&
+        iconData.toString().isNotEmpty) {
+      child = Text(
+        iconData.toString(),
+        style: const TextStyle(fontSize: 20),
+        textAlign: TextAlign.center,
+      );
+    } else if (iconType == 'image' && iconData != null) {
+      final path = p.join(buildingPath, iconData.toString());
+      final file = File(path);
+      if (file.existsSync()) {
+        imageFile = file;
+      }
+    }
+
+    // Gunakan logika listIconShape (Bulat/Kotak/Tanpa Latar)
+    switch (AppSettings.listIconShape) {
+      case 'Bulat':
+        return CircleAvatar(
+          radius: size / 2,
+          backgroundImage: imageFile != null ? FileImage(imageFile) : null,
+          onBackgroundImageError: imageFile != null
+              ? (e, s) => const Icon(Icons.image_not_supported)
+              : null,
+          child: imageFile == null ? child : null,
+        );
+      case 'Kotak':
+        return Container(
+          width: size,
+          height: size,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: imageFile == null ? Colors.grey.shade200 : null,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: imageFile != null
+              ? Image.file(
+                  imageFile,
+                  fit: BoxFit.cover,
+                  errorBuilder: (c, e, s) =>
+                      const Center(child: Icon(Icons.image_not_supported)),
+                )
+              : Center(child: child),
+        );
+      case 'Tidak Ada (Tanpa Latar)':
+      default:
+        return SizedBox(
+          width: size,
+          height: size,
+          child: imageFile != null
+              ? Image.file(
+                  imageFile,
+                  fit: BoxFit.contain,
+                  errorBuilder: (c, e, s) =>
+                      const Center(child: Icon(Icons.image_not_supported)),
+                )
+              : Center(child: child),
+        );
+    }
+  }
+
   // Traversal untuk mengumpulkan gambar ikon dari semua tingkatan
   Future<List<_ImageSourceInfo>> _loadAllIconImages() async {
     final List<_ImageSourceInfo> images = [];
@@ -316,7 +397,7 @@ class _SettingsPageState extends State<SettingsPage> {
     return images;
   }
 
-  // Traversal untuk mengumpulkan ruangan, diorganisir per bangunan (Output untuk Building Picker)
+  // Traversal untuk mengumpulkan bangunan yang memiliki gambar ruangan
   Future<List<_BuildingInfo>> _loadAllBuildingsWithRooms() async {
     final List<_BuildingInfo> result = [];
     if (AppSettings.baseBuildingsPath == null) return result;
@@ -342,6 +423,9 @@ class _SettingsPageState extends State<SettingsPage> {
                   final content = await buildingDataFile.readAsString();
                   Map<String, dynamic> buildingData = json.decode(content);
 
+                  final iconType = buildingData['icon_type'];
+                  final iconData = buildingData['icon_data'];
+
                   // Cek apakah ada setidaknya satu gambar ruangan
                   List<dynamic> rooms = buildingData['rooms'] ?? [];
                   bool hasRoomImage = rooms.any((room) {
@@ -362,6 +446,8 @@ class _SettingsPageState extends State<SettingsPage> {
                         buildingName,
                         districtName,
                         regionName,
+                        iconType, // NEW
+                        iconData, // NEW
                       ),
                     );
                   }
@@ -393,6 +479,7 @@ class _SettingsPageState extends State<SettingsPage> {
           final relativeImagePath = room['image'];
           final imagePath = p.join(buildingDir.path, relativeImagePath);
           if (await File(imagePath).exists()) {
+            // NOTE: imagePath di sini sudah path absolut
             images.add(
               _ImageSourceInfo(
                 imagePath,
@@ -582,6 +669,13 @@ class _SettingsPageState extends State<SettingsPage> {
               itemBuilder: (c, index) {
                 final info = buildingList[index];
                 return ListTile(
+                  // --- BARU: Tambahkan leading icon ---
+                  leading: _buildBuildingIconContainer(
+                    info.iconType,
+                    info.iconData,
+                    info.directory.path,
+                  ),
+                  // --- SELESAI BARU ---
                   title: Text(info.name),
                   subtitle: Text(
                     'Wilayah: ${info.regionName} / Distrik: ${info.districtName}',
@@ -1045,6 +1139,8 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  // --- START HELPER UI METHODS (DIPERBAIKI) ---
+
   Widget _buildSectionHeader(String title) {
     return Padding(
       padding: const EdgeInsets.only(left: 8, bottom: 8),
@@ -1164,4 +1260,6 @@ class _SettingsPageState extends State<SettingsPage> {
         return 'Mode Gelap';
     }
   }
+
+  // --- END HELPER UI METHODS ---
 }
