@@ -2,21 +2,19 @@
 import 'package:flutter/material.dart';
 import 'package:mind_palace_manager/features/building/presentation/management/building_management_page.dart';
 import 'package:mind_palace_manager/features/settings/settings_page.dart';
-// --- BARU: Import AppSettings ---
 import 'package:mind_palace_manager/app_settings.dart';
 import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ui'; // Import untuk ImageFilter
 import 'package:path/path.dart' as p;
-// --- SELESAI BARU ---
 
 class MainApp extends StatelessWidget {
   const MainApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // --- BARU: Bungkus dengan ValueListenableBuilder ---
+    // ValueListenableBuilder untuk mendengarkan perubahan ThemeMode
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: AppSettings.themeMode,
       builder: (context, currentThemeMode, child) {
@@ -110,7 +108,7 @@ class _DashboardPageState extends State<DashboardPage> {
     _roomImagePaths.clear();
     _currentImageIndex = 0;
 
-    // --- PERBAIKAN ERROR: Akses path melalui AppSettings ---
+    // Akses path melalui AppSettings
     final buildingPath = AppSettings.slideshowBuildingPath;
 
     if (buildingPath == null) {
@@ -119,7 +117,6 @@ class _DashboardPageState extends State<DashboardPage> {
       setState(() => _isLoadingSlideshow = false);
       return;
     }
-    // --- SELESAI PERBAIKAN ---
 
     final buildingDir = Directory(buildingPath);
     final buildingDataFile = File(p.join(buildingDir.path, 'data.json'));
@@ -181,7 +178,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
   // --- SELESAI LOGIKA SLIDESHOW ---
 
-  // --- BARU: Helper untuk konversi string ke BoxFit ---
+  // Helper untuk konversi string ke BoxFit
   BoxFit _getBoxFit(String fitString) {
     switch (fitString) {
       case 'contain':
@@ -195,58 +192,112 @@ class _DashboardPageState extends State<DashboardPage> {
         return BoxFit.cover;
     }
   }
-  // --- SELESAI BARU ---
 
-  // --- BARU: Fungsi untuk menghasilkan widget background image (termasuk blur) ---
+  // --- FUNGSI _buildImageBackground YANG DIPERBARUI ---
   Widget _buildImageBackground(
     BuildContext context, {
     bool isSlideshow = false,
   }) {
-    final BoxFit imageFit = _getBoxFit(AppSettings.wallpaperFit);
-    final double blur = AppSettings.blurStrength;
-    final File? imageFile = isSlideshow
-        ? (_roomImagePaths.isNotEmpty
-              ? File(_roomImagePaths[_currentImageIndex])
-              : null)
-        : (AppSettings.wallpaperPath != null
-              ? File(AppSettings.wallpaperPath!)
-              : null);
+    // Untuk memastikan perubahan setting langsung diterapkan, bungkus dengan ValueListenableBuilder
+    // untuk setting yang akan dimanipulasi: blur dan containmentBackgroundColor
+    return ValueListenableBuilder<int>(
+      valueListenable: AppSettings.containmentBackgroundColor,
+      builder: (context, containmentColorValue, child) {
+        return ValueListenableBuilder<double>(
+          valueListenable: AppSettings.blurStrength,
+          builder: (context, blur, child) {
+            final BoxFit imageFit = _getBoxFit(AppSettings.wallpaperFit);
+            final File? imageFile = isSlideshow
+                ? (_roomImagePaths.isNotEmpty
+                      ? File(_roomImagePaths[_currentImageIndex])
+                      : null)
+                : (AppSettings.wallpaperPath != null
+                      ? File(AppSettings.wallpaperPath!)
+                      : null);
 
-    if (imageFile == null || !imageFile.existsSync()) {
-      return Container(color: Theme.of(context).colorScheme.surface);
-    }
+            // Default fallback jika tidak ada gambar
+            if (imageFile == null || !imageFile.existsSync()) {
+              return Container(color: Theme.of(context).colorScheme.surface);
+            }
 
-    Widget imageWidget = Image.file(
-      imageFile,
-      key: isSlideshow
-          ? ValueKey<int>(_currentImageIndex)
-          : const ValueKey<String>('static_wallpaper'),
-      fit: imageFit,
-      height: double.infinity,
-      width: double.infinity,
-      errorBuilder: (context, error, stackTrace) =>
-          Container(color: Theme.of(context).colorScheme.surface),
+            // 1. Widget Gambar Utama (dengan BoxFit yang dipilih)
+            Widget foregroundImage = Image.file(
+              imageFile,
+              key: isSlideshow
+                  ? ValueKey<int>(_currentImageIndex)
+                  : const ValueKey<String>('static_wallpaper'),
+              fit: imageFit,
+              height: double.infinity,
+              width: double.infinity,
+              errorBuilder: (context, error, stackTrace) =>
+                  Container(color: Theme.of(context).colorScheme.surface),
+            );
+
+            // 2. Logic Kustom untuk Padding Background saat imageFit = BoxFit.contain
+            if (imageFit == BoxFit.contain) {
+              // --- BARU: Gunakan setting baru (containmentColorValue) ---
+              final Color containmentColor = Color(containmentColorValue);
+              Widget paddingBackground;
+
+              if (blur > 0.0) {
+                // Jika blur aktif: gunakan gambar yang sama, paskan (cover), lalu blur.
+                paddingBackground = Stack(
+                  children: [
+                    Image.file(
+                      imageFile,
+                      fit: BoxFit.cover, // Fill the entire container
+                      height: double.infinity,
+                      width: double.infinity,
+                    ),
+                    // BackdropFilter untuk Blur
+                    Positioned.fill(
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+                        // Overlay tipis untuk memperkuat efek blur
+                        child: Container(color: Colors.black.withOpacity(0.2)),
+                      ),
+                    ),
+                  ],
+                );
+              } else {
+                // Jika blur tidak aktif: gunakan warna solid dari setting containment baru
+                paddingBackground = Container(color: containmentColor);
+              }
+
+              // Gabungkan Background Padding + Foreground Image (Contained)
+              return Stack(
+                children: [
+                  Positioned.fill(child: paddingBackground),
+                  foregroundImage, // foregroundImage already uses BoxFit.contain
+                ],
+              );
+            }
+
+            // 3. Logic Normal (Cover, Fill, None) - Blur applied over the image itself
+            if (blur > 0.0) {
+              // Jika blur aktif, bungkus dengan BackdropFilter
+              return Stack(
+                children: [
+                  foregroundImage,
+                  Positioned.fill(
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+                      child: Container(
+                        color: Colors.black.withOpacity(0),
+                      ), // Kontainer transparan
+                    ),
+                  ),
+                ],
+              );
+            }
+            // Default return (tidak ada contain, tidak ada blur)
+            return foregroundImage;
+          },
+        );
+      },
     );
-
-    if (blur > 0.0) {
-      // Jika blur aktif, bungkus dengan BackdropFilter
-      return Stack(
-        children: [
-          imageWidget,
-          Positioned.fill(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-              child: Container(
-                color: Colors.black.withOpacity(0),
-              ), // Kontainer transparan
-            ),
-          ),
-        ],
-      );
-    }
-    return imageWidget;
   }
-  // --- SELESAI BARU ---
+  // --- SELESAI FUNGSI _buildImageBackground YANG DIPERBARUI ---
 
   @override
   Widget build(BuildContext context) {
@@ -255,8 +306,8 @@ class _DashboardPageState extends State<DashboardPage> {
 
     // --- UBAH: Logika Background berdasarkan Mode Baru ---
     if (mode == 'solid') {
-      // 1. Solid Color
-      backgroundWidget = Container(color: Color(AppSettings.solidColor));
+      // 1. Solid Color - MENGGUNAKAN AppSettings.solidColor
+      backgroundWidget = Container(color: Color(AppSettings.solidColor.value));
     } else if (mode == 'gradient') {
       // 2. Gradient
       backgroundWidget = Container(

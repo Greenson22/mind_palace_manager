@@ -29,11 +29,13 @@ class AppSettings {
   static const String _wallpaperFitKey = 'wallpaperFit';
   static const String _wallpaperPathKey = 'wallpaperPath';
 
-  // --- SOLID/GRADIENT/BLUR KEYS ---
+  // --- SOLID/GRADIENT/BLUR/CONTAINMENT KEYS ---
   static const String _solidColorKey = 'solidColor';
   static const String _gradientColor1Key = 'gradientColor1';
   static const String _gradientColor2Key = 'gradientColor2';
   static const String _blurStrengthKey = 'blurStrength';
+  static const String _containmentBackgroundColorKey =
+      'containmentBackgroundColor'; // Kunci BARU untuk warna padding
   // --- END KEYS ---
 
   // --- STATIC VARIABLES ---
@@ -58,11 +60,21 @@ class AppSettings {
   static double slideshowTransitionDurationSeconds = 1.0;
   static String wallpaperFit = 'cover';
 
-  // --- SOLID/GRADIENT/BLUR VARIABLES ---
-  static int solidColor = Colors.grey.shade900.value; // Default dark
+  // --- SOLID/GRADIENT/BLUR VARIABLES (DIUBAH MENJADI ValueNotifier) ---
+  static ValueNotifier<int> solidColor = ValueNotifier(
+    Colors.grey.shade900.value,
+  ); // Default dark
   static int gradientColor1 = Colors.blue.value;
   static int gradientColor2 = Colors.deepPurple.value;
-  static double blurStrength = 5.0; // Default blur
+  static ValueNotifier<double> blurStrength = ValueNotifier(
+    5.0,
+  ); // Default blur
+
+  // --- VARIABEL BARU (Warna Latar Belakang Mode Contain) ---
+  static ValueNotifier<int> containmentBackgroundColor = ValueNotifier(
+    Colors.black.value,
+  ); // Default hitam
+  // --- SELESAI VARIABEL BARU ---
 
   static ValueNotifier<ThemeMode> themeMode = ValueNotifier(ThemeMode.system);
   // --- END STATIC VARIABLES ---
@@ -99,12 +111,17 @@ class AppSettings {
         prefs.getDouble(_slideshowTransitionDurationKey) ?? 1.0;
     wallpaperFit = prefs.getString(_wallpaperFitKey) ?? 'cover';
 
-    // Load Solid/Gradient/Blur Settings
-    solidColor = prefs.getInt(_solidColorKey) ?? Colors.grey.shade900.value;
+    // Load Solid/Gradient/Blur/Containment Settings
+    solidColor.value =
+        prefs.getInt(_solidColorKey) ?? Colors.grey.shade900.value;
     gradientColor1 = prefs.getInt(_gradientColor1Key) ?? Colors.blue.value;
     gradientColor2 =
         prefs.getInt(_gradientColor2Key) ?? Colors.deepPurple.value;
-    blurStrength = prefs.getDouble(_blurStrengthKey) ?? 5.0;
+    blurStrength.value = prefs.getDouble(_blurStrengthKey) ?? 5.0;
+
+    // MUAT VARIABEL BARU
+    containmentBackgroundColor.value =
+        prefs.getInt(_containmentBackgroundColorKey) ?? Colors.black.value;
   }
 
   // --- SAVE FUNCTIONS (BARU & DIUBAH) ---
@@ -123,11 +140,18 @@ class AppSettings {
     }
   }
 
-  // Mengatur Warna Solid
+  // Mengatur Warna Solid (DIUBAH)
   static Future<void> saveSolidColor(int colorValue) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_solidColorKey, colorValue);
-    solidColor = colorValue;
+    solidColor.value = colorValue;
+  }
+
+  // Mengatur Warna Background Containment (FUNGSI BARU)
+  static Future<void> saveContainmentBackgroundColor(int colorValue) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_containmentBackgroundColorKey, colorValue);
+    containmentBackgroundColor.value = colorValue;
   }
 
   // Mengatur Warna Gradient
@@ -143,11 +167,11 @@ class AppSettings {
     gradientColor2 = colorValue;
   }
 
-  // Mengatur Kekuatan Blur
+  // Mengatur Kekuatan Blur (DIUBAH)
   static Future<void> saveBlurStrength(double strength) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble(_blurStrengthKey, strength);
-    blurStrength = strength;
+    blurStrength.value = strength;
   }
 
   // Mengatur Mode Tampilan Gambar (Fit)
