@@ -53,6 +53,9 @@ class _SettingsPageState extends State<SettingsPage> {
   late double _currentRegionShapeStrokeWidth;
   late bool _currentShowRegionDistrictNames;
 
+  // --- BARU: Wallpaper Fit State ---
+  late String _currentWallpaperFit;
+
   late Color _currentRegionPinColor;
   late Color _currentRegionOutlineColor;
   late Color _currentRegionNameColor;
@@ -87,6 +90,9 @@ class _SettingsPageState extends State<SettingsPage> {
     _currentRegionPinColor = Color(AppSettings.regionPinColor);
     _currentRegionOutlineColor = Color(AppSettings.regionOutlineColor);
     _currentRegionNameColor = Color(AppSettings.regionNameColor);
+
+    // --- BARU: Init Wallpaper Fit State ---
+    _currentWallpaperFit = AppSettings.wallpaperFit;
 
     // --- BARU: Set initial slideshow building name ---
     if (AppSettings.slideshowBuildingPath != null) {
@@ -1146,6 +1152,23 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
 
+            // --- BARU: Pengaturan Image Fit ---
+            const Divider(indent: 56),
+            ListTile(
+              leading: Icon(Icons.aspect_ratio, color: primaryColor),
+              title: const Text('Mode Tampilan Wallpaper'),
+              trailing: _buildBoxFitDropdown(
+                value: _currentWallpaperFit,
+                onChanged: (val) async {
+                  if (val != null) {
+                    await AppSettings.saveWallpaperFit(val);
+                    setState(() => _currentWallpaperFit = val);
+                  }
+                },
+              ),
+            ),
+            // --- SELESAI BARU ---
+
             // --- SELESAI BARU ---
             const Divider(indent: 56),
             ListTile(
@@ -1429,6 +1452,39 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
     );
   }
+
+  // --- BARU: Helper untuk Dropdown BoxFit ---
+  Widget _buildBoxFitDropdown({
+    required String value,
+    required Function(String?) onChanged,
+  }) {
+    final List<Map<String, String>> fitOptions = [
+      {'value': 'cover', 'label': 'Full Screen (Cover)'},
+      {'value': 'contain', 'label': 'Show All (Contain)'},
+      {'value': 'fill', 'label': 'Stretch (Fill)'},
+      {'value': 'none', 'label': 'Original Size'},
+    ];
+
+    return DropdownButtonHideUnderline(
+      child: DropdownButton<String>(
+        value: value,
+        isDense: true,
+        icon: const Icon(Icons.arrow_drop_down_circle_outlined, size: 20),
+        style: TextStyle(
+          color: Theme.of(context).textTheme.bodyMedium?.color,
+          fontWeight: FontWeight.w500,
+        ),
+        onChanged: onChanged,
+        items: fitOptions.map((opt) {
+          return DropdownMenuItem(
+            value: opt['value'],
+            child: Text(opt['label']!),
+          );
+        }).toList(),
+      ),
+    );
+  }
+  // --- SELESAI BARU ---
 
   Widget _buildSliderTile({
     required IconData icon,

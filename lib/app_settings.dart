@@ -26,6 +26,9 @@ class AppSettings {
   static const String _slideshowSpeedKey = 'slideshowSpeedSeconds';
   static const String _slideshowTransitionDurationKey =
       'slideshowTransitionDurationSeconds';
+  // --- BARU TAMBAHAN: Key untuk Wallpaper Fit ---
+  static const String _wallpaperFitKey =
+      'wallpaperFit'; // 'cover', 'contain', 'fill', 'none'
   // --- SELESAI BARU ---
   static const String _wallpaperPathKey = 'wallpaperPath';
 
@@ -49,6 +52,10 @@ class AppSettings {
   static String? slideshowBuildingPath;
   static double slideshowSpeedSeconds = 10.0; // Default 10 detik
   static double slideshowTransitionDurationSeconds = 1.0; // Default 1 detik
+
+  // --- BARU TAMBAHAN: Variabel statis untuk Wallpaper Fit ---
+  static String wallpaperFit =
+      'cover'; // Default: 'cover' (Full Screen tanpa distorsi)
 
   static ValueNotifier<ThemeMode> themeMode = ValueNotifier(ThemeMode.system);
 
@@ -82,6 +89,15 @@ class AppSettings {
     slideshowSpeedSeconds = prefs.getDouble(_slideshowSpeedKey) ?? 10.0;
     slideshowTransitionDurationSeconds =
         prefs.getDouble(_slideshowTransitionDurationKey) ?? 1.0;
+    // --- BARU TAMBAHAN: Load Wallpaper Fit ---
+    wallpaperFit = prefs.getString(_wallpaperFitKey) ?? 'cover';
+  }
+
+  // --- BARU TAMBAHAN: Fungsi Save Wallpaper Fit ---
+  static Future<void> saveWallpaperFit(String fit) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_wallpaperFitKey, fit);
+    wallpaperFit = fit;
   }
 
   // --- BARU: Fungsi Save Wallpaper (Static/Clear) ---

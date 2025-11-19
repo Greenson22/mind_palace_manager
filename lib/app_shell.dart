@@ -202,9 +202,29 @@ class _DashboardPageState extends State<DashboardPage> {
   }
   // --- SELESAI LOGIKA SLIDESHOW ---
 
+  // --- BARU: Helper untuk konversi string ke BoxFit ---
+  BoxFit _getBoxFit(String fitString) {
+    switch (fitString) {
+      case 'contain':
+        return BoxFit.contain;
+      case 'fill':
+        return BoxFit.fill;
+      case 'none':
+        return BoxFit.none;
+      case 'cover':
+      default:
+        return BoxFit.cover;
+    }
+  }
+  // --- SELESAI BARU ---
+
   @override
   Widget build(BuildContext context) {
     Widget backgroundWidget;
+
+    // --- BARU: Ambil setting BoxFit ---
+    final BoxFit imageFit = _getBoxFit(AppSettings.wallpaperFit);
+    // --- SELESAI BARU ---
 
     if (AppSettings.wallpaperType == 'slideshow' &&
         _roomImagePaths.isNotEmpty) {
@@ -223,7 +243,9 @@ class _DashboardPageState extends State<DashboardPage> {
           // Gunakan ValueKey untuk memastikan AnimatedSwitcher mengenali perubahan
           File(_roomImagePaths[_currentImageIndex]),
           key: ValueKey<int>(_currentImageIndex),
-          fit: BoxFit.cover,
+          // --- UBAH: Gunakan imageFit ---
+          fit: imageFit,
+          // --- SELESAI UBAH ---
           height: double.infinity,
           width: double.infinity,
           errorBuilder: (context, error, stackTrace) => Container(
@@ -237,7 +259,9 @@ class _DashboardPageState extends State<DashboardPage> {
       // 2. Static Wallpaper
       backgroundWidget = Image.file(
         File(AppSettings.wallpaperPath!),
-        fit: BoxFit.cover,
+        // --- UBAH: Gunakan imageFit ---
+        fit: imageFit,
+        // --- SELESAI UBAH ---
         height: double.infinity,
         width: double.infinity,
         errorBuilder: (context, error, stackTrace) =>
