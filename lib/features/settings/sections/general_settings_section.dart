@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
+import 'package:path/path.dart' as p; // Tambahan Import
 import 'package:mind_palace_manager/app_settings.dart';
 import 'package:mind_palace_manager/features/settings/widgets/settings_helpers.dart';
 import 'package:mind_palace_manager/features/settings/dialogs/wallpaper_manager_dialogs.dart';
@@ -21,7 +22,6 @@ class GeneralSettingsSection extends StatelessWidget {
   final Color currentGradientColor2;
   final double currentBlurStrength;
 
-  // --- BARU: Variabel Opacity ---
   final double currentOverlayOpacity;
 
   final Function(VoidCallback fn) setStateCallback;
@@ -40,24 +40,38 @@ class GeneralSettingsSection extends StatelessWidget {
     required this.currentGradientColor1,
     required this.currentGradientColor2,
     required this.currentBlurStrength,
-    // --- BARU ---
     required this.currentOverlayOpacity,
     required this.setStateCallback,
   });
 
   Future<void> _pickAndCreateFolder(BuildContext context) async {
+    // 1. Biarkan pengguna memilih folder induk (misal: Documents)
     String? selectedPath = await FilePicker.platform.getDirectoryPath();
+
     if (selectedPath != null) {
       try {
-        final rootDir = Directory(selectedPath);
+        // 2. Modifikasi path dengan menambahkan /.buildings di belakangnya
+        final String hiddenPath = p.join(selectedPath, '.buildings');
+        final rootDir = Directory(hiddenPath);
+
+        // 3. Buat direktori .buildings jika belum ada
+        if (!await rootDir.exists()) {
+          await rootDir.create(recursive: true);
+        }
+
+        // 4. Simpan path yang berakhiran .buildings ke pengaturan
         await AppSettings.saveBaseBuildingsPath(rootDir.path);
+
         setStateCallback(() {
           folderController.text = AppSettings.baseBuildingsPath!;
         });
+
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Folder penyimpanan berhasil diperbarui'),
+              content: Text(
+                'Folder penyimpanan berhasil diatur (Sub-folder .buildings dibuat).',
+              ),
               backgroundColor: Colors.green,
             ),
           );
@@ -188,23 +202,21 @@ class GeneralSettingsSection extends StatelessWidget {
             ),
           ),
 
-          // --- BARU: Slider Transparansi Overlay ---
           const Divider(indent: 56),
           buildSliderTile(
-            icon: Icons.opacity, // Ikon yang cocok untuk opacity
+            icon: Icons.opacity,
             color: primaryColor,
             title: 'Transparansi Cover',
             value: currentOverlayOpacity,
             min: 0.0,
             max: 1.0,
-            divisions: 20, // Step 0.05
+            divisions: 20,
             onChanged: (val) async {
               await AppSettings.saveBackgroundOverlayOpacity(val);
               setStateCallback(() {});
             },
           ),
 
-          // ---------------------------------------
           const Divider(indent: 56),
           ListTile(
             leading: Icon(Icons.folder_open, color: primaryColor),
