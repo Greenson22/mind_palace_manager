@@ -12,6 +12,9 @@ import 'package:mind_palace_manager/features/region/presentation/map/region_map_
 import 'package:mind_palace_manager/features/region/presentation/map/region_map_viewer_page.dart';
 import 'package:mind_palace_manager/features/region/presentation/dialogs/move_district_dialog.dart';
 
+// --- IMPORT TRANSISI AWAN ---
+import 'package:mind_palace_manager/features/settings/helpers/cloud_transition.dart';
+
 class RegionDetailPage extends StatefulWidget {
   final Directory regionDirectory;
 
@@ -553,13 +556,12 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
   }
 
   void _openRegionMapViewer() {
-    Navigator.push(
+    // --- MENGGUNAKAN CLOUD TRANSITION ---
+    CloudNavigation.push(
       context,
-      MaterialPageRoute(
-        builder: (c) =>
-            RegionMapViewerPage(regionDirectory: widget.regionDirectory),
-      ),
+      RegionMapViewerPage(regionDirectory: widget.regionDirectory),
     );
+    // ------------------------------------
   }
 
   @override
@@ -680,7 +682,6 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
     }
 
     return ListView.builder(
-      // --- PADDING BAWAH ---
       padding: const EdgeInsets.only(bottom: 150),
       itemCount: _districtFolders.length,
       itemBuilder: (context, index) {
@@ -724,8 +725,6 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
             style: const TextStyle(fontSize: 18),
           ),
           subtitle: Text(dir.path, style: const TextStyle(fontSize: 10)),
-
-          // --- MENU OPSI DISTRIK ---
           trailing: PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (v) {
@@ -733,7 +732,6 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
                 case 'view':
                   _openDistrict(dir);
                   break;
-                // case 'edit_map': _editDistrictMap(dir); break; // DIHAPUS SESUAI REQUEST
                 case 'edit_info':
                   _showEditDistrictDialog(dir);
                   break;
@@ -756,8 +754,6 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
                   ],
                 ),
               ),
-
-              // Opsi 'Edit Peta' sudah DIHAPUS dari sini agar user mengeditnya di dalam distrik
               const PopupMenuItem(
                 value: 'move',
                 child: Row(

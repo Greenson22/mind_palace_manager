@@ -11,6 +11,9 @@ import 'package:mind_palace_manager/features/world/presentation/map/world_map_ed
 import 'package:mind_palace_manager/features/world/presentation/map/world_map_viewer_page.dart';
 import 'package:mind_palace_manager/features/building/presentation/factory/building_factory_page.dart';
 
+// --- IMPORT TRANSISI AWAN ---
+import 'package:mind_palace_manager/features/settings/helpers/cloud_transition.dart';
+
 class BuildingManagementPage extends StatefulWidget {
   const BuildingManagementPage({super.key});
 
@@ -117,14 +120,14 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
 
   void _openWorldMapViewer() {
     if (AppSettings.baseBuildingsPath != null) {
-      Navigator.push(
+      // --- MENGGUNAKAN CLOUD TRANSITION ---
+      CloudNavigation.push(
         context,
-        MaterialPageRoute(
-          builder: (c) => WorldMapViewerPage(
-            worldDirectory: Directory(AppSettings.baseBuildingsPath!),
-          ),
+        WorldMapViewerPage(
+          worldDirectory: Directory(AppSettings.baseBuildingsPath!),
         ),
       );
+      // ------------------------------------
     }
   }
 
@@ -194,8 +197,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
     }
   }
 
-  // ... (Fungsi _getRegionIconData, _buildIconContainer, _showEditRegionDialog, _saveRegionChanges, _deleteRegion, _viewRegion tetap sama)
-  // Saya singkat di sini untuk fokus ke UI, tapi pastikan Anda menyimpannya.
   Future<Map<String, dynamic>> _getRegionIconData(Directory regionDir) async {
     try {
       final jsonFile = File(p.join(regionDir.path, 'region_data.json'));

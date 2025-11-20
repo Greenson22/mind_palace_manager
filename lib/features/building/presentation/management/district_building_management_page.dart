@@ -12,6 +12,9 @@ import 'package:mind_palace_manager/features/building/presentation/map/district_
 import 'package:mind_palace_manager/features/building/presentation/dialogs/move_building_dialog.dart';
 import 'package:mind_palace_manager/features/building/presentation/map/district_map_editor_page.dart';
 
+// --- IMPORT TRANSISI AWAN ---
+import 'package:mind_palace_manager/features/settings/helpers/cloud_transition.dart';
+
 class DistrictBuildingManagementPage extends StatefulWidget {
   final Directory districtDirectory;
 
@@ -762,13 +765,12 @@ class _DistrictBuildingManagementPageState
   }
 
   void _viewBuilding(Directory buildingDir) {
-    Navigator.push(
+    // --- MENGGUNAKAN CLOUD TRANSITION ---
+    CloudNavigation.push(
       context,
-      MaterialPageRoute(
-        builder: (context) =>
-            BuildingViewerPage(buildingDirectory: buildingDir),
-      ),
+      BuildingViewerPage(buildingDirectory: buildingDir),
     );
+    // ------------------------------------
   }
 
   void _editBuilding(Directory buildingDir) {
@@ -781,13 +783,12 @@ class _DistrictBuildingManagementPageState
   }
 
   void _viewDistrictMap() {
-    Navigator.push(
+    // --- MENGGUNAKAN CLOUD TRANSITION ---
+    CloudNavigation.push(
       context,
-      MaterialPageRoute(
-        builder: (c) =>
-            DistrictMapViewerPage(districtDirectory: widget.districtDirectory),
-      ),
+      DistrictMapViewerPage(districtDirectory: widget.districtDirectory),
     );
+    // ------------------------------------
   }
 
   void _openMapEditor() {
