@@ -69,11 +69,9 @@ class _CloudPageRoute extends PageRouteBuilder {
   _CloudPageRoute(this.newPage, this.bubbles)
     : super(
         pageBuilder: (context, animation, secondaryAnimation) => newPage,
-        transitionDuration: const Duration(
-          milliseconds: 1800,
-        ), // Durasi total (tutup + buka)
+        transitionDuration: const Duration(milliseconds: 1800),
         reverseTransitionDuration: const Duration(milliseconds: 1500),
-        opaque: false, // Penting agar transparan
+        opaque: false,
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return AnimatedBuilder(
             animation: animation,
@@ -93,18 +91,27 @@ class _CloudPageRoute extends PageRouteBuilder {
               }
 
               // Tampilkan halaman baru hanya jika animasi sudah lewat setengah
-              // (saat layar tertutup awan penuh)
               final bool showNewPage = animation.value > 0.5;
+
+              // PERBAIKAN:
+              // Jika animasi selesai (value >= 1.0), kita harus mengabaikan sentuhan
+              // pada layer awan agar tembus ke halaman di bawahnya.
+              // Saat animasi berjalan (< 1.0), kita blokir sentuhan agar user
+              // tidak tidak sengaja menekan tombol saat transisi.
+              final bool ignoreTouchesOnCloud = animation.value >= 0.99;
 
               return Stack(
                 children: [
                   // Layer 1: Halaman (Lama atau Baru)
                   showNewPage ? child! : const SizedBox(),
 
-                  // Layer 2: Kanvas Awan
+                  // Layer 2: Kanvas Awan (Dengan IgnorePointer)
                   Positioned.fill(
-                    child: CustomPaint(
-                      painter: _CloudPainter(cloudProgress, bubbles),
+                    child: IgnorePointer(
+                      ignoring: ignoreTouchesOnCloud, // KUNCI PERBAIKAN
+                      child: CustomPaint(
+                        painter: _CloudPainter(cloudProgress, bubbles),
+                      ),
                     ),
                   ),
                 ],
@@ -118,27 +125,24 @@ class _CloudPageRoute extends PageRouteBuilder {
 
 /// Painter yang menggambar lingkaran-lingkaran putih
 class _CloudPainter extends CustomPainter {
-  final double progress; // 0.0 (terbuka) -> 1.0 (tertutup)
+  final double progress;
   final List<_CloudBubble> bubbles;
 
   _CloudPainter(this.progress, this.bubbles);
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Jika progress 0, tidak perlu gambar apa-apa (optimasi)
+    // Jika progress 0, tidak perlu gambar apa-apa
     if (progress <= 0.01) return;
 
     final paint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.fill;
 
-    // Menggambar setiap bubble
     for (final bubble in bubbles) {
-      // Interpolasi posisi X dan Y dari initial ke target
       double currentX = lerpDouble(bubble.initialX, bubble.targetX, progress)!;
       double currentY = lerpDouble(bubble.initialY, bubble.targetY, progress)!;
 
-      // Efek "Puff": Membesar sedikit saat menutup agar celah tertutup rapat
       double radiusFactor = 1.0 + (0.2 * progress);
       double currentRadius = (bubble.baseRadius * size.width) * radiusFactor;
 
@@ -156,7 +160,6 @@ class _CloudPainter extends CustomPainter {
   }
 }
 
-/// Data model untuk satu bulatan awan
 class _CloudBubble {
   final double initialX;
   final double initialY;
