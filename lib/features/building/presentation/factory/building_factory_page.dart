@@ -1,3 +1,4 @@
+// lib/features/building/presentation/factory/building_factory_page.dart
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'dart:convert';
@@ -20,7 +21,6 @@ class _BuildingFactoryPageState extends State<BuildingFactoryPage> {
   List<Directory> _bankBuildings = [];
   bool _isLoading = false;
 
-  // Controller untuk Edit/Create
   final TextEditingController _buildingNameController = TextEditingController();
   final TextEditingController _buildingIconTextController =
       TextEditingController();
@@ -66,7 +66,6 @@ class _BuildingFactoryPageState extends State<BuildingFactoryPage> {
     setState(() => _isLoading = false);
   }
 
-  // --- HELPER: LOAD ICON DATA (Sama dengan District Page) ---
   Future<Map<String, dynamic>> _getBuildingIconData(
     Directory buildingDir,
   ) async {
@@ -95,7 +94,6 @@ class _BuildingFactoryPageState extends State<BuildingFactoryPage> {
     }
   }
 
-  // --- HELPER: BUILD ICON WIDGET (Sama dengan District Page) ---
   Widget _buildIconContainer(Widget? child, {File? imageFile}) {
     double size = 40.0;
     switch (AppSettings.listIconShape) {
@@ -143,11 +141,9 @@ class _BuildingFactoryPageState extends State<BuildingFactoryPage> {
     }
   }
 
-  // --- DIALOG BUAT/EDIT (Disesuaikan agar reusable untuk create & edit) ---
   Future<void> _showBuildingDialog({Directory? buildingToEdit}) async {
     final bool isEdit = buildingToEdit != null;
 
-    // Reset / Init Controller
     _buildingNameController.text = isEdit
         ? p.basename(buildingToEdit.path)
         : '';
@@ -155,7 +151,6 @@ class _BuildingFactoryPageState extends State<BuildingFactoryPage> {
     _buildingIconTextController.clear();
     _buildingIconImagePath = null;
 
-    // Jika Edit, muat data ikon lama
     String? oldType;
     dynamic oldData;
     if (isEdit) {
@@ -282,7 +277,6 @@ class _BuildingFactoryPageState extends State<BuildingFactoryPage> {
     final name = _buildingNameController.text.trim();
     Directory targetDir;
 
-    // 1. Handle Directory Creation / Rename
     if (isEdit && originalDir != null) {
       if (name != p.basename(originalDir.path)) {
         targetDir = await originalDir.rename(
@@ -296,7 +290,6 @@ class _BuildingFactoryPageState extends State<BuildingFactoryPage> {
       await targetDir.create();
     }
 
-    // 2. Handle Icon Data Logic
     String? iconType;
     dynamic iconData;
     String? oldImageName = (isEdit && oldType == 'image') ? oldData : null;
@@ -310,7 +303,6 @@ class _BuildingFactoryPageState extends State<BuildingFactoryPage> {
       }
     } else if (_buildingIconType == 'Gambar') {
       if (_buildingIconImagePath != null) {
-        // New Image
         final ext = p.extension(_buildingIconImagePath!);
         final uniqueName = 'icon_${DateTime.now().millisecondsSinceEpoch}$ext';
         iconType = 'image';
@@ -319,7 +311,6 @@ class _BuildingFactoryPageState extends State<BuildingFactoryPage> {
           _buildingIconImagePath!,
         ).copy(p.join(targetDir.path, uniqueName));
       } else if (oldImageName != null) {
-        // Keep Old
         iconType = 'image';
         iconData = oldImageName;
       }
@@ -328,14 +319,12 @@ class _BuildingFactoryPageState extends State<BuildingFactoryPage> {
       iconData = null;
     }
 
-    // Cleanup old image if changed
     if (oldImageName != null &&
         (iconType != 'image' || iconData != oldImageName)) {
       final oldFile = File(p.join(targetDir.path, oldImageName));
       if (await oldFile.exists()) await oldFile.delete();
     }
 
-    // 3. Write JSON
     final jsonFile = File(p.join(targetDir.path, 'data.json'));
     Map<String, dynamic> jsonData = {"rooms": []};
     if (await jsonFile.exists()) {
@@ -376,25 +365,20 @@ class _BuildingFactoryPageState extends State<BuildingFactoryPage> {
     }
   }
 
-  // --- FITUR DEPLOY ---
-
   Future<void> _deployBuilding(Directory buildingDir) async {
     if (AppSettings.baseBuildingsPath == null) return;
 
-    // 1. Pilih Tujuan
-    // Kirim isFactoryMode: true agar Tab Lokal dimatikan
     final Directory? targetDistrict = await showDialog<Directory>(
       context: context,
       builder: (context) => MoveBuildingDialog(
         currentRegionDir: _warehouseDir!,
         currentDistrictDir: _warehouseDir!,
-        isFactoryMode: true, // --- AKTIFKAN MODE PABRIK ---
+        isFactoryMode: true,
       ),
     );
 
     if (targetDistrict == null) return;
 
-    // 2. Pilih Metode
     final String? mode = await showDialog<String>(
       context: context,
       builder: (c) => AlertDialog(
@@ -471,7 +455,6 @@ class _BuildingFactoryPageState extends State<BuildingFactoryPage> {
     }
   }
 
-  // --- EXPORT ICON (Sama dengan District) ---
   Future<void> _exportIcon(Directory buildingDir) async {
     if (AppSettings.exportPath == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -525,10 +508,17 @@ class _BuildingFactoryPageState extends State<BuildingFactoryPage> {
 
   @override
   Widget build(BuildContext context) {
+    // --- LOGIKA WARNA APPBAR ADAPTIF ---
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final appBarColor = isDarkMode
+        ? null
+        : Colors.indigo.shade50; // Null = default dark surface
+    // -----------------------------------
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Bank Bangunan (Gudang)'),
-        backgroundColor: Colors.indigo.shade50,
+        backgroundColor: appBarColor,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -548,7 +538,12 @@ class _BuildingFactoryPageState extends State<BuildingFactoryPage> {
                   leading: FutureBuilder<Map<String, dynamic>>(
                     future: _getBuildingIconData(dir),
                     builder: (c, s) {
-                      if (!s.hasData) return const CircularProgressIndicator();
+                      if (!s.hasData)
+                        return const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        );
                       final d = s.data!;
                       Widget? child;
                       File? img;
@@ -559,9 +554,7 @@ class _BuildingFactoryPageState extends State<BuildingFactoryPage> {
                         );
                       if (d['type'] == 'image') img = d['file'];
                       if (d['type'] == null)
-                        child = const Icon(
-                          Icons.apartment,
-                        ); // Default Icon Bank
+                        child = const Icon(Icons.apartment);
                       return _buildIconContainer(child, imageFile: img);
                     },
                   ),
