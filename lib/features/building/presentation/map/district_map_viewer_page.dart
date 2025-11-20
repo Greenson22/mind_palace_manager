@@ -3,12 +3,11 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:path/path.dart' as p;
 import 'package:mind_palace_manager/app_settings.dart';
 import 'package:mind_palace_manager/features/building/presentation/viewer/building_viewer_page.dart';
 import 'package:mind_palace_manager/features/building/presentation/management/district_building_management_page.dart';
-// --- BARU: Untuk RepaintBoundary ---
-import 'package:flutter/rendering.dart';
 
 class DistrictMapViewerPage extends StatefulWidget {
   final Directory districtDirectory;
@@ -28,9 +27,8 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
   List<Map<String, dynamic>> _placements = [];
   double _imageAspectRatio = 1.0;
 
-  // --- BARU: Key untuk menangkap gambar ---
+  // Key untuk menangkap gambar (Export Screenshot)
   final GlobalKey _globalKey = GlobalKey();
-  // --- SELESAI BARU ---
 
   @override
   void initState() {
@@ -55,20 +53,20 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
       final data = json.decode(content);
 
       _placements = List<Map<String, dynamic>>.from(
-        data['building_placements'],
+        data['building_placements'] ?? [],
       );
       final mapImageName = data['map_image'];
 
-      if (mapImageName == null) {
-        throw Exception('Gambar peta belum diatur untuk distrik ini.');
+      if (mapImageName != null) {
+        _mapImageFile = File(
+          p.join(widget.districtDirectory.path, mapImageName),
+        );
+        if (await _mapImageFile!.exists()) {
+          await _updateImageAspectRatio(_mapImageFile!);
+        } else {
+          _mapImageFile = null;
+        }
       }
-
-      _mapImageFile = File(p.join(widget.districtDirectory.path, mapImageName));
-      if (!await _mapImageFile!.exists()) {
-        throw Exception('File gambar peta "$mapImageName" tidak ditemukan.');
-      }
-
-      await _updateImageAspectRatio(_mapImageFile!);
     } catch (e) {
       _error = 'Gagal memuat data peta: $e';
     }
@@ -84,13 +82,17 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
       final codec = await ui.instantiateImageCodec(data);
       final frameInfo = await codec.getNextFrame();
       final image = frameInfo.image;
-      setState(() {
-        _imageAspectRatio = image.width / image.height;
-      });
+      if (mounted) {
+        setState(() {
+          _imageAspectRatio = image.width / image.height;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _imageAspectRatio = 1.0;
-      });
+      if (mounted) {
+        setState(() {
+          _imageAspectRatio = 1.0;
+        });
+      }
     }
   }
 
@@ -170,7 +172,7 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
       pinContent = Text(
         iconData['data'].toString(),
         style: TextStyle(
-          fontSize: size * 0.5, // Font size relatif terhadap ukuran container
+          fontSize: size * 0.5,
           color: Colors.white,
           fontWeight: FontWeight.bold,
           shadows: const [Shadow(blurRadius: 2, color: Colors.black)],
@@ -220,7 +222,7 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
       );
     }
 
-    const Color pinColor = Colors.red;
+    const Color pinColor = Colors.blue;
     BoxDecoration pinDecoration;
     if (AppSettings.mapPinShape == 'Kotak') {
       pinDecoration = BoxDecoration(
@@ -247,9 +249,9 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
     );
   }
 
-  // --- Fungsi Export Peta (PNG Screenshot) yang sudah ada ---
+  // --- EXPORT FUNCTIONS ---
+
   Future<void> _exportMapImage() async {
-    if (_mapImageFile == null) return;
     if (AppSettings.exportPath == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -263,6 +265,7 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
     }
 
     try {
+      // Capture RepaintBoundary (Termasuk background & overlay)
       final boundary =
           _globalKey.currentContext!.findRenderObject()
               as RenderRepaintBoundary?;
@@ -287,7 +290,7 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Peta berhasil diexport ke: ${file.path}'),
+            content: Text('Tampilan peta berhasil diexport ke: ${file.path}'),
             backgroundColor: Colors.green,
           ),
         );
@@ -296,9 +299,7 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              'Gagal export peta: Pastikan peta tidak di-zoom atau pinch. Error: $e',
-            ),
+            content: Text('Gagal export peta: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -306,7 +307,6 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
     }
   }
 
-  // --- BARU: Fungsi Export File Asli Peta ---
   Future<void> _exportOriginalMapFile() async {
     if (_mapImageFile == null || !await _mapImageFile!.exists()) {
       if (mounted) {
@@ -362,20 +362,39 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
       }
     }
   }
-  // --- SELESAI BARU ---
+
+  // ==========================================
+  // BUILDER METHODS
+  // ==========================================
 
   @override
   Widget build(BuildContext context) {
-    // Tampilkan nama distrik di AppBar
     final districtName = p.basename(widget.districtDirectory.path);
 
     return Scaffold(
+      // 1. Membuat body memanjang ke belakang AppBar
+      extendBodyBehindAppBar: true,
+      // 2. AppBar Transparan
       appBar: AppBar(
-        title: Text('Peta: $districtName'),
+        title: Text(
+          'Peta: $districtName',
+          style: const TextStyle(
+            shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+          ),
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(
+          color: Colors.white,
+          shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+        ),
         actions: [
-          // --- BARU: PopupMenuButton untuk List & Export ---
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
+            icon: const Icon(
+              Icons.more_vert,
+              color: Colors.white,
+              shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+            ),
             onSelected: (String value) {
               if (value == 'export_png') {
                 _exportMapImage();
@@ -400,132 +419,216 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
                 value: 'export_png',
                 child: Row(
                   children: [
-                    Icon(Icons.ios_share),
+                    Icon(Icons.camera_alt, color: Colors.blue),
                     SizedBox(width: 8),
-                    Text('Export Peta (PNG Screenshot)'),
+                    Text('Export Tampilan (PNG Screenshot)'),
                   ],
                 ),
               ),
-              // --- BARU: Opsi Export File Asli ---
-              PopupMenuItem<String>(
+              const PopupMenuItem<String>(
                 value: 'export_original',
-                enabled: _mapImageFile != null,
+                enabled: true,
                 child: Row(
                   children: [
-                    const Icon(Icons.file_copy, color: Colors.blue),
-                    const SizedBox(width: 8),
-                    Text(
-                      _mapImageFile != null
-                          ? 'Export File Asli Peta'
-                          : 'Tidak Ada File Peta',
-                    ),
+                    Icon(Icons.image, color: Colors.indigo),
+                    SizedBox(width: 8),
+                    Text('Export File Asli Peta'),
                   ],
                 ),
               ),
-              // --- SELESAI BARU ---
             ],
           ),
-          // --- SELESAI BARU ---
         ],
       ),
-      body: _buildBody(),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  _error!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
+            )
+          // 3. RepaintBoundary membungkus Stack (Background + Map)
+          : RepaintBoundary(
+              key: _globalKey,
+              child: Stack(
+                children: [
+                  // Layer 1: Background Immersive (Blur/Gradient)
+                  _buildImmersiveBackground(),
+
+                  // Layer 2: Overlay Gelap
+                  _buildOverlay(),
+
+                  // Layer 3: Interactive Map
+                  _buildInteractiveMap(),
+                ],
+              ),
+            ),
     );
   }
 
-  Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+  Widget _buildImmersiveBackground() {
+    // Jika ada file peta, gunakan sebagai background blur
+    if (_mapImageFile != null && _mapImageFile!.existsSync()) {
+      return ValueListenableBuilder<double>(
+        valueListenable: AppSettings.blurStrength,
+        builder: (context, blur, child) {
+          return Stack(
+            children: [
+              // Gambar Full Cover
+              Positioned.fill(
+                child: Image.file(
+                  _mapImageFile!,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
+                ),
+              ),
+              // Efek Blur
+              Positioned.fill(
+                child: BackdropFilter(
+                  filter: ui.ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+                  child: Container(color: Colors.black.withOpacity(0)),
+                ),
+              ),
+            ],
+          );
+        },
+      );
     }
-    if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Text(
-            _error!,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.red),
+
+    // Fallback jika tidak ada peta: Gunakan Gradient/Solid dari Settings
+    final mode = AppSettings.wallpaperMode;
+
+    if (mode == 'gradient') {
+      return Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(AppSettings.gradientColor1),
+              Color(AppSettings.gradientColor2),
+            ],
           ),
+        ),
+      );
+    } else if (mode == 'solid') {
+      return ValueListenableBuilder<int>(
+        valueListenable: AppSettings.solidColor,
+        builder: (context, colorVal, child) {
+          return Container(color: Color(colorVal));
+        },
+      );
+    }
+
+    // Default Theme Color
+    return Container(color: Theme.of(context).scaffoldBackgroundColor);
+  }
+
+  Widget _buildOverlay() {
+    return ValueListenableBuilder<double>(
+      valueListenable: AppSettings.backgroundOverlayOpacity,
+      builder: (context, opacity, child) {
+        return Container(color: Colors.black.withOpacity(opacity));
+      },
+    );
+  }
+
+  Widget _buildInteractiveMap() {
+    if (_mapImageFile == null || !_mapImageFile!.existsSync()) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.map, size: 80, color: Colors.white54),
+            SizedBox(height: 16),
+            Text(
+              'Gambar peta tidak ditemukan.',
+              style: TextStyle(color: Colors.white),
+            ),
+          ],
         ),
       );
     }
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // --- BARU: Wrap dengan RepaintBoundary ---
-        return RepaintBoundary(
-          key: _globalKey,
-          child: InteractiveViewer(
-            panEnabled: true,
-            minScale: 1.0,
-            maxScale: 5.0,
-            child: Center(
-              child: AspectRatio(
-                aspectRatio: _imageAspectRatio,
-                child: LayoutBuilder(
-                  builder: (context, imageConstraints) {
-                    return Stack(
-                      children: [
-                        Image.file(
-                          _mapImageFile!,
-                          width: imageConstraints.maxWidth,
-                          height: imageConstraints.maxHeight,
-                          fit: BoxFit.cover,
-                        ),
-                        // Mengganti variabel iterator 'p' menjadi 'item' untuk menghindari konflik dengan alias 'p' (path)
-                        ..._placements.map((item) {
-                          final String name = item['building_folder_name'];
-                          final double x = item['map_x'];
-                          final double y = item['map_y'];
-                          // Ambil ukuran (default 30.0 jika data lama)
-                          final double size = item['size'] != null
-                              ? (item['size'] as num).toDouble()
-                              : 30.0;
+        return InteractiveViewer(
+          panEnabled: true,
+          minScale: 1.0,
+          maxScale: 5.0,
+          // --- PERUBAHAN PENTING ---
+          // Menghapus boundaryMargin agar peta terkunci di tengah saat di-zoom out (scale 1.0)
+          // Sesuai permintaan "sistemnya sama seperti peta wilayah"
+          // boundaryMargin: const EdgeInsets.all(double.infinity), // <--- DIHAPUS
+          child: Center(
+            child: AspectRatio(
+              aspectRatio: _imageAspectRatio,
+              child: LayoutBuilder(
+                builder: (context, imageConstraints) {
+                  return Stack(
+                    children: [
+                      // Gambar Peta Asli (Fokus)
+                      Image.file(
+                        _mapImageFile!,
+                        width: imageConstraints.maxWidth,
+                        height: imageConstraints.maxHeight,
+                        fit: BoxFit.cover,
+                      ),
+                      // Pin Bangunan
+                      ..._placements.map((item) {
+                        final String name = item['building_folder_name'];
+                        final double x = item['map_x'];
+                        final double y = item['map_y'];
+                        final double size = item['size'] != null
+                            ? (item['size'] as num).toDouble()
+                            : 30.0;
 
-                          // --- Cek eksistensi folder bangunan ---
-                          final buildingDir = Directory(
-                            p.join(widget.districtDirectory.path, name),
-                          );
-                          if (!buildingDir.existsSync()) {
-                            // Jika folder bangunan sudah dihapus, jangan tampilkan pin
-                            return const SizedBox.shrink();
-                          }
-                          // ------------------------------------------
+                        final buildingDir = Directory(
+                          p.join(widget.districtDirectory.path, name),
+                        );
+                        if (!buildingDir.existsSync()) {
+                          return const SizedBox.shrink();
+                        }
 
-                          return Positioned(
-                            // Geser posisi sebesar setengah ukuran agar titik tengahnya pas
-                            left: x * imageConstraints.maxWidth - (size / 2),
-                            top: y * imageConstraints.maxHeight - (size / 2),
-                            child: Tooltip(
-                              message: name,
-                              child: GestureDetector(
-                                onTap: () => _navigateToBuilding(name),
-                                child: FutureBuilder<Map<String, dynamic>>(
-                                  future: _getBuildingIconData(name),
-                                  builder: (context, snapshot) {
-                                    if (!snapshot.hasData) {
-                                      return _buildMapPinWidget({
-                                        'type': null,
-                                      }, size);
-                                    }
-                                    return _buildMapPinWidget(
-                                      snapshot.data!,
-                                      size,
-                                    );
-                                  },
-                                ),
+                        return Positioned(
+                          left: x * imageConstraints.maxWidth - (size / 2),
+                          top: y * imageConstraints.maxHeight - (size / 2),
+                          child: Tooltip(
+                            message: name,
+                            child: GestureDetector(
+                              onTap: () => _navigateToBuilding(name),
+                              child: FutureBuilder<Map<String, dynamic>>(
+                                future: _getBuildingIconData(name),
+                                builder: (context, snapshot) {
+                                  if (!snapshot.hasData) {
+                                    return _buildMapPinWidget({
+                                      'type': null,
+                                    }, size);
+                                  }
+                                  return _buildMapPinWidget(
+                                    snapshot.data!,
+                                    size,
+                                  );
+                                },
                               ),
                             ),
-                          );
-                        }),
-                      ],
-                    );
-                  },
-                ),
+                          ),
+                        );
+                      }),
+                    ],
+                  );
+                },
               ),
             ),
           ),
         );
-        // --- SELESAI BARU ---
       },
     );
   }
