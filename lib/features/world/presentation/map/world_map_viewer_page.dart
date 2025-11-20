@@ -3,12 +3,10 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:path/path.dart' as p;
 import 'package:mind_palace_manager/app_settings.dart';
-// --- UBAH: Import Viewer Peta Wilayah ---
 import 'package:mind_palace_manager/features/region/presentation/map/region_map_viewer_page.dart';
-// --- TAMBAH: Untuk RepaintBoundary ---
-import 'package:flutter/rendering.dart';
 
 class WorldMapViewerPage extends StatefulWidget {
   final Directory worldDirectory;
@@ -22,9 +20,9 @@ class _WorldMapViewerPageState extends State<WorldMapViewerPage> {
   File? _mapImageFile;
   List<Map<String, dynamic>> _placements = [];
   double _imageAspectRatio = 1.0;
-  // --- BARU: Key untuk menangkap gambar ---
+
+  // Key untuk menangkap gambar (Export Screenshot)
   final GlobalKey _globalKey = GlobalKey();
-  // --- SELESAI BARU ---
 
   @override
   void initState() {
@@ -209,7 +207,6 @@ class _WorldMapViewerPageState extends State<WorldMapViewerPage> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          // Membuka Peta Wilayah, BUKAN Detail (Daftar)
           builder: (c) => RegionMapViewerPage(regionDirectory: d),
         ),
       );
@@ -220,7 +217,7 @@ class _WorldMapViewerPageState extends State<WorldMapViewerPage> {
     }
   }
 
-  // --- Fungsi Export Peta (PNG Screenshot) yang sudah ada ---
+  // --- EXPORT FUNCTIONS ---
   Future<void> _exportMapImage() async {
     if (_mapImageFile == null) return;
     if (AppSettings.exportPath == null) {
@@ -236,7 +233,6 @@ class _WorldMapViewerPageState extends State<WorldMapViewerPage> {
     }
 
     try {
-      // Dapatkan RenderObject dari RepaintBoundary
       final boundary =
           _globalKey.currentContext!.findRenderObject()
               as RenderRepaintBoundary?;
@@ -245,13 +241,11 @@ class _WorldMapViewerPageState extends State<WorldMapViewerPage> {
         throw Exception('Gagal menemukan RenderBoundary.');
       }
 
-      // Render menjadi Image dan ByteData
-      const pixelRatio = 3.0; // Gunakan rasio piksel tinggi untuk kualitas
+      const pixelRatio = 3.0;
       final image = await boundary.toImage(pixelRatio: pixelRatio);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       final pngBytes = byteData!.buffer.asUint8List();
 
-      // Simpan file
       final now = DateTime.now();
       final fileName =
           'world_map_export_png_${now.year}${now.month}${now.day}_${now.hour}${now.minute}${now.second}.png';
@@ -271,9 +265,7 @@ class _WorldMapViewerPageState extends State<WorldMapViewerPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              'Gagal export peta: Pastikan peta tidak di-zoom atau pinch. Error: $e',
-            ),
+            content: Text('Gagal export peta: Error: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -281,7 +273,6 @@ class _WorldMapViewerPageState extends State<WorldMapViewerPage> {
     }
   }
 
-  // --- BARU: Fungsi Export File Asli Peta ---
   Future<void> _exportOriginalMapFile() async {
     if (_mapImageFile == null || !await _mapImageFile!.exists()) {
       if (mounted) {
@@ -336,24 +327,44 @@ class _WorldMapViewerPageState extends State<WorldMapViewerPage> {
       }
     }
   }
-  // --- SELESAI BARU ---
+
+  // ==========================================
+  // BUILDER METHODS (IMMERSIVE BACKGROUND)
+  // ==========================================
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // 1. Immersive Body
+      extendBodyBehindAppBar: true,
+      // 2. AppBar Transparan
       appBar: AppBar(
-        title: const Text('Peta Dunia Ingatan'),
+        title: const Text(
+          'Peta Dunia Ingatan',
+          style: TextStyle(
+            shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+          ),
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(
+          color: Colors.white,
+          shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+        ),
         actions: [
-          // --- PERUBAHAN: Menggabungkan aksi ke PopupMenuButton ---
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
+            icon: const Icon(
+              Icons.more_vert,
+              color: Colors.white,
+              shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+            ),
             onSelected: (String value) {
               if (value == 'export_png') {
                 _exportMapImage();
               } else if (value == 'export_original') {
                 _exportOriginalMapFile();
               } else if (value == 'list') {
-                Navigator.pop(context); // Kembali ke daftar wilayah
+                Navigator.pop(context);
               }
             },
             itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
@@ -377,7 +388,6 @@ class _WorldMapViewerPageState extends State<WorldMapViewerPage> {
                   ],
                 ),
               ),
-              // --- BARU: Opsi Export File Asli ---
               PopupMenuItem<String>(
                 value: 'export_original',
                 enabled: _mapImageFile != null,
@@ -393,78 +403,164 @@ class _WorldMapViewerPageState extends State<WorldMapViewerPage> {
                   ],
                 ),
               ),
-              // --- SELESAI BARU ---
             ],
           ),
-          // --- SELESAI PERUBAHAN ---
         ],
       ),
-      body: _mapImageFile == null
-          ? const Center(child: Text('Tidak ada peta dunia.'))
-          // --- BARU: Wrap dengan RepaintBoundary ---
-          : RepaintBoundary(
-              key: _globalKey,
-              child: InteractiveViewer(
-                minScale: 1.0,
-                maxScale: 5.0,
-                child: Center(
-                  child: AspectRatio(
-                    aspectRatio: _imageAspectRatio,
-                    child: LayoutBuilder(
-                      builder: (c, cons) {
-                        return Stack(
-                          children: [
-                            Image.file(
-                              _mapImageFile!,
-                              width: cons.maxWidth,
-                              height: cons.maxHeight,
-                              fit: BoxFit.cover,
-                            ),
-                            ..._placements.map((pl) {
-                              final name = pl['region_folder_name'];
+      // 3. Wrapper RepaintBoundary
+      body: RepaintBoundary(
+        key: _globalKey,
+        child: Stack(
+          children: [
+            // Layer 1: Background Immersive
+            _buildImmersiveBackground(),
 
-                              // --- BARU: Cek eksistensi folder wilayah ---
-                              final regionDir = Directory(
-                                p.join(widget.worldDirectory.path, name),
-                              );
-                              if (!regionDir.existsSync()) {
-                                return const SizedBox.shrink();
-                              }
-                              // ------------------------------------------
+            // Layer 2: Overlay Gelap
+            _buildOverlay(),
 
-                              return Positioned(
-                                left: pl['map_x'] * cons.maxWidth - 20,
-                                top: pl['map_y'] * cons.maxHeight - 20,
-                                child: GestureDetector(
-                                  onTap: () => _goToRegionMap(name), // Ke MAP
-                                  child: Tooltip(
-                                    message: name,
-                                    child: FutureBuilder<Map<String, dynamic>>(
-                                      future: _getRegionIconData(name),
-                                      builder: (context, snapshot) {
-                                        if (!snapshot.hasData) {
-                                          return _buildMapPinWidget({
-                                            'type': null,
-                                          }, name);
-                                        }
-                                        return _buildMapPinWidget(
-                                          snapshot.data!,
-                                          name,
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
+            // Layer 3: Interactive Map
+            _buildInteractiveMap(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImmersiveBackground() {
+    if (_mapImageFile != null && _mapImageFile!.existsSync()) {
+      return ValueListenableBuilder<double>(
+        valueListenable: AppSettings.blurStrength,
+        builder: (context, blur, child) {
+          return Stack(
+            children: [
+              // Gambar Full Cover
+              Positioned.fill(
+                child: Image.file(
+                  _mapImageFile!,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
                 ),
               ),
+              // Efek Blur
+              Positioned.fill(
+                child: BackdropFilter(
+                  filter: ui.ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+                  child: Container(color: Colors.black.withOpacity(0)),
+                ),
+              ),
+            ],
+          );
+        },
+      );
+    }
+
+    // Fallback Background
+    final mode = AppSettings.wallpaperMode;
+    if (mode == 'gradient') {
+      return Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(AppSettings.gradientColor1),
+              Color(AppSettings.gradientColor2),
+            ],
+          ),
+        ),
+      );
+    } else if (mode == 'solid') {
+      return ValueListenableBuilder<int>(
+        valueListenable: AppSettings.solidColor,
+        builder: (context, colorVal, child) {
+          return Container(color: Color(colorVal));
+        },
+      );
+    }
+
+    return Container(color: Theme.of(context).scaffoldBackgroundColor);
+  }
+
+  Widget _buildOverlay() {
+    return ValueListenableBuilder<double>(
+      valueListenable: AppSettings.backgroundOverlayOpacity,
+      builder: (context, opacity, child) {
+        return Container(color: Colors.black.withOpacity(opacity));
+      },
+    );
+  }
+
+  Widget _buildInteractiveMap() {
+    if (_mapImageFile == null) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.public, size: 80, color: Colors.white54),
+            SizedBox(height: 16),
+            Text(
+              'Tidak ada peta dunia.',
+              style: TextStyle(color: Colors.white),
             ),
+          ],
+        ),
+      );
+    }
+
+    return InteractiveViewer(
+      minScale: 1.0,
+      maxScale: 5.0,
+      // Peta terkunci di tengah saat zoom out (sifat default tanpa boundaryMargin)
+      child: Center(
+        child: AspectRatio(
+          aspectRatio: _imageAspectRatio,
+          child: LayoutBuilder(
+            builder: (c, cons) {
+              return Stack(
+                children: [
+                  Image.file(
+                    _mapImageFile!,
+                    width: cons.maxWidth,
+                    height: cons.maxHeight,
+                    fit: BoxFit.cover,
+                  ),
+                  ..._placements.map((pl) {
+                    final name = pl['region_folder_name'];
+
+                    final regionDir = Directory(
+                      p.join(widget.worldDirectory.path, name),
+                    );
+                    if (!regionDir.existsSync()) {
+                      return const SizedBox.shrink();
+                    }
+
+                    return Positioned(
+                      left: pl['map_x'] * cons.maxWidth - 20,
+                      top: pl['map_y'] * cons.maxHeight - 20,
+                      child: GestureDetector(
+                        onTap: () => _goToRegionMap(name),
+                        child: Tooltip(
+                          message: name,
+                          child: FutureBuilder<Map<String, dynamic>>(
+                            future: _getRegionIconData(name),
+                            builder: (context, snapshot) {
+                              if (!snapshot.hasData) {
+                                return _buildMapPinWidget({'type': null}, name);
+                              }
+                              return _buildMapPinWidget(snapshot.data!, name);
+                            },
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
     );
   }
 }
