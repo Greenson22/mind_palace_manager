@@ -9,6 +9,9 @@ import 'package:mind_palace_manager/app_settings.dart';
 import 'package:mind_palace_manager/features/building/presentation/viewer/building_viewer_page.dart';
 import 'package:mind_palace_manager/features/building/presentation/management/district_building_management_page.dart';
 
+// --- IMPORT TRANSISI AWAN ---
+import 'package:mind_palace_manager/features/settings/helpers/cloud_transition.dart';
+
 class DistrictMapViewerPage extends StatefulWidget {
   final Directory districtDirectory;
 
@@ -27,7 +30,6 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
   List<Map<String, dynamic>> _placements = [];
   double _imageAspectRatio = 1.0;
 
-  // Key untuk menangkap gambar (Export Screenshot)
   final GlobalKey _globalKey = GlobalKey();
 
   @override
@@ -113,12 +115,10 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
       return;
     }
 
-    Navigator.push(
+    // --- MENGGUNAKAN CLOUD TRANSITION ---
+    CloudNavigation.push(
       context,
-      MaterialPageRoute(
-        builder: (context) =>
-            BuildingViewerPage(buildingDirectory: buildingDir),
-      ),
+      BuildingViewerPage(buildingDirectory: buildingDir),
     );
   }
 
@@ -372,9 +372,7 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
     final districtName = p.basename(widget.districtDirectory.path);
 
     return Scaffold(
-      // 1. Membuat body memanjang ke belakang AppBar
       extendBodyBehindAppBar: true,
-      // 2. AppBar Transparan
       appBar: AppBar(
         title: Text(
           'Peta: $districtName',
@@ -453,18 +451,12 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
                 ),
               ),
             )
-          // 3. RepaintBoundary membungkus Stack (Background + Map)
           : RepaintBoundary(
               key: _globalKey,
               child: Stack(
                 children: [
-                  // Layer 1: Background Immersive (Blur/Gradient)
                   _buildImmersiveBackground(),
-
-                  // Layer 2: Overlay Gelap
                   _buildOverlay(),
-
-                  // Layer 3: Interactive Map
                   _buildInteractiveMap(),
                 ],
               ),
@@ -473,14 +465,12 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
   }
 
   Widget _buildImmersiveBackground() {
-    // Jika ada file peta, gunakan sebagai background blur
     if (_mapImageFile != null && _mapImageFile!.existsSync()) {
       return ValueListenableBuilder<double>(
         valueListenable: AppSettings.blurStrength,
         builder: (context, blur, child) {
           return Stack(
             children: [
-              // Gambar Full Cover
               Positioned.fill(
                 child: Image.file(
                   _mapImageFile!,
@@ -489,7 +479,6 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
                   height: double.infinity,
                 ),
               ),
-              // Efek Blur
               Positioned.fill(
                 child: BackdropFilter(
                   filter: ui.ImageFilter.blur(sigmaX: blur, sigmaY: blur),
@@ -502,7 +491,6 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
       );
     }
 
-    // Fallback jika tidak ada peta: Gunakan Gradient/Solid dari Settings
     final mode = AppSettings.wallpaperMode;
 
     if (mode == 'gradient') {
@@ -527,7 +515,6 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
       );
     }
 
-    // Default Theme Color
     return Container(color: Theme.of(context).scaffoldBackgroundColor);
   }
 
@@ -563,10 +550,6 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
           panEnabled: true,
           minScale: 1.0,
           maxScale: 5.0,
-          // --- PERUBAHAN PENTING ---
-          // Menghapus boundaryMargin agar peta terkunci di tengah saat di-zoom out (scale 1.0)
-          // Sesuai permintaan "sistemnya sama seperti peta wilayah"
-          // boundaryMargin: const EdgeInsets.all(double.infinity), // <--- DIHAPUS
           child: Center(
             child: AspectRatio(
               aspectRatio: _imageAspectRatio,
@@ -574,14 +557,12 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
                 builder: (context, imageConstraints) {
                   return Stack(
                     children: [
-                      // Gambar Peta Asli (Fokus)
                       Image.file(
                         _mapImageFile!,
                         width: imageConstraints.maxWidth,
                         height: imageConstraints.maxHeight,
                         fit: BoxFit.cover,
                       ),
-                      // Pin Bangunan
                       ..._placements.map((item) {
                         final String name = item['building_folder_name'];
                         final double x = item['map_x'];

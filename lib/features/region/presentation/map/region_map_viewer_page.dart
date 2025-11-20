@@ -9,6 +9,9 @@ import 'package:mind_palace_manager/app_settings.dart';
 import 'package:mind_palace_manager/features/building/presentation/map/district_map_viewer_page.dart';
 import 'package:mind_palace_manager/features/region/presentation/management/region_detail_page.dart';
 
+// --- IMPORT TRANSISI AWAN ---
+import 'package:mind_palace_manager/features/settings/helpers/cloud_transition.dart';
+
 class RegionMapViewerPage extends StatefulWidget {
   final Directory regionDirectory;
   const RegionMapViewerPage({super.key, required this.regionDirectory});
@@ -22,7 +25,6 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
   List<Map<String, dynamic>> _placements = [];
   double _imageAspectRatio = 1.0;
 
-  // Key untuk menangkap gambar (Export Screenshot)
   final GlobalKey _globalKey = GlobalKey();
 
   @override
@@ -208,11 +210,10 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
   void _goToDistrictMap(String name) {
     final d = Directory(p.join(widget.regionDirectory.path, name));
     if (d.existsSync()) {
-      Navigator.push(
+      // --- MENGGUNAKAN CLOUD TRANSITION ---
+      CloudNavigation.push(
         context,
-        MaterialPageRoute(
-          builder: (c) => DistrictMapViewerPage(districtDirectory: d),
-        ),
+        DistrictMapViewerPage(districtDirectory: d),
       );
     } else {
       ScaffoldMessenger.of(
@@ -232,7 +233,6 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
   }
 
   // --- EXPORT FUNCTIONS ---
-
   Future<void> _exportMapImage() async {
     if (_mapImageFile == null) return;
     if (AppSettings.exportPath == null) {
@@ -345,16 +345,10 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
     }
   }
 
-  // ==========================================
-  // BUILDER METHODS (IMMERSIVE BACKGROUND)
-  // ==========================================
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // 1. Membuat body memanjang ke belakang AppBar
       extendBodyBehindAppBar: true,
-      // 2. AppBar Transparan
       appBar: AppBar(
         title: const Text(
           'Peta Wilayah',
@@ -424,18 +418,12 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
           ),
         ],
       ),
-      // 3. RepaintBoundary membungkus Stack (Background + Map)
       body: RepaintBoundary(
         key: _globalKey,
         child: Stack(
           children: [
-            // Layer 1: Background Immersive
             _buildImmersiveBackground(),
-
-            // Layer 2: Overlay Gelap
             _buildOverlay(),
-
-            // Layer 3: Interactive Map
             _buildInteractiveMap(),
           ],
         ),
@@ -444,14 +432,12 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
   }
 
   Widget _buildImmersiveBackground() {
-    // Jika ada file peta, gunakan sebagai background blur
     if (_mapImageFile != null && _mapImageFile!.existsSync()) {
       return ValueListenableBuilder<double>(
         valueListenable: AppSettings.blurStrength,
         builder: (context, blur, child) {
           return Stack(
             children: [
-              // Gambar Full Cover
               Positioned.fill(
                 child: Image.file(
                   _mapImageFile!,
@@ -460,7 +446,6 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
                   height: double.infinity,
                 ),
               ),
-              // Efek Blur
               Positioned.fill(
                 child: BackdropFilter(
                   filter: ui.ImageFilter.blur(sigmaX: blur, sigmaY: blur),
@@ -473,7 +458,6 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
       );
     }
 
-    // Fallback jika tidak ada peta: Gunakan Gradient/Solid dari Settings
     final mode = AppSettings.wallpaperMode;
 
     if (mode == 'gradient') {
@@ -498,7 +482,6 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
       );
     }
 
-    // Default Theme Color
     return Container(color: Theme.of(context).scaffoldBackgroundColor);
   }
 
@@ -528,7 +511,6 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
     return InteractiveViewer(
       minScale: 1.0,
       maxScale: 5.0,
-      // Tidak menggunakan boundaryMargin agar terkunci di tengah saat zoom out
       child: Center(
         child: AspectRatio(
           aspectRatio: _imageAspectRatio,
@@ -544,7 +526,6 @@ class _RegionMapViewerPageState extends State<RegionMapViewerPage> {
                   ),
                   ..._placements.map((pl) {
                     final name = pl['district_folder_name'];
-
                     final districtDir = Directory(
                       p.join(widget.regionDirectory.path, name),
                     );

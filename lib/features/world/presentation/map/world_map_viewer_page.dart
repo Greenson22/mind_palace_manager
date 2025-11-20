@@ -8,6 +8,9 @@ import 'package:path/path.dart' as p;
 import 'package:mind_palace_manager/app_settings.dart';
 import 'package:mind_palace_manager/features/region/presentation/map/region_map_viewer_page.dart';
 
+// --- IMPORT TRANSISI AWAN ---
+import 'package:mind_palace_manager/features/settings/helpers/cloud_transition.dart';
+
 class WorldMapViewerPage extends StatefulWidget {
   final Directory worldDirectory;
   const WorldMapViewerPage({super.key, required this.worldDirectory});
@@ -204,12 +207,8 @@ class _WorldMapViewerPageState extends State<WorldMapViewerPage> {
   void _goToRegionMap(String name) {
     final d = Directory(p.join(widget.worldDirectory.path, name));
     if (d.existsSync()) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (c) => RegionMapViewerPage(regionDirectory: d),
-        ),
-      );
+      // --- MENGGUNAKAN CLOUD TRANSITION ---
+      CloudNavigation.push(context, RegionMapViewerPage(regionDirectory: d));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Folder wilayah tidak ditemukan')),
@@ -335,9 +334,7 @@ class _WorldMapViewerPageState extends State<WorldMapViewerPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // 1. Immersive Body
       extendBodyBehindAppBar: true,
-      // 2. AppBar Transparan
       appBar: AppBar(
         title: const Text(
           'Peta Dunia Ingatan',
@@ -407,18 +404,12 @@ class _WorldMapViewerPageState extends State<WorldMapViewerPage> {
           ),
         ],
       ),
-      // 3. Wrapper RepaintBoundary
       body: RepaintBoundary(
         key: _globalKey,
         child: Stack(
           children: [
-            // Layer 1: Background Immersive
             _buildImmersiveBackground(),
-
-            // Layer 2: Overlay Gelap
             _buildOverlay(),
-
-            // Layer 3: Interactive Map
             _buildInteractiveMap(),
           ],
         ),
@@ -433,7 +424,6 @@ class _WorldMapViewerPageState extends State<WorldMapViewerPage> {
         builder: (context, blur, child) {
           return Stack(
             children: [
-              // Gambar Full Cover
               Positioned.fill(
                 child: Image.file(
                   _mapImageFile!,
@@ -442,7 +432,6 @@ class _WorldMapViewerPageState extends State<WorldMapViewerPage> {
                   height: double.infinity,
                 ),
               ),
-              // Efek Blur
               Positioned.fill(
                 child: BackdropFilter(
                   filter: ui.ImageFilter.blur(sigmaX: blur, sigmaY: blur),
@@ -455,7 +444,6 @@ class _WorldMapViewerPageState extends State<WorldMapViewerPage> {
       );
     }
 
-    // Fallback Background
     final mode = AppSettings.wallpaperMode;
     if (mode == 'gradient') {
       return Container(
@@ -511,7 +499,6 @@ class _WorldMapViewerPageState extends State<WorldMapViewerPage> {
     return InteractiveViewer(
       minScale: 1.0,
       maxScale: 5.0,
-      // Peta terkunci di tengah saat zoom out (sifat default tanpa boundaryMargin)
       child: Center(
         child: AspectRatio(
           aspectRatio: _imageAspectRatio,
@@ -527,7 +514,6 @@ class _WorldMapViewerPageState extends State<WorldMapViewerPage> {
                   ),
                   ..._placements.map((pl) {
                     final name = pl['region_folder_name'];
-
                     final regionDir = Directory(
                       p.join(widget.worldDirectory.path, name),
                     );
