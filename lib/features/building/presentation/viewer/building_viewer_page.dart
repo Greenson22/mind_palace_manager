@@ -207,6 +207,29 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
     }
   }
 
+  // --- FUNGSI BARU: Membuka Objek (Rekursif) ---
+  void _openObject(Map<String, dynamic> obj) {
+    if (_roomObjectsRootDir == null) return;
+
+    final objectId = obj['id'];
+    final objectDir = Directory(p.join(_roomObjectsRootDir!.path, objectId));
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => RecursiveObjectPage(
+          objectDirectory: objectDir,
+          objectName: obj['name'] ?? 'Objek',
+        ),
+      ),
+    ).then((_) {
+      // Refresh saat kembali, barangkali ada perubahan nama/ikon dari dalam
+      if (_currentRoom != null) {
+        _loadRoomObjects(_currentRoom!['id']);
+      }
+    });
+  }
+
   // 2. Navigasi
   Future<void> _updateConnectionPosition(
     String connId,
@@ -473,9 +496,14 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
                       child: Opacity(
                         opacity: objOpacity,
                         child: GestureDetector(
-                          onTap: () => _isObjectEditMode && !isMoving
-                              ? _startMovingObject(obj['id'], obj['name'])
-                              : null,
+                          // --- PERBAIKAN DI SINI: Menangani Tap di Mode Lihat & Edit ---
+                          onTap: () {
+                            if (_isObjectEditMode && !isMoving) {
+                              _startMovingObject(obj['id'], obj['name']);
+                            } else if (!_isObjectEditMode) {
+                              _openObject(obj);
+                            }
+                          },
                           child: Container(
                             padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
@@ -485,7 +513,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
                               shape: BoxShape.circle,
                               border: Border.all(color: Colors.white, width: 2),
                             ),
-                            child: Icon(
+                            child: const Icon(
                               Icons.inbox,
                               color: Colors.white,
                               size: 20,
