@@ -78,7 +78,9 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
         final content = await _jsonFile.readAsString();
         _buildingData = json.decode(content);
 
-        for (var room in _rooms) room['connections'] ??= [];
+        for (var room in _rooms) {
+          room['connections'] ??= [];
+        }
 
         if (_rooms.isNotEmpty) {
           if (_currentRoom != null) {
@@ -108,8 +110,9 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
       p.join(widget.buildingDirectory.path, 'room_objects', roomId),
     );
 
-    if (!await _roomObjectsRootDir!.exists())
+    if (!await _roomObjectsRootDir!.exists()) {
       await _roomObjectsRootDir!.create(recursive: true);
+    }
 
     _roomObjectsJsonFile = File(
       p.join(_roomObjectsRootDir!.path, 'object_data.json'),
@@ -178,7 +181,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
 
   // --- LOGIKA DRAG & DROP & TAP ---
 
-  // 1. Objek
+  // 1. Objek (Pindah Posisi)
   void _startMovingObject(String id, String name) {
     setState(() {
       _movingObjectId = id;
@@ -186,8 +189,8 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text("Memindahkan '$name'"),
-        duration: const Duration(seconds: 1),
+        content: Text("Memindahkan '$name'. Ketuk lokasi baru."),
+        duration: const Duration(seconds: 2),
       ),
     );
   }
@@ -207,7 +210,235 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
     }
   }
 
-  // --- FUNGSI BARU: Membuka Objek (Rekursif) ---
+  // --- LOGIKA EDIT OBJEK (Dialog Baru) ---
+  Future<void> _showEditObjectDialog(Map<String, dynamic> obj) async {
+    final nameController = TextEditingController(text: obj['name']);
+    final iconTextController = TextEditingController();
+
+    String iconType = obj['icon_type'] ?? 'default';
+    String? currentIconData = obj['icon_data'];
+    String? tempNewImagePath;
+
+    if (iconType == 'text') {
+      iconTextController.text = currentIconData ?? '';
+    }
+
+    await showDialog(
+      context: context,
+      builder: (c) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            String getIconStatusText() {
+              if (iconType == 'image') {
+                if (tempNewImagePath != null) {
+                  return 'Gambar Baru: ${p.basename(tempNewImagePath!)}';
+                } else if (currentIconData != null) {
+                  return 'Gambar Saat Ini: $currentIconData';
+                } else {
+                  return 'Belum ada gambar dipilih';
+                }
+              }
+              return '';
+            }
+
+            return AlertDialog(
+              title: Text('Edit: ${obj['name']}'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Nama Objek',
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Tampilan Ikon:',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    DropdownButton<String>(
+                      value: iconType,
+                      isExpanded: true,
+                      items: ['default', 'text', 'image'].map((e) {
+                        String label = 'Default';
+                        if (e == 'text') label = 'Teks / Simbol';
+                        if (e == 'image') label = 'Gambar / Foto';
+                        return DropdownMenuItem(value: e, child: Text(label));
+                      }).toList(),
+                      onChanged: (v) => setDialogState(() => iconType = v!),
+                    ),
+
+                    if (iconType == 'text')
+                      TextField(
+                        controller: iconTextController,
+                        decoration: const InputDecoration(
+                          labelText: 'Karakter (Emoji/Huruf)',
+                          hintText: 'Contoh: 📦',
+                        ),
+                        maxLength: 2,
+                      ),
+
+                    if (iconType == 'image')
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 8),
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.image),
+                            label: const Text('Pilih Foto Marker'),
+                            onPressed: () async {
+                              final res = await FilePicker.platform.pickFiles(
+                                type: FileType.image,
+                              );
+                              if (res != null &&
+                                  res.files.single.path != null) {
+                                setDialogState(() {
+                                  tempNewImagePath = res.files.single.path!;
+                                });
+                              }
+                            },
+                          ),
+                          Text(
+                            getIconStatusText(),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  style: TextButton.styleFrom(foregroundColor: Colors.red),
+                  onPressed: () {
+                    Navigator.pop(c);
+                    _deleteObject(obj);
+                  },
+                  child: const Text('Hapus'),
+                ),
+                TextButton.icon(
+                  icon: const Icon(Icons.open_with),
+                  label: const Text('Pindah'),
+                  onPressed: () {
+                    Navigator.pop(c);
+                    _startMovingObject(obj['id'], obj['name']);
+                  },
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    if (nameController.text.isNotEmpty) {
+                      Navigator.pop(c);
+                      String? finalIconData;
+                      if (iconType == 'text') {
+                        finalIconData = iconTextController.text;
+                      } else if (iconType == 'image') {
+                        finalIconData = tempNewImagePath ?? currentIconData;
+                      }
+                      _updateObject(
+                        obj,
+                        nameController.text.trim(),
+                        iconType,
+                        finalIconData,
+                        isNewImage: tempNewImagePath != null,
+                      );
+                    }
+                  },
+                  child: const Text('Simpan'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _updateObject(
+    Map<String, dynamic> obj,
+    String newName,
+    String newIconType,
+    String? newIconData, {
+    bool isNewImage = false,
+  }) async {
+    if (_roomObjectsRootDir == null) return;
+
+    // Update local state
+    setState(() {
+      obj['name'] = newName;
+      obj['icon_type'] = newIconType;
+    });
+
+    // Handle Image File Copy
+    if (newIconType == 'image' && newIconData != null && isNewImage) {
+      final File checkFile = File(newIconData);
+      if (checkFile.existsSync()) {
+        final objectDir = Directory(
+          p.join(_roomObjectsRootDir!.path, obj['id']),
+        );
+        if (!await objectDir.exists()) await objectDir.create();
+
+        final ext = p.extension(newIconData);
+        final fileName = 'marker_${DateTime.now().millisecondsSinceEpoch}$ext';
+        final destPath = p.join(objectDir.path, fileName);
+
+        await checkFile.copy(destPath);
+        obj['icon_data'] = fileName;
+      }
+    } else if (newIconType == 'text') {
+      obj['icon_data'] = newIconData;
+    } else if (newIconType == 'default') {
+      obj['icon_data'] = null;
+    } else {
+      // Keep existing image filename
+      obj['icon_data'] = newIconData;
+    }
+
+    await _saveRoomObjects();
+  }
+
+  Future<void> _deleteObject(Map<String, dynamic> obj) async {
+    bool? confirm = await showDialog(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Hapus Objek?'),
+        content: Text('Hapus "${obj['name']}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      if (_roomObjectsRootDir != null) {
+        final objectDir = Directory(
+          p.join(_roomObjectsRootDir!.path, obj['id']),
+        );
+        if (await objectDir.exists()) {
+          await objectDir.delete(recursive: true);
+        }
+      }
+      setState(() {
+        _roomObjects.removeWhere((item) => item['id'] == obj['id']);
+      });
+      await _saveRoomObjects();
+    }
+  }
+
+  // --- FUNGSI NAVIGASI REKURSIF ---
   void _openObject(Map<String, dynamic> obj) {
     if (_roomObjectsRootDir == null) return;
 
@@ -223,7 +454,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
         ),
       ),
     ).then((_) {
-      // Refresh saat kembali, barangkali ada perubahan nama/ikon dari dalam
+      // Refresh saat kembali
       if (_currentRoom != null) {
         _loadRoomObjects(_currentRoom!['id']);
       }
@@ -332,6 +563,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
         "y": _tappedCoords!.dy,
         "type": viewMode,
         "icon_type": "default",
+        "icon_data": null,
       });
       _tappedCoords = null;
     });
@@ -349,10 +581,10 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
       SnackBar(
         content: Text(
           _isObjectEditMode
-              ? 'Mode Edit: Geser Panah / Ketuk untuk Putar'
+              ? 'Mode Edit Aktif: Ketuk Objek untuk Edit'
               : 'Mode Lihat',
         ),
-        duration: const Duration(seconds: 1),
+        duration: const Duration(seconds: 2),
       ),
     );
   }
@@ -383,6 +615,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
           if (_isObjectEditMode && _movingObjectId != null)
             IconButton(
               icon: const Icon(Icons.close, color: Colors.red),
+              tooltip: 'Batal Pindah',
               onPressed: () => setState(() => _movingObjectId = null),
             ),
           PopupMenuButton<String>(
@@ -405,7 +638,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
                 child: Text(
                   _isObjectEditMode
                       ? 'Selesai Edit'
-                      : 'Mode Edit (Geser/Putar)',
+                      : 'Mode Edit (Objek & Navigasi)',
                 ),
               ),
               PopupMenuItem(
@@ -495,37 +728,13 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
                       ignoring: !objInteractive,
                       child: Opacity(
                         opacity: objOpacity,
-                        child: GestureDetector(
-                          // --- PERBAIKAN DI SINI: Menangani Tap di Mode Lihat & Edit ---
-                          onTap: () {
-                            if (_isObjectEditMode && !isMoving) {
-                              _startMovingObject(obj['id'], obj['name']);
-                            } else if (!_isObjectEditMode) {
-                              _openObject(obj);
-                            }
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: isMoving
-                                  ? Colors.green
-                                  : Colors.blue.withOpacity(0.7),
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 2),
-                            ),
-                            child: const Icon(
-                              Icons.inbox,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                          ),
-                        ),
+                        child: _buildObjectWidget(obj, isMoving),
                       ),
                     ),
                   );
                 }),
 
-                // 3. Layer Navigasi (Panah) - Menggunakan AppSettings
+                // 3. Layer Navigasi (Panah)
                 if (AppSettings.showNavigationArrows)
                   ...connections.map((conn) {
                     final String direction = conn['direction'] ?? 'up';
@@ -539,7 +748,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
                       y = 0.5;
                     }
 
-                    // Hitung ukuran based on scale setting
                     final double sizeBase =
                         24 * AppSettings.navigationArrowScale;
 
@@ -609,7 +817,111 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
     );
   }
 
-  // --- WIDGET BUILDER UTAMA: Panah & Teks mengikuti Setting ---
+  // --- WIDGET BUILDERS ---
+
+  Widget _buildObjectWidget(Map<String, dynamic> obj, bool isMoving) {
+    final iconType = obj['icon_type'] ?? 'default';
+    final iconData = obj['icon_data'];
+
+    Widget content;
+
+    if (iconType == 'image' &&
+        iconData != null &&
+        _roomObjectsRootDir != null) {
+      final file = File(p.join(_roomObjectsRootDir!.path, obj['id'], iconData));
+      if (file.existsSync()) {
+        content = Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: isMoving ? Colors.greenAccent : Colors.white,
+              width: isMoving ? 3 : 2,
+            ),
+            boxShadow: const [BoxShadow(blurRadius: 4, color: Colors.black26)],
+            image: DecorationImage(
+              image: FileImage(file),
+              fit: BoxFit.cover,
+              opacity: isMoving ? 0.5 : 1.0,
+            ),
+          ),
+          child: _isObjectEditMode && !isMoving
+              ? Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.black.withOpacity(0.3),
+                  ),
+                  child: const Icon(Icons.edit, color: Colors.white, size: 20),
+                )
+              : null,
+        );
+      } else {
+        content = _buildDefaultObjectIcon(obj, isMoving);
+      }
+    } else if (iconType == 'text' && iconData != null) {
+      content = Container(
+        width: 40,
+        height: 40,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: isMoving ? Colors.green : Colors.blue.withOpacity(0.9),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: isMoving ? Colors.greenAccent : Colors.white,
+            width: isMoving ? 3 : 2,
+          ),
+          boxShadow: const [BoxShadow(blurRadius: 4, color: Colors.black26)],
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Text(
+              iconData,
+              style: const TextStyle(fontSize: 20),
+              textAlign: TextAlign.center,
+            ),
+            if (_isObjectEditMode && !isMoving)
+              const Icon(Icons.edit, color: Colors.white70, size: 14),
+          ],
+        ),
+      );
+    } else {
+      content = _buildDefaultObjectIcon(obj, isMoving);
+    }
+
+    // Wrapper GestureDetector untuk logika Tap
+    return GestureDetector(
+      onTap: () {
+        if (_isObjectEditMode) {
+          // Jika sedang mode edit, buka dialog edit
+          // (Kecuali sedang memindahkan objek ini sendiri, tapi logic drag diurus parent)
+          if (!isMoving) _showEditObjectDialog(obj);
+        } else {
+          // Mode lihat: buka objek
+          _openObject(obj);
+        }
+      },
+      child: content,
+    );
+  }
+
+  Widget _buildDefaultObjectIcon(Map<String, dynamic> obj, bool isMoving) {
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: isMoving ? Colors.green : Colors.blue.withOpacity(0.7),
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 2),
+      ),
+      child: Icon(
+        _isObjectEditMode && !isMoving ? Icons.edit : Icons.inbox,
+        color: Colors.white,
+        size: 20,
+      ),
+    );
+  }
+
   Widget _buildArrowWidget(String label, String direction, bool isDragging) {
     final double scale = AppSettings.navigationArrowScale;
     final Color color = Color(AppSettings.navigationArrowColor);
@@ -623,7 +935,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
           Container(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              // Bayangan tetap hitam agar kontras
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.5),
@@ -634,28 +945,24 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
             child: Icon(
               _getIconForDirection(direction),
               size: 48 * scale,
-              color: isDragging ? Colors.yellow : color, // Icon ikut setting
+              color: isDragging ? Colors.yellow : color,
               shadows: const [Shadow(blurRadius: 4, color: Colors.black)],
             ),
           ),
-          // Label Navigasi
           if (_isObjectEditMode || AppSettings.showRegionDistrictNames)
             Container(
               margin: const EdgeInsets.only(top: 4),
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: Colors
-                    .black54, // Background hitam transparan agar teks terbaca di berbagai background
+                color: Colors.black54,
                 borderRadius: BorderRadius.circular(4),
                 border: isDragging ? Border.all(color: Colors.yellow) : null,
               ),
               child: Text(
                 label,
                 style: TextStyle(
-                  color: isDragging
-                      ? Colors.yellow
-                      : color, // TEKS IKUT WARNA SETTING
-                  fontSize: 12 * scale, // UKURAN TEKS IKUT SKALA
+                  color: isDragging ? Colors.yellow : color,
+                  fontSize: 12 * scale,
                   fontWeight: FontWeight.bold,
                 ),
                 textAlign: TextAlign.center,

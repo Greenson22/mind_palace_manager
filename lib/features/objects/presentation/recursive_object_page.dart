@@ -260,7 +260,7 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
       "type": viewMode,
       "parent_room_id": parentRoomId,
       "icon_type": "default",
-      "icon_path": null,
+      "icon_data": null, // Digunakan untuk nama file gambar atau string teks
     };
 
     setState(() {
@@ -277,17 +277,22 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
     }
   }
 
+  // --- UPDATED: Dialog Edit Child untuk mendukung Teks & Gambar ---
   Future<void> _showEditChildDialog(Map<String, dynamic> child) async {
     final nameController = TextEditingController(text: child['name']);
+    final iconTextController = TextEditingController();
+
     String selectedType = child['type'] ?? 'mapContainer';
     String iconType = child['icon_type'] ?? 'default';
-    String? tempIconPath = child['icon_path'];
 
-    String getIconStatusText() {
-      if (iconType == 'image' && tempIconPath != null) {
-        return 'Gambar terpilih: ${p.basename(tempIconPath!)}';
-      }
-      return 'Menggunakan Ikon Standar';
+    // Handling data lama (icon_path) vs data baru (icon_data)
+    dynamic currentIconData = child['icon_data'] ?? child['icon_path'];
+
+    // Temp variable untuk gambar baru
+    String? tempNewImagePath;
+
+    if (iconType == 'text') {
+      iconTextController.text = currentIconData ?? '';
     }
 
     await showDialog(
@@ -295,6 +300,19 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
       builder: (c) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
+            String getIconStatusText() {
+              if (iconType == 'image') {
+                if (tempNewImagePath != null) {
+                  return 'Gambar Baru: ${p.basename(tempNewImagePath!)}';
+                } else if (currentIconData != null) {
+                  return 'Gambar Saat Ini: $currentIconData';
+                } else {
+                  return 'Belum ada gambar dipilih';
+                }
+              }
+              return '';
+            }
+
             return AlertDialog(
               title: Text('Edit: ${child['name']}'),
               content: SingleChildScrollView(
@@ -334,27 +352,35 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
                       'Tampilan Ikon:',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    Row(
-                      children: [
-                        Radio<String>(
-                          value: 'default',
-                          groupValue: iconType,
-                          onChanged: (v) => setDialogState(() => iconType = v!),
-                        ),
-                        const Text('Default'),
-                        const SizedBox(width: 16),
-                        Radio<String>(
-                          value: 'image',
-                          groupValue: iconType,
-                          onChanged: (v) => setDialogState(() => iconType = v!),
-                        ),
-                        const Text('Foto'),
-                      ],
+                    DropdownButton<String>(
+                      value: iconType,
+                      isExpanded: true,
+                      items: ['default', 'text', 'image'].map((e) {
+                        String label = 'Default';
+                        if (e == 'text') label = 'Teks / Simbol';
+                        if (e == 'image') label = 'Gambar / Foto';
+                        return DropdownMenuItem(value: e, child: Text(label));
+                      }).toList(),
+                      onChanged: (v) => setDialogState(() => iconType = v!),
                     ),
+
+                    // Input jika Teks
+                    if (iconType == 'text')
+                      TextField(
+                        controller: iconTextController,
+                        decoration: const InputDecoration(
+                          labelText: 'Karakter (Emoji/Huruf)',
+                          hintText: 'Contoh: 📦',
+                        ),
+                        maxLength: 2,
+                      ),
+
+                    // Input jika Gambar
                     if (iconType == 'image')
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          const SizedBox(height: 8),
                           OutlinedButton.icon(
                             icon: const Icon(Icons.image),
                             label: const Text('Pilih Foto Marker'),
@@ -365,7 +391,7 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
                               if (res != null &&
                                   res.files.single.path != null) {
                                 setDialogState(() {
-                                  tempIconPath = res.files.single.path!;
+                                  tempNewImagePath = res.files.single.path!;
                                 });
                               }
                             },
@@ -383,7 +409,6 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
                 ),
               ),
               actions: [
-                // --- TOMBOL HAPUS ---
                 TextButton(
                   style: TextButton.styleFrom(foregroundColor: Colors.red),
                   onPressed: () {
@@ -392,29 +417,37 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
                   },
                   child: const Text('Hapus'),
                 ),
-                // --- TOMBOL PINDAH (BARU) ---
                 TextButton.icon(
                   icon: const Icon(Icons.open_with),
                   label: const Text('Pindah'),
                   onPressed: () {
-                    Navigator.pop(c); // Tutup dialog
-                    _startMovingChild(
-                      child['id'],
-                      child['name'],
-                    ); // Mulai mode pindah
+                    Navigator.pop(c);
+                    _startMovingChild(child['id'], child['name']);
                   },
                 ),
-                // --- TOMBOL SIMPAN ---
                 ElevatedButton(
                   onPressed: () {
                     if (nameController.text.trim().isNotEmpty) {
                       Navigator.pop(c);
+
+                      // Tentukan data ikon yang akan disimpan
+                      String? finalIconData;
+
+                      if (iconType == 'text') {
+                        finalIconData = iconTextController.text;
+                      } else if (iconType == 'image') {
+                        // Jika ada gambar baru, gunakan path sementaranya
+                        // Nanti _updateChild yang akan copy file-nya
+                        finalIconData = tempNewImagePath ?? currentIconData;
+                      }
+
                       _updateChild(
                         child,
                         nameController.text.trim(),
                         selectedType,
                         iconType,
-                        tempIconPath,
+                        finalIconData,
+                        isNewImage: tempNewImagePath != null,
                       );
                     }
                   },
@@ -428,40 +461,52 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
     );
   }
 
+  // --- UPDATED: Update Logic untuk handle Teks & Gambar ---
   Future<void> _updateChild(
     Map<String, dynamic> child,
     String newName,
     String newType,
     String newIconType,
-    String? newIconPath,
-  ) async {
+    String? newIconData, {
+    bool isNewImage = false,
+  }) async {
     setState(() {
       child['name'] = newName;
       child['type'] = newType;
       child['icon_type'] = newIconType;
     });
 
-    if (newIconType == 'image' && newIconPath != null) {
-      final File checkFile = File(newIconPath);
-      if (checkFile.isAbsolute && await checkFile.exists()) {
+    // Proses penyimpanan Icon Data
+    if (newIconType == 'image' && newIconData != null && isNewImage) {
+      // Jika gambar baru dipilih, copy ke folder objek
+      final File checkFile = File(newIconData);
+      if (checkFile.existsSync()) {
         final childDir = Directory(
           p.join(widget.objectDirectory.path, child['id']),
         );
         if (!await childDir.exists()) await childDir.create();
 
-        final ext = p.extension(newIconPath);
+        final ext = p.extension(newIconData);
         final fileName = 'marker_${DateTime.now().millisecondsSinceEpoch}$ext';
         final destPath = p.join(childDir.path, fileName);
 
         await checkFile.copy(destPath);
-        child['icon_path'] = fileName;
-      } else {
-        child['icon_path'] = newIconPath;
+        child['icon_data'] = fileName; // Simpan nama file saja
       }
+    } else if (newIconType == 'text') {
+      // Jika teks, simpan string langsung
+      child['icon_data'] = newIconData;
+    } else if (newIconType == 'default') {
+      child['icon_data'] = null;
     } else {
-      child['icon_path'] = null;
+      // Case: Image tapi tidak ganti gambar (keep existing filename)
+      child['icon_data'] = newIconData;
     }
 
+    // Bersihkan field legacy jika ada
+    child.remove('icon_path');
+
+    // Update metadata di dalam file anak juga (opsional, agar sinkron)
     try {
       final childJson = File(
         p.join(widget.objectDirectory.path, child['id'], 'object_data.json'),
@@ -1024,6 +1069,7 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
     );
   }
 
+  // --- UPDATED: Build Widget untuk mendukung render Teks & Gambar ---
   Widget _buildChildWidget(
     Map<String, dynamic> child,
     BoxConstraints constraints,
@@ -1031,8 +1077,11 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
   ) {
     final String name = child['name'];
     final String type = child['type'] ?? 'mapContainer';
+
     final String iconType = child['icon_type'] ?? 'default';
-    final String? iconPath = child['icon_path'];
+    // Support legacy (icon_path) vs new (icon_data)
+    final String? iconData = child['icon_data'] ?? child['icon_path'];
+
     final bool isMoving = (child['id'] == _movingChildId);
 
     final IconData defaultIcon = type == 'mapContainer'
@@ -1042,9 +1091,10 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
 
     Widget childContent;
 
-    if (iconType == 'image' && iconPath != null) {
+    if (iconType == 'image' && iconData != null) {
+      // RENDER GAMBAR
       final file = File(
-        p.join(widget.objectDirectory.path, child['id'], iconPath),
+        p.join(widget.objectDirectory.path, child['id'], iconData),
       );
       if (file.existsSync()) {
         childContent = Container(
@@ -1081,7 +1131,36 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
           isMoving,
         );
       }
+    } else if (iconType == 'text' && iconData != null) {
+      // RENDER TEKS / EMOJI
+      childContent = Container(
+        width: 40,
+        height: 40,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: isMoving ? Colors.green : color.withOpacity(0.9),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: isMoving ? Colors.greenAccent : Colors.white,
+            width: isMoving ? 3 : 2,
+          ),
+          boxShadow: const [BoxShadow(blurRadius: 4, color: Colors.black26)],
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Text(
+              iconData,
+              style: const TextStyle(fontSize: 20),
+              textAlign: TextAlign.center,
+            ),
+            if (_isEditMode && !isMoving)
+              const Icon(Icons.edit, color: Colors.white70, size: 14),
+          ],
+        ),
+      );
     } else {
+      // RENDER DEFAULT
       childContent = _buildDefaultMarker(
         defaultIcon,
         color,
@@ -1090,6 +1169,8 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
       );
     }
 
+    // Jika bukan map style dan bukan gambar (atau jika user mau label tetap muncul)
+    // Kita tambahkan label nama di bawahnya
     if (!isMapStyle && iconType != 'image') {
       childContent = Column(
         mainAxisSize: MainAxisSize.min,
@@ -1115,7 +1196,6 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
 
     return GestureDetector(
       onTap: () => _handleChildTap(child),
-      // Hapus onLongPress
       child: Tooltip(
         message: "$name (${type == 'mapContainer' ? 'Wadah' : 'Lokasi'})",
         child: childContent,
