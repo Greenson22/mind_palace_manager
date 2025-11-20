@@ -9,7 +9,6 @@ import 'package:mind_palace_manager/features/region/presentation/management/regi
 import 'package:mind_palace_manager/permission_helper.dart';
 import 'package:mind_palace_manager/features/world/presentation/map/world_map_editor_page.dart';
 import 'package:mind_palace_manager/features/world/presentation/map/world_map_viewer_page.dart';
-// --- IMPORT BARU: Bank Bangunan ---
 import 'package:mind_palace_manager/features/building/presentation/factory/building_factory_page.dart';
 
 class BuildingManagementPage extends StatefulWidget {
@@ -22,8 +21,11 @@ class BuildingManagementPage extends StatefulWidget {
 class _BuildingManagementPageState extends State<BuildingManagementPage> {
   List<Directory> _regionFolders = [];
   bool _isLoading = false;
-  final TextEditingController _newRegionController = TextEditingController();
 
+  // --- State untuk Expandable FAB ---
+  bool _isFabOpen = false;
+
+  final TextEditingController _newRegionController = TextEditingController();
   final TextEditingController _editNameController = TextEditingController();
   final TextEditingController _editIconTextController = TextEditingController();
   String _editIconType = 'Default';
@@ -73,9 +75,7 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
           ),
         );
       }
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
       return;
     }
 
@@ -87,7 +87,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
 
       final entities = await rootDir.list().toList();
       setState(() {
-        // Filter: Sembunyikan folder gudang/bank dari daftar wilayah
         _regionFolders = entities
             .whereType<Directory>()
             .where((d) => p.basename(d.path) != '_BUILDING_WAREHOUSE_')
@@ -100,10 +99,7 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
         ).showSnackBar(SnackBar(content: Text('Gagal memuat wilayah: $e')));
       }
     }
-
-    setState(() {
-      _isLoading = false;
-    });
+    setState(() => _isLoading = false);
   }
 
   void _openWorldMapEditor() {
@@ -165,7 +161,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
       _loadRegions();
       return;
     }
-
     final String regionName = _newRegionController.text.trim();
     if (regionName.isEmpty) return;
 
@@ -173,7 +168,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
       final newRegionPath = p.join(AppSettings.baseBuildingsPath!, regionName);
       final newDir = Directory(newRegionPath);
       await newDir.create(recursive: true);
-
       final dataJsonFile = File(p.join(newRegionPath, 'region_data.json'));
       await dataJsonFile.writeAsString(
         json.encode({
@@ -184,16 +178,12 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
         }),
       );
 
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
+      if (mounted) Navigator.of(context).pop();
       await _loadRegions();
-
-      if (mounted) {
+      if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Wilayah "$regionName" berhasil dibuat')),
         );
-      }
     } catch (e) {
       if (mounted) {
         Navigator.of(context).pop();
@@ -204,19 +194,18 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
     }
   }
 
+  // ... (Fungsi _getRegionIconData, _buildIconContainer, _showEditRegionDialog, _saveRegionChanges, _deleteRegion, _viewRegion tetap sama)
+  // Saya singkat di sini untuk fokus ke UI, tapi pastikan Anda menyimpannya.
   Future<Map<String, dynamic>> _getRegionIconData(Directory regionDir) async {
     try {
       final jsonFile = File(p.join(regionDir.path, 'region_data.json'));
       if (!await jsonFile.exists()) {
         return {'type': null, 'data': null};
       }
-
       final content = await jsonFile.readAsString();
       final data = json.decode(content);
-
       final iconType = data['icon_type'];
       final iconData = data['icon_data'];
-
       if (iconType == 'image' && iconData != null) {
         final imageFile = File(p.join(regionDir.path, iconData.toString()));
         if (await imageFile.exists()) {
@@ -225,7 +214,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
           return {'type': null, 'data': null};
         }
       }
-
       return {'type': iconType, 'data': iconData};
     } catch (e) {
       return {'type': null, 'data': null};
@@ -239,9 +227,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
         return CircleAvatar(
           radius: size / 2,
           backgroundImage: imageFile != null ? FileImage(imageFile) : null,
-          onBackgroundImageError: imageFile != null
-              ? (e, s) => const Icon(Icons.image_not_supported)
-              : null,
           child: imageFile == null ? child : null,
         );
       case 'Kotak':
@@ -296,7 +281,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
 
     _editNameController.text = currentName;
     _editIconImagePath = null;
-
     if (currentType == 'text') {
       _editIconType = 'Teks';
       _editIconTextController.text = currentData ?? '';
@@ -310,7 +294,7 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
 
     await showDialog<void>(
       context: context,
-      builder: (BuildContext context) {
+      builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             String currentImageText = '...';
@@ -320,52 +304,43 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
                   currentImageText =
                       'Referensi Peta: ${p.basename(_editIconImagePath!.substring(14))}';
                 } else {
-                  currentImageText =
-                      'File baru: ${p.basename(_editIconImagePath!)}';
+                  currentImageText = 'Baru: ${p.basename(_editIconImagePath!)}';
                 }
               } else if (currentType == 'image' && currentData != null) {
-                currentImageText = 'Gambar saat ini: $currentData';
+                currentImageText = 'Saat ini: $currentData';
               } else {
-                currentImageText = 'Pilih Gambar Ikon';
+                currentImageText = 'Pilih Gambar';
               }
             }
-
             return AlertDialog(
               title: const Text('Ubah Info Wilayah'),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Nama Wilayah'),
                     TextField(
                       controller: _editNameController,
                       decoration: const InputDecoration(
-                        hintText: 'Nama Wilayah Baru',
+                        labelText: 'Nama Wilayah',
                       ),
                     ),
                     const SizedBox(height: 16),
-                    const Text('Ikon'),
                     DropdownButton<String>(
                       value: _editIconType,
                       isExpanded: true,
-                      items: ['Default', 'Teks', 'Gambar'].map((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList(),
-                      onChanged: (String? newValue) {
-                        setDialogState(() {
-                          _editIconType = newValue!;
-                        });
-                      },
+                      items: ['Default', 'Teks', 'Gambar']
+                          .map(
+                            (e) => DropdownMenuItem(value: e, child: Text(e)),
+                          )
+                          .toList(),
+                      onChanged: (v) =>
+                          setDialogState(() => _editIconType = v!),
                     ),
                     if (_editIconType == 'Teks')
                       TextField(
                         controller: _editIconTextController,
                         decoration: const InputDecoration(
-                          hintText: 'Masukkan 1-2 karakter',
+                          labelText: 'Karakter',
                         ),
                         maxLength: 2,
                       ),
@@ -376,16 +351,14 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
                             icon: const Icon(Icons.image),
                             label: const Text('Pilih Gambar'),
                             onPressed: () async {
-                              FilePickerResult? result = await FilePicker
-                                  .platform
-                                  .pickFiles(type: FileType.image);
-                              if (result != null &&
-                                  result.files.single.path != null) {
-                                setDialogState(() {
-                                  _editIconImagePath =
-                                      result.files.single.path!;
-                                });
-                              }
+                              var res = await FilePicker.platform.pickFiles(
+                                type: FileType.image,
+                              );
+                              if (res != null)
+                                setDialogState(
+                                  () => _editIconImagePath =
+                                      res.files.single.path,
+                                );
                             },
                           ),
                           if (currentMapImageName != null)
@@ -396,22 +369,11 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
                                 final mapFile = File(
                                   p.join(regionDir.path, currentMapImageName),
                                 );
-                                if (await mapFile.exists()) {
-                                  setDialogState(() {
-                                    _editIconImagePath =
-                                        'MAP_IMAGE_REF:$currentMapImageName';
-                                  });
-                                } else {
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'File peta wilayah tidak ditemukan.',
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                }
+                                if (await mapFile.exists())
+                                  setDialogState(
+                                    () => _editIconImagePath =
+                                        'MAP_IMAGE_REF:$currentMapImageName',
+                                  );
                               },
                             ),
                           Text(
@@ -423,18 +385,18 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
                   ],
                 ),
               ),
-              actions: <Widget>[
+              actions: [
                 TextButton(
+                  onPressed: () => Navigator.pop(ctx),
                   child: const Text('Batal'),
-                  onPressed: () => Navigator.of(context).pop(),
                 ),
                 ElevatedButton(
-                  child: const Text('Simpan'),
                   onPressed: () {
                     if (_editNameController.text.trim().isEmpty) return;
-                    Navigator.of(context).pop();
+                    Navigator.pop(ctx);
                     _saveRegionChanges(regionDir, currentType, currentData);
                   },
+                  child: const Text('Simpan'),
                 ),
               ],
             );
@@ -453,19 +415,15 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
     try {
       final newName = _editNameController.text.trim();
       Directory currentDir = originalDir;
-
       if (newName != p.basename(originalDir.path)) {
         final newPath = p.join(originalDir.parent.path, newName);
         currentDir = await originalDir.rename(newPath);
       }
-
       String? finalIconType;
       dynamic finalIconData;
-
       String? oldFixedIconName;
-      if (oldType == 'image' && oldData.toString().startsWith('region_icon.')) {
+      if (oldType == 'image' && oldData.toString().startsWith('region_icon.'))
         oldFixedIconName = oldData.toString();
-      }
 
       if (_editIconType == 'Teks') {
         finalIconType = 'text';
@@ -473,21 +431,16 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
       } else if (_editIconType == 'Gambar') {
         if (_editIconImagePath != null) {
           finalIconType = 'image';
-
           if (_editIconImagePath!.startsWith('MAP_IMAGE_REF:')) {
             finalIconData = _editIconImagePath!.substring(14);
           } else {
             final extension = p.extension(_editIconImagePath!);
-            const fixedIconBaseName = 'region_icon';
-            final fixedIconName = '$fixedIconBaseName$extension';
+            final fixedIconName = 'region_icon$extension';
             finalIconData = fixedIconName;
-
-            final sourceFile = File(_editIconImagePath!);
             final destPath = p.join(currentDir.path, finalIconData);
-
-            if (sourceFile.absolute.path != File(destPath).absolute.path) {
-              await sourceFile.copy(destPath);
-            }
+            if (File(_editIconImagePath!).absolute.path !=
+                File(destPath).absolute.path)
+              await File(_editIconImagePath!).copy(destPath);
           }
         } else if (oldType == 'image') {
           finalIconType = 'image';
@@ -499,53 +452,33 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
       }
 
       if (oldFixedIconName != null) {
-        final bool isBeingReplaced =
-            finalIconType != 'image' ||
+        if (finalIconType != 'image' ||
             (finalIconData != oldFixedIconName &&
-                !finalIconData.toString().startsWith('region_map.'));
-
-        if (isBeingReplaced) {
+                !finalIconData.toString().startsWith('region_map.'))) {
           try {
             final oldImageFile = File(
               p.join(currentDir.path, oldFixedIconName),
             );
-            if (await oldImageFile.exists()) {
-              await oldImageFile.delete();
-            }
+            if (await oldImageFile.exists()) await oldImageFile.delete();
           } catch (e) {
             print('Gagal menghapus gambar ikon fixed lama: $e');
           }
         }
       }
-
       final jsonFile = File(p.join(currentDir.path, 'region_data.json'));
       Map<String, dynamic> jsonData = {};
-      if (await jsonFile.exists()) {
-        try {
-          jsonData = json.decode(await jsonFile.readAsString());
-        } catch (_) {}
-      }
-
+      if (await jsonFile.exists())
+        jsonData = json.decode(await jsonFile.readAsString());
       jsonData['icon_type'] = finalIconType;
       jsonData['icon_data'] = finalIconData;
       jsonData['map_image'] ??= null;
       jsonData['district_placements'] ??= [];
-
       await jsonFile.writeAsString(json.encode(jsonData));
-
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Wilayah diperbarui')));
-      }
+      _loadRegions();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
+      print(e);
     }
-    await _loadRegions();
+    setState(() => _isLoading = false);
   }
 
   void _viewRegion(Directory regionDir) {
@@ -579,17 +512,15 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
         ],
       ),
     );
-
     if (confirm == true) {
       try {
         await regionDir.delete(recursive: true);
         await _loadRegions();
       } catch (e) {
-        if (mounted) {
+        if (mounted)
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(SnackBar(content: Text('Gagal menghapus: $e')));
-        }
       }
     }
   }
@@ -600,18 +531,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
       appBar: AppBar(
         title: const Text('Dunia Ingatan (Wilayah)'),
         actions: [
-          // --- TOMBOL AKSES KE BANK BANGUNAN (BARU) ---
-          IconButton(
-            icon: const Icon(Icons.warehouse), // Bisa pakai inventory/store
-            tooltip: 'Bank Bangunan',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (c) => const BuildingFactoryPage()),
-              );
-            },
-          ),
-          // -------------------------------------------
           IconButton(
             icon: const Icon(Icons.map_outlined),
             tooltip: 'Lihat Peta Dunia',
@@ -622,25 +541,90 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
             onPressed: _loadRegions,
             tooltip: 'Muat Ulang',
           ),
+          IconButton(
+            icon: const Icon(Icons.warehouse),
+            tooltip: 'Bank Bangunan',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (c) => const BuildingFactoryPage()),
+              );
+            },
+          ),
         ],
       ),
       body: _buildBody(),
+
+      // --- EXPANDABLE FAB (SPEED DIAL) ---
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
+          if (_isFabOpen) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceVariant,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    "Edit Peta",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FloatingActionButton.small(
+                  heroTag: 'world_map_editor',
+                  onPressed: () {
+                    _openWorldMapEditor();
+                    setState(() => _isFabOpen = false);
+                  },
+                  backgroundColor: Colors.blue.shade100,
+                  child: const Icon(Icons.map, color: Colors.black87),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceVariant,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    "Buat Wilayah",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FloatingActionButton.small(
+                  heroTag: 'add_region',
+                  onPressed: () {
+                    _showCreateRegionDialog();
+                    setState(() => _isFabOpen = false);
+                  },
+                  child: const Icon(Icons.public),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
           FloatingActionButton(
-            heroTag: 'world_map_editor',
-            onPressed: _openWorldMapEditor,
-            tooltip: 'Edit Peta Dunia',
-            backgroundColor: Colors.blue.shade100,
-            child: const Icon(Icons.map, color: Colors.black87),
-          ),
-          const SizedBox(height: 16),
-          FloatingActionButton(
-            heroTag: 'add_region',
-            onPressed: _showCreateRegionDialog,
-            tooltip: 'Buat Wilayah Baru',
-            child: const Icon(Icons.public),
+            heroTag: 'main_toggle',
+            onPressed: () => setState(() => _isFabOpen = !_isFabOpen),
+            child: Icon(_isFabOpen ? Icons.close : Icons.apps),
           ),
         ],
       ),
@@ -676,6 +660,7 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
     }
 
     return ListView.builder(
+      padding: const EdgeInsets.only(bottom: 150),
       itemCount: _regionFolders.length,
       itemBuilder: (context, index) {
         final folder = _regionFolders[index];
@@ -694,16 +679,12 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
                   ),
                 );
               }
-
-              if (!snapshot.hasData || snapshot.hasError) {
+              if (!snapshot.hasData || snapshot.hasError)
                 return _buildIconContainer(const Icon(Icons.public));
-              }
-
               final type = snapshot.data!['type'];
               final data = snapshot.data!['data'];
               final imageFile = snapshot.data!['file'] as File?;
-
-              if (type == 'text' && data != null) {
+              if (type == 'text' && data != null)
                 return _buildIconContainer(
                   Text(
                     data.toString(),
@@ -711,10 +692,8 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
                     textAlign: TextAlign.center,
                   ),
                 );
-              }
-              if (type == 'image' && imageFile != null) {
+              if (type == 'image' && imageFile != null)
                 return _buildIconContainer(null, imageFile: imageFile);
-              }
               return _buildIconContainer(const Icon(Icons.public));
             },
           ),

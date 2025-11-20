@@ -10,8 +10,6 @@ import 'package:mind_palace_manager/features/building/presentation/map/district_
 import 'package:mind_palace_manager/features/building/presentation/map/district_map_viewer_page.dart';
 import 'package:mind_palace_manager/features/region/presentation/map/region_map_editor_page.dart';
 import 'package:mind_palace_manager/features/region/presentation/map/region_map_viewer_page.dart';
-
-// --- IMPORT BARU: Dialog Pindah Distrik ---
 import 'package:mind_palace_manager/features/region/presentation/dialogs/move_district_dialog.dart';
 
 class RegionDetailPage extends StatefulWidget {
@@ -26,8 +24,11 @@ class RegionDetailPage extends StatefulWidget {
 class _RegionDetailPageState extends State<RegionDetailPage> {
   List<Directory> _districtFolders = [];
   bool _isLoading = false;
-  final TextEditingController _newDistrictController = TextEditingController();
 
+  // --- State untuk Expandable FAB ---
+  bool _isFabOpen = false;
+
+  final TextEditingController _newDistrictController = TextEditingController();
   final TextEditingController _editNameController = TextEditingController();
   final TextEditingController _editIconTextController = TextEditingController();
   String _editIconType = 'Default';
@@ -454,16 +455,14 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
     }
   }
 
-  // --- [BARU] FITUR PINDAH DISTRIK ---
   Future<void> _moveDistrict(Directory districtDir) async {
-    // 1. Buka Dialog
     final Directory? targetRegion = await showDialog<Directory>(
       context: context,
       builder: (context) =>
           MoveDistrictDialog(currentRegionDir: widget.regionDirectory),
     );
 
-    if (targetRegion == null) return; // Batal
+    if (targetRegion == null) return;
 
     setState(() => _isLoading = true);
 
@@ -471,22 +470,16 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
       final String districtName = p.basename(districtDir.path);
       String newName = districtName;
 
-      // 2. Cek Konflik Nama di Wilayah Tujuan
       final expectedPath = p.join(targetRegion.path, districtName);
       if (await Directory(expectedPath).exists()) {
-        // Auto-rename dengan timestamp
         newName = "${districtName}_${DateTime.now().millisecondsSinceEpoch}";
       }
 
       final finalNewPath = p.join(targetRegion.path, newName);
 
-      // 3. Pindahkan Folder Secara Fisik (Rename)
       await districtDir.rename(finalNewPath);
-
-      // 4. Bersihkan Data dari Peta Wilayah LAMA (Region saat ini)
       await _removeDistrictFromRegionMapData(districtName);
 
-      // 5. Beri Notifikasi & Refresh
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -498,7 +491,7 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
           ),
         );
       }
-      _loadDistricts(); // Refresh list (distrik akan hilang dari sini)
+      _loadDistricts();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -512,7 +505,6 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
     }
   }
 
-  // Helper untuk membersihkan data di region_data.json
   Future<void> _removeDistrictFromRegionMapData(
     String districtFolderName,
   ) async {
@@ -526,7 +518,6 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
         List<dynamic> placements = data['district_placements'] ?? [];
 
         final int initialLen = placements.length;
-        // Hapus item yang folder namenya cocok
         placements.removeWhere(
           (item) => item['district_folder_name'] == districtFolderName,
         );
@@ -540,7 +531,6 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
       print("Warning: Gagal membersihkan data peta wilayah lama: $e");
     }
   }
-  // -----------------------------------
 
   void _openDistrict(Directory districtDir) {
     Navigator.push(
@@ -548,15 +538,6 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
       MaterialPageRoute(
         builder: (c) =>
             DistrictBuildingManagementPage(districtDirectory: districtDir),
-      ),
-    );
-  }
-
-  void _editDistrictMap(Directory districtDir) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (c) => DistrictMapEditorPage(districtDirectory: districtDir),
       ),
     );
   }
@@ -601,22 +582,86 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _buildDistrictList(),
+
+      // --- EXPANDABLE FAB (SPEED DIAL) ---
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
+          if (_isFabOpen) ...[
+            // Tombol 1: Edit Peta
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceVariant,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    "Edit Peta",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FloatingActionButton.small(
+                  heroTag: 'map_region',
+                  onPressed: () {
+                    _openRegionMapEditor();
+                    setState(() => _isFabOpen = false);
+                  },
+                  backgroundColor: Colors.blue.shade100,
+                  child: const Icon(Icons.map, color: Colors.black87),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Tombol 2: Buat Distrik
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceVariant,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    "Buat Distrik",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FloatingActionButton.small(
+                  heroTag: 'add_district',
+                  onPressed: () {
+                    _createNewDistrict();
+                    setState(() => _isFabOpen = false);
+                  },
+                  child: const Icon(Icons.add),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          // Tombol Utama (Toggle)
           FloatingActionButton(
-            heroTag: 'map_region',
-            onPressed: _openRegionMapEditor,
-            backgroundColor: Colors.blue.shade100,
-            tooltip: 'Edit Peta Wilayah',
-            child: const Icon(Icons.map, color: Colors.black87),
-          ),
-          const SizedBox(height: 16),
-          FloatingActionButton(
-            heroTag: 'add_district',
-            onPressed: _createNewDistrict,
-            tooltip: 'Buat Distrik Baru',
-            child: const Icon(Icons.add),
+            heroTag: 'main_toggle',
+            onPressed: () {
+              setState(() {
+                _isFabOpen = !_isFabOpen;
+              });
+            },
+            child: Icon(_isFabOpen ? Icons.close : Icons.apps),
           ),
         ],
       ),
@@ -627,7 +672,7 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
     if (_districtFolders.isEmpty) {
       return const Center(
         child: Text(
-          'Belum ada distrik di wilayah ini.\nKlik tombol + untuk menambah.',
+          'Belum ada distrik di wilayah ini.\nKlik tombol menu di bawah untuk menambah.',
           textAlign: TextAlign.center,
           style: TextStyle(color: Colors.grey),
         ),
@@ -635,6 +680,8 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
     }
 
     return ListView.builder(
+      // --- PADDING BAWAH ---
+      padding: const EdgeInsets.only(bottom: 150),
       itemCount: _districtFolders.length,
       itemBuilder: (context, index) {
         final dir = _districtFolders[index];
@@ -651,15 +698,12 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
                   ),
                 );
               }
-
               if (!snapshot.hasData || snapshot.hasError) {
                 return _buildIconContainer(const Icon(Icons.holiday_village));
               }
-
               final type = snapshot.data!['type'];
               final data = snapshot.data!['data'];
               final imageFile = snapshot.data!['file'] as File?;
-
               if (type == 'text' && data != null) {
                 return _buildIconContainer(
                   Text(
@@ -680,6 +724,8 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
             style: const TextStyle(fontSize: 18),
           ),
           subtitle: Text(dir.path, style: const TextStyle(fontSize: 10)),
+
+          // --- MENU OPSI DISTRIK ---
           trailing: PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (v) {
@@ -687,13 +733,11 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
                 case 'view':
                   _openDistrict(dir);
                   break;
-                case 'edit_map':
-                  _editDistrictMap(dir);
-                  break;
+                // case 'edit_map': _editDistrictMap(dir); break; // DIHAPUS SESUAI REQUEST
                 case 'edit_info':
                   _showEditDistrictDialog(dir);
                   break;
-                case 'move': // --- KASUS BARU ---
+                case 'move':
                   _moveDistrict(dir);
                   break;
                 case 'delete':
@@ -712,17 +756,8 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
                   ],
                 ),
               ),
-              const PopupMenuItem(
-                value: 'edit_map',
-                child: Row(
-                  children: [
-                    Icon(Icons.map, color: Colors.blue),
-                    SizedBox(width: 8),
-                    Text('Edit Peta'),
-                  ],
-                ),
-              ),
-              // --- MENU BARU: PINDAHKAN ---
+
+              // Opsi 'Edit Peta' sudah DIHAPUS dari sini agar user mengeditnya di dalam distrik
               const PopupMenuItem(
                 value: 'move',
                 child: Row(
@@ -733,7 +768,6 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
                   ],
                 ),
               ),
-              // ----------------------------
               const PopupMenuItem(
                 value: 'edit_info',
                 child: Row(
