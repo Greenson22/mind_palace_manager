@@ -7,10 +7,14 @@ class MoveBuildingDialog extends StatefulWidget {
   final Directory currentRegionDir;
   final Directory currentDistrictDir;
 
+  // --- BARU: Flag untuk menandakan ini dibuka dari Pabrik/Gudang ---
+  final bool isFactoryMode;
+
   const MoveBuildingDialog({
     super.key,
     required this.currentRegionDir,
     required this.currentDistrictDir,
+    this.isFactoryMode = false, // Default false
   });
 
   @override
@@ -21,11 +25,9 @@ class _MoveBuildingDialogState extends State<MoveBuildingDialog>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  // State untuk Tab Lokal
   List<Directory> _localDistricts = [];
   bool _isLoadingLocal = true;
 
-  // State untuk Tab Dunia
   List<Directory> _regions = [];
   Directory? _selectedRegionInWorldTab;
   List<Directory> _districtsInSelectedRegion = [];
@@ -35,7 +37,15 @@ class _MoveBuildingDialogState extends State<MoveBuildingDialog>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _loadLocalDistricts();
+
+    // Jika dari Pabrik, langsung lompat ke Tab Dunia (index 1) karena Tab Lokal tidak relevan
+    if (widget.isFactoryMode) {
+      _tabController.index = 1;
+      _isLoadingLocal = false; // Tidak perlu load lokal
+    } else {
+      _loadLocalDistricts();
+    }
+
     _loadRegions();
   }
 
@@ -45,16 +55,15 @@ class _MoveBuildingDialogState extends State<MoveBuildingDialog>
     super.dispose();
   }
 
-  // --- LOAD DATA ---
-
   Future<void> _loadLocalDistricts() async {
-    // Memuat distrik lain dalam wilayah yang SAMA (Tab 1)
+    // Jika mode pabrik, jangan muat apa-apa di tab lokal
+    if (widget.isFactoryMode) return;
+
     try {
       final entities = await widget.currentRegionDir.list().toList();
       final dirs = entities.whereType<Directory>().toList();
 
       setState(() {
-        // Filter: Jangan tampilkan distrik asal (current)
         _localDistricts = dirs
             .where((d) => d.path != widget.currentDistrictDir.path)
             .toList();
@@ -67,7 +76,6 @@ class _MoveBuildingDialogState extends State<MoveBuildingDialog>
   }
 
   Future<void> _loadRegions() async {
-    // Memuat semua wilayah dari root (Tab 2)
     if (AppSettings.baseBuildingsPath == null) return;
 
     setState(() => _isLoadingWorld = true);
@@ -76,7 +84,11 @@ class _MoveBuildingDialogState extends State<MoveBuildingDialog>
       if (await rootDir.exists()) {
         final entities = await rootDir.list().toList();
         setState(() {
-          _regions = entities.whereType<Directory>().toList();
+          _regions = entities.whereType<Directory>().where((d) {
+            final name = p.basename(d.path);
+            // --- FILTER BARU: Jangan tampilkan folder sistem (berawalan _) ---
+            return !name.startsWith('_');
+          }).toList();
         });
       }
     } catch (e) {
@@ -86,15 +98,15 @@ class _MoveBuildingDialogState extends State<MoveBuildingDialog>
   }
 
   Future<void> _loadDistrictsForRegion(Directory regionDir) async {
-    // Drill-down: Memuat distrik ketika wilayah dipilih di Tab 2
     setState(() => _isLoadingWorld = true);
     try {
       final entities = await regionDir.list().toList();
       setState(() {
         _districtsInSelectedRegion = entities.whereType<Directory>().toList();
-        // Jika kebetulan user memilih wilayah yang sama dengan wilayah saat ini di Tab Dunia,
-        // kita filter juga distrik asalnya agar konsisten.
-        if (regionDir.path == widget.currentRegionDir.path) {
+
+        // Filter distrik asal hanya jika BUKAN mode pabrik
+        if (!widget.isFactoryMode &&
+            regionDir.path == widget.currentRegionDir.path) {
           _districtsInSelectedRegion.removeWhere(
             (d) => d.path == widget.currentDistrictDir.path,
           );
@@ -106,8 +118,6 @@ class _MoveBuildingDialogState extends State<MoveBuildingDialog>
     setState(() => _isLoadingWorld = false);
   }
 
-  // --- ACTION ---
-
   void _selectDestination(Directory targetDistrict) {
     Navigator.pop(context, targetDistrict);
   }
@@ -115,8 +125,10 @@ class _MoveBuildingDialogState extends State<MoveBuildingDialog>
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Pindahkan Bangunan'),
-      contentPadding: const EdgeInsets.only(top: 20), // Kurangi padding default
+      title: Text(
+        widget.isFactoryMode ? 'Deploy Bangunan' : 'Pindahkan Bangunan',
+      ),
+      contentPadding: const EdgeInsets.only(top: 20),
       content: SizedBox(
         width: double.maxFinite,
         height: 400,
@@ -150,6 +162,28 @@ class _MoveBuildingDialogState extends State<MoveBuildingDialog>
   }
 
   Widget _buildLocalTab() {
+    // --- TAMPILAN KHUSUS MODE PABRIK ---
+    if (widget.isFactoryMode) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.public_off, size: 48, color: Colors.grey.shade300),
+              const SizedBox(height: 16),
+              const Text(
+                'Mode Deploy Aktif.\nSilakan pilih Wilayah tujuan di tab "Jelajahi Dunia".',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    // -----------------------------------
+
     if (_isLoadingLocal) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -180,7 +214,6 @@ class _MoveBuildingDialogState extends State<MoveBuildingDialog>
   }
 
   Widget _buildWorldTab() {
-    // Tampilan Level 1: Daftar Wilayah
     if (_selectedRegionInWorldTab == null) {
       if (_isLoadingWorld) {
         return const Center(child: CircularProgressIndicator());
@@ -221,7 +254,6 @@ class _MoveBuildingDialogState extends State<MoveBuildingDialog>
       );
     }
 
-    // Tampilan Level 2: Daftar Distrik dalam Wilayah Terpilih
     return Column(
       children: [
         ListTile(
