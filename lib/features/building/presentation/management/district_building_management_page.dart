@@ -9,12 +9,10 @@ import 'package:mind_palace_manager/features/building/presentation/editor/room_e
 import 'package:mind_palace_manager/features/building/presentation/viewer/building_viewer_page.dart';
 import 'package:mind_palace_manager/permission_helper.dart';
 import 'package:mind_palace_manager/features/building/presentation/map/district_map_viewer_page.dart';
-// --- IMPORT BARU: Dialog Pindah Bangunan ---
-// Pastikan file ini sudah dibuat di: lib/features/building/presentation/dialogs/move_building_dialog.dart
+// Import Dialog Pindah Bangunan
 import 'package:mind_palace_manager/features/building/presentation/dialogs/move_building_dialog.dart';
 
 class DistrictBuildingManagementPage extends StatefulWidget {
-  // Menerima path distrik yang dipilih
   final Directory districtDirectory;
 
   const DistrictBuildingManagementPage({
@@ -32,11 +30,10 @@ class _DistrictBuildingManagementPageState
   List<Directory> _buildingFolders = [];
   bool _isLoading = false;
 
-  // --- State untuk dialog Buat / Edit ---
   final TextEditingController _buildingNameController = TextEditingController();
   final TextEditingController _buildingIconTextController =
       TextEditingController();
-  String _buildingIconType = 'Default'; // Tipe: 'Default', 'Teks', 'Gambar'
+  String _buildingIconType = 'Default';
   String? _buildingIconImagePath;
 
   @override
@@ -53,9 +50,7 @@ class _DistrictBuildingManagementPageState
   }
 
   Future<void> _loadBuildings() async {
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     bool hasPermission = await checkAndRequestPermissions();
     if (!hasPermission) {
@@ -73,7 +68,6 @@ class _DistrictBuildingManagementPageState
       return;
     }
 
-    // Path 'base' sekarang adalah path distrik
     final Directory buildingsDir = widget.districtDirectory;
 
     try {
@@ -93,13 +87,10 @@ class _DistrictBuildingManagementPageState
       }
     }
 
-    setState(() {
-      _isLoading = false;
-    });
+    setState(() => _isLoading = false);
   }
 
   Future<void> _showCreateBuildingDialog() async {
-    // Reset state dialog untuk 'Buat Baru'
     _buildingNameController.clear();
     _buildingIconTextController.clear();
     _buildingIconType = 'Default';
@@ -108,7 +99,6 @@ class _DistrictBuildingManagementPageState
     return showDialog<void>(
       context: context,
       builder: (BuildContext context) {
-        // Gunakan StatefulBuilder agar dialog bisa update UI-nya sendiri
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
@@ -145,8 +135,6 @@ class _DistrictBuildingManagementPageState
                         });
                       },
                     ),
-
-                    // Tampilkan input berdasarkan Tipe Ikon
                     if (_buildingIconType == 'Teks')
                       TextField(
                         controller: _buildingIconTextController,
@@ -155,7 +143,6 @@ class _DistrictBuildingManagementPageState
                         ),
                         maxLength: 2,
                       ),
-
                     if (_buildingIconType == 'Gambar')
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -194,7 +181,6 @@ class _DistrictBuildingManagementPageState
                 ),
                 ElevatedButton(
                   child: const Text('Buat'),
-                  // Cek nama bangunan saat dialog sedang aktif
                   onPressed: () {
                     if (_buildingNameController.text.trim().isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -220,7 +206,6 @@ class _DistrictBuildingManagementPageState
     final String buildingName = _buildingNameController.text.trim();
     if (buildingName.isEmpty) return;
 
-    // Tentukan data ikon
     String? iconType;
     dynamic iconData;
 
@@ -234,18 +219,13 @@ class _DistrictBuildingManagementPageState
         }
       } else if (_buildingIconType == 'Gambar' &&
           _buildingIconImagePath != null) {
-        // Gambar harus disalin ke folder bangunan BARU
-
-        // --- Gunakan ID Unik untuk Nama File Ikon Bangunan ---
         final extension = p.extension(_buildingIconImagePath!);
         final uniqueIconName =
-            'icon_${DateTime.now().millisecondsSinceEpoch}${extension}';
-
+            'icon_${DateTime.now().millisecondsSinceEpoch}$extension';
         iconType = 'image';
         iconData = uniqueIconName;
       }
 
-      // Buat folder bangunan
       final newBuildingPath = p.join(
         widget.districtDirectory.path,
         buildingName,
@@ -253,14 +233,12 @@ class _DistrictBuildingManagementPageState
       final newDir = Directory(newBuildingPath);
       await newDir.create(recursive: true);
 
-      // Salin gambar ikon jika ada
       if (iconType == 'image' && _buildingIconImagePath != null) {
         final sourceFile = File(_buildingIconImagePath!);
         final destinationPath = p.join(newBuildingPath, iconData);
         await sourceFile.copy(destinationPath);
       }
 
-      // Buat file data.json dengan info ikon
       final dataJsonFile = File(p.join(newBuildingPath, 'data.json'));
       final jsonData = {
         "icon_type": iconType,
@@ -290,13 +268,11 @@ class _DistrictBuildingManagementPageState
   }
 
   Future<void> _showEditBuildingDialog(Directory buildingDir) async {
-    // 1. Muat data ikon dan nama saat ini
     final currentName = p.basename(buildingDir.path);
     final iconData = await _getBuildingIconData(buildingDir);
     String currentType = iconData['type'] ?? 'Default';
     dynamic currentData = iconData['data'];
 
-    // 2. Atur state dialog
     _buildingNameController.text = currentName;
 
     if (currentType == 'text') {
@@ -313,7 +289,6 @@ class _DistrictBuildingManagementPageState
       _buildingIconImagePath = null;
     }
 
-    // 3. Tampilkan dialog
     final bool? didSave = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
@@ -431,7 +406,6 @@ class _DistrictBuildingManagementPageState
       },
     );
 
-    // 4. Segarkan (refresh) UI jika pengguna menekan 'Simpan'
     if (didSave == true) {
       await _loadBuildings();
     }
@@ -462,7 +436,6 @@ class _DistrictBuildingManagementPageState
       }
     }
 
-    // --- ICON LOGIC ---
     final jsonFile = File(p.join(currentDir.path, 'data.json'));
     Map<String, dynamic> jsonData;
 
@@ -492,8 +465,7 @@ class _DistrictBuildingManagementPageState
       if (_buildingIconImagePath != null) {
         final extension = p.extension(_buildingIconImagePath!);
         final uniqueIconName =
-            'icon_${DateTime.now().millisecondsSinceEpoch}${extension}';
-
+            'icon_${DateTime.now().millisecondsSinceEpoch}$extension';
         iconType = 'image';
         iconData = uniqueIconName;
 
@@ -521,7 +493,6 @@ class _DistrictBuildingManagementPageState
       iconData = null;
     }
 
-    // --- DELETION LOGIC ---
     if (oldImageName != null &&
         (iconType != 'image' || iconData != oldImageName)) {
       try {
@@ -556,11 +527,9 @@ class _DistrictBuildingManagementPageState
     }
   }
 
-  // --- [BARU] LOGIKA PEMINDAHAN BANGUNAN ---
   Future<void> _moveBuilding(Directory buildingDir) async {
     final currentRegionDir = widget.districtDirectory.parent;
 
-    // 1. Buka Dialog Pemilihan (Menggunakan MoveBuildingDialog)
     final Directory? targetDistrict = await showDialog<Directory>(
       context: context,
       builder: (context) => MoveBuildingDialog(
@@ -569,7 +538,7 @@ class _DistrictBuildingManagementPageState
       ),
     );
 
-    if (targetDistrict == null) return; // Batal
+    if (targetDistrict == null) return;
 
     setState(() => _isLoading = true);
 
@@ -577,23 +546,16 @@ class _DistrictBuildingManagementPageState
       final String buildingName = p.basename(buildingDir.path);
       String newName = buildingName;
 
-      // 2. Cek Konflik Nama di Tujuan
       final expectedPath = p.join(targetDistrict.path, buildingName);
       if (await Directory(expectedPath).exists()) {
-        // Auto-rename sederhana: Tambahkan timestamp agar unik
         newName = "${buildingName}_${DateTime.now().millisecondsSinceEpoch}";
       }
 
       final finalNewPath = p.join(targetDistrict.path, newName);
 
-      // 3. Lakukan Pemindahan Fisik (Rename Folder)
       await buildingDir.rename(finalNewPath);
-
-      // 4. Bersihkan Data di Peta Distrik LAMA (Source)
-      // Hapus placement agar tidak jadi 'ghost icon' di peta lama
       await _removeBuildingFromMapData(widget.districtDirectory, buildingName);
 
-      // 5. Selesai
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -605,8 +567,6 @@ class _DistrictBuildingManagementPageState
           ),
         );
       }
-
-      // Refresh halaman ini (bangunan akan hilang dari list)
       _loadBuildings();
     } catch (e) {
       if (mounted) {
@@ -621,7 +581,72 @@ class _DistrictBuildingManagementPageState
     }
   }
 
-  /// Helper untuk menghapus data placement bangunan dari file district_data.json
+  // --- [BARU] FITUR RETRACT (SIMPAN KE BANK) ---
+  Future<void> _retractBuilding(Directory buildingDir) async {
+    if (AppSettings.baseBuildingsPath == null) return;
+
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Simpan ke Bank Bangunan?'),
+        content: const Text(
+          'Bangunan akan dipindahkan dari distrik ini ke Gudang/Bank.\n'
+          'Data posisi di peta distrik akan dihapus.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final warehouseDir = Directory(
+        p.join(AppSettings.baseBuildingsPath!, '_BUILDING_WAREHOUSE_'),
+      );
+      if (!await warehouseDir.exists()) {
+        await warehouseDir.create();
+      }
+
+      final String name = p.basename(buildingDir.path);
+      String newName = name;
+
+      if (await Directory(p.join(warehouseDir.path, name)).exists()) {
+        newName = "${name}_${DateTime.now().millisecondsSinceEpoch}";
+      }
+
+      await buildingDir.rename(p.join(warehouseDir.path, newName));
+      await _removeBuildingFromMapData(widget.districtDirectory, name);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Bangunan aman tersimpan di Bank Bangunan.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+      _loadBuildings();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Gagal menyimpan: $e')));
+      }
+      setState(() => _isLoading = false);
+    }
+  }
+
   Future<void> _removeBuildingFromMapData(
     Directory districtDir,
     String buildingFolderName,
@@ -632,9 +657,7 @@ class _DistrictBuildingManagementPageState
         final content = await jsonFile.readAsString();
         final data = json.decode(content);
         List<dynamic> placements = data['building_placements'] ?? [];
-
         final int initialLen = placements.length;
-        // Hapus entry yang nama foldernya cocok
         placements.removeWhere(
           (item) => item['building_folder_name'] == buildingFolderName,
         );
@@ -648,7 +671,6 @@ class _DistrictBuildingManagementPageState
       print("Warning: Gagal membersihkan data peta lama: $e");
     }
   }
-  // -----------------------------------------
 
   void _viewBuilding(Directory buildingDir) {
     Navigator.push(
@@ -671,7 +693,6 @@ class _DistrictBuildingManagementPageState
 
   Future<void> _deleteBuilding(Directory buildingDir) async {
     final buildingName = p.basename(buildingDir.path);
-
     final bool? didConfirm = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
@@ -830,10 +851,8 @@ class _DistrictBuildingManagementPageState
       if (!await jsonFile.exists()) {
         return {'type': null, 'data': null};
       }
-
       final content = await jsonFile.readAsString();
       final data = json.decode(content);
-
       final iconType = data.containsKey('icon_type') ? data['icon_type'] : null;
       final iconData = data.containsKey('icon_data') ? data['icon_data'] : null;
 
@@ -845,7 +864,6 @@ class _DistrictBuildingManagementPageState
           return {'type': null, 'data': null};
         }
       }
-
       return {'type': iconType, 'data': iconData};
     } catch (e) {
       print('Gagal membaca ikon: $e');
@@ -904,7 +922,6 @@ class _DistrictBuildingManagementPageState
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
-
     if (_buildingFolders.isEmpty) {
       return const Center(
         child: Text(
@@ -934,11 +951,9 @@ class _DistrictBuildingManagementPageState
                 ),
               );
             }
-
             if (!snapshot.hasData || snapshot.hasError) {
               return _buildIconContainer(const Icon(Icons.location_city));
             }
-
             final type = snapshot.data!['type'];
             final data = snapshot.data!['data'];
             final imageFile = snapshot.data!['file'] as File?;
@@ -954,11 +969,9 @@ class _DistrictBuildingManagementPageState
                 ),
               );
             }
-
             if (type == 'image' && imageFile != null) {
               return _buildIconContainer(null, imageFile: imageFile);
             }
-
             return _buildIconContainer(const Icon(Icons.location_city));
           },
         );
@@ -981,8 +994,11 @@ class _DistrictBuildingManagementPageState
                 case 'edit_info':
                   _showEditBuildingDialog(folder);
                   break;
-                case 'move': // --- KASUS BARU ---
+                case 'move':
                   _moveBuilding(folder);
+                  break;
+                case 'retract': // --- KASUS BARU ---
+                  _retractBuilding(folder);
                   break;
                 case 'export_icon':
                   _exportBuildingIcon(folder);
@@ -1013,7 +1029,6 @@ class _DistrictBuildingManagementPageState
                   ],
                 ),
               ),
-              // --- MENU BARU: PINDAHKAN ---
               const PopupMenuItem<String>(
                 value: 'move',
                 child: Row(
@@ -1024,7 +1039,18 @@ class _DistrictBuildingManagementPageState
                   ],
                 ),
               ),
-              // ----------------------------
+              // --- MENU BARU: RETRACT ---
+              const PopupMenuItem<String>(
+                value: 'retract',
+                child: Row(
+                  children: [
+                    Icon(Icons.inventory_2, color: Colors.indigo),
+                    SizedBox(width: 8),
+                    Text('Simpan ke Bank'),
+                  ],
+                ),
+              ),
+              // --------------------------
               const PopupMenuItem<String>(
                 value: 'edit_info',
                 child: Row(

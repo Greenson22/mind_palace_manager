@@ -7,9 +7,10 @@ import 'package:file_picker/file_picker.dart';
 import 'package:mind_palace_manager/app_settings.dart';
 import 'package:mind_palace_manager/features/region/presentation/management/region_detail_page.dart';
 import 'package:mind_palace_manager/permission_helper.dart';
-// --- BARU: Import Peta Dunia ---
 import 'package:mind_palace_manager/features/world/presentation/map/world_map_editor_page.dart';
 import 'package:mind_palace_manager/features/world/presentation/map/world_map_viewer_page.dart';
+// --- IMPORT BARU: Bank Bangunan ---
+import 'package:mind_palace_manager/features/building/presentation/factory/building_factory_page.dart';
 
 class BuildingManagementPage extends StatefulWidget {
   const BuildingManagementPage({super.key});
@@ -23,7 +24,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
   bool _isLoading = false;
   final TextEditingController _newRegionController = TextEditingController();
 
-  // --- Controller untuk Edit ---
   final TextEditingController _editNameController = TextEditingController();
   final TextEditingController _editIconTextController = TextEditingController();
   String _editIconType = 'Default';
@@ -87,7 +87,11 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
 
       final entities = await rootDir.list().toList();
       setState(() {
-        _regionFolders = entities.whereType<Directory>().toList();
+        // Filter: Sembunyikan folder gudang/bank dari daftar wilayah
+        _regionFolders = entities
+            .whereType<Directory>()
+            .where((d) => p.basename(d.path) != '_BUILDING_WAREHOUSE_')
+            .toList();
       });
     } catch (e) {
       if (mounted) {
@@ -102,7 +106,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
     });
   }
 
-  // --- FUNGSI PETA DUNIA ---
   void _openWorldMapEditor() {
     if (AppSettings.baseBuildingsPath != null) {
       Navigator.push(
@@ -128,7 +131,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
       );
     }
   }
-  // -------------------------
 
   Future<void> _showCreateRegionDialog() async {
     _newRegionController.clear();
@@ -172,7 +174,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
       final newDir = Directory(newRegionPath);
       await newDir.create(recursive: true);
 
-      // Buat file data awal untuk wilayah
       final dataJsonFile = File(p.join(newRegionPath, 'region_data.json'));
       await dataJsonFile.writeAsString(
         json.encode({
@@ -203,7 +204,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
     }
   }
 
-  // --- HELPER IKON ---
   Future<Map<String, dynamic>> _getRegionIconData(Directory regionDir) async {
     try {
       final jsonFile = File(p.join(regionDir.path, 'region_data.json'));
@@ -222,7 +222,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
         if (await imageFile.exists()) {
           return {'type': 'image', 'data': iconData, 'file': imageFile};
         } else {
-          // Jika file tidak ada, kembalikan ke default.
           return {'type': null, 'data': null};
         }
       }
@@ -280,21 +279,18 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
     }
   }
 
-  // --- EDIT WILAYAH ---
   Future<void> _showEditRegionDialog(Directory regionDir) async {
     final currentName = p.basename(regionDir.path);
     final iconInfo = await _getRegionIconData(regionDir);
     final currentType = iconInfo['type'] ?? 'Default';
     final currentData = iconInfo['data'];
 
-    // Cek gambar peta wilayah untuk opsi "Gunakan Peta Wilayah"
     String? currentMapImageName;
     try {
       final jsonFile = File(p.join(regionDir.path, 'region_data.json'));
       if (await jsonFile.exists()) {
         final data = json.decode(await jsonFile.readAsString());
-        currentMapImageName =
-            data['map_image']; // Ini adalah file region_map.ext
+        currentMapImageName = data['map_image'];
       }
     } catch (_) {}
 
@@ -320,7 +316,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
             String currentImageText = '...';
             if (_editIconType == 'Gambar') {
               if (_editIconImagePath != null) {
-                // Periksa apakah ini referensi peta untuk teks yang berbeda
                 if (_editIconImagePath!.startsWith('MAP_IMAGE_REF:')) {
                   currentImageText =
                       'Referensi Peta: ${p.basename(_editIconImagePath!.substring(14))}';
@@ -402,13 +397,10 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
                                   p.join(regionDir.path, currentMapImageName),
                                 );
                                 if (await mapFile.exists()) {
-                                  // --- PERUBAHAN: Set path ke marker referensi ---
                                   setDialogState(() {
-                                    // Gunakan penanda referensi langsung ke nama file peta region (region_map.ext)
                                     _editIconImagePath =
                                         'MAP_IMAGE_REF:$currentMapImageName';
                                   });
-                                  // --- SELESAI PERUBAHAN ---
                                 } else {
                                   if (mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
@@ -462,17 +454,14 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
       final newName = _editNameController.text.trim();
       Directory currentDir = originalDir;
 
-      // 1. Rename
       if (newName != p.basename(originalDir.path)) {
         final newPath = p.join(originalDir.parent.path, newName);
         currentDir = await originalDir.rename(newPath);
       }
 
-      // 2. Icon Logic
       String? finalIconType;
       dynamic finalIconData;
 
-      // Variabel untuk menampung nama file icon fixed lama yang perlu dihapus
       String? oldFixedIconName;
       if (oldType == 'image' && oldData.toString().startsWith('region_icon.')) {
         oldFixedIconName = oldData.toString();
@@ -486,13 +475,8 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
           finalIconType = 'image';
 
           if (_editIconImagePath!.startsWith('MAP_IMAGE_REF:')) {
-            // --- PERUBAHAN: Referensi Peta Wilayah ---
-            // Gunakan nama file peta wilayah (region_map.ext)
             finalIconData = _editIconImagePath!.substring(14);
-            // --- SELESAI PERUBAHAN ---
           } else {
-            // File baru dipilih (bukan peta) - Lakukan copy ke fixed name
-
             final extension = p.extension(_editIconImagePath!);
             const fixedIconBaseName = 'region_icon';
             final fixedIconName = '$fixedIconBaseName$extension';
@@ -501,7 +485,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
             final sourceFile = File(_editIconImagePath!);
             final destPath = p.join(currentDir.path, finalIconData);
 
-            // Copy file baru
             if (sourceFile.absolute.path != File(destPath).absolute.path) {
               await sourceFile.copy(destPath);
             }
@@ -515,11 +498,7 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
         finalIconData = null;
       }
 
-      // 3. Bersihkan file ikon lama yang tersimpan (hanya 'region_icon.ext')
       if (oldFixedIconName != null) {
-        // Hapus jika tipe ikon diubah ke Teks/Default, ATAU diganti ke file peta, ATAU diganti ke file ikon baru dengan ekstensi berbeda.
-        // File peta wilayah dinamakan 'region_map.ext'.
-
         final bool isBeingReplaced =
             finalIconType != 'image' ||
             (finalIconData != oldFixedIconName &&
@@ -539,7 +518,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
         }
       }
 
-      // 4. Update JSON
       final jsonFile = File(p.join(currentDir.path, 'region_data.json'));
       Map<String, dynamic> jsonData = {};
       if (await jsonFile.exists()) {
@@ -622,7 +600,18 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
       appBar: AppBar(
         title: const Text('Dunia Ingatan (Wilayah)'),
         actions: [
-          // --- BARU: Tombol Viewer Peta Dunia ---
+          // --- TOMBOL AKSES KE BANK BANGUNAN (BARU) ---
+          IconButton(
+            icon: const Icon(Icons.warehouse), // Bisa pakai inventory/store
+            tooltip: 'Bank Bangunan',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (c) => const BuildingFactoryPage()),
+              );
+            },
+          ),
+          // -------------------------------------------
           IconButton(
             icon: const Icon(Icons.map_outlined),
             tooltip: 'Lihat Peta Dunia',
@@ -636,7 +625,6 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
         ],
       ),
       body: _buildBody(),
-      // --- BARU: Mengubah FAB menjadi Kolom untuk akses Editor dan Create ---
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
