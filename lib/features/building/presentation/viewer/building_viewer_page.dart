@@ -618,11 +618,12 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
               tooltip: 'Batal Pindah',
               onPressed: () => setState(() => _movingObjectId = null),
             ),
+          // --- UPDATE: Menambahkan Ikon pada PopupMenuButton ---
           PopupMenuButton<String>(
             onSelected: (v) {
               if (v == 'edit') _toggleEditMode();
               if (v == 'icons') setState(() => _showIcons = !_showIcons);
-              if (v == 'structure')
+              if (v == 'structure') {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -631,28 +632,52 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
                     ),
                   ),
                 ).then((_) => _loadData());
+              }
             },
             itemBuilder: (c) => [
               PopupMenuItem(
                 value: 'edit',
-                child: Text(
-                  _isObjectEditMode
-                      ? 'Selesai Edit'
-                      : 'Mode Edit (Objek & Navigasi)',
+                child: Row(
+                  children: [
+                    Icon(
+                      _isObjectEditMode ? Icons.check_circle : Icons.edit,
+                      color: _isObjectEditMode ? Colors.green : Colors.grey,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      _isObjectEditMode
+                          ? 'Selesai Edit'
+                          : 'Mode Edit (Geser/Putar)',
+                    ),
+                  ],
                 ),
               ),
               PopupMenuItem(
                 value: 'icons',
-                child: Text(
-                  _showIcons ? 'Sembunyikan Objek' : 'Tampilkan Objek',
+                child: Row(
+                  children: [
+                    Icon(
+                      _showIcons ? Icons.visibility_off : Icons.visibility,
+                      color: Colors.grey,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(_showIcons ? 'Sembunyikan Objek' : 'Tampilkan Objek'),
+                  ],
                 ),
               ),
               const PopupMenuItem(
                 value: 'structure',
-                child: Text('Edit Struktur Ruangan'),
+                child: Row(
+                  children: [
+                    Icon(Icons.dashboard_customize, color: Colors.grey),
+                    const SizedBox(width: 12),
+                    Text('Edit Struktur Ruangan'),
+                  ],
+                ),
               ),
             ],
           ),
+          // --- END UPDATE ---
         ],
       ),
       body: _isLoading
