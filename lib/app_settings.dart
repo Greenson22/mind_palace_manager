@@ -21,18 +21,13 @@ class AppSettings {
 
   // --- WALLPAPER & BACKGROUND KEYS ---
   static const String _wallpaperModeKey = 'wallpaperMode';
-  static const String _slideshowBuildingPathKey =
-      'slideshowBuildingPath'; // Kita gunakan key ini untuk Path (Bangunan/Distrik)
-  // --- BARU: Key Tipe Sumber Slideshow ---
+  static const String _slideshowBuildingPathKey = 'slideshowBuildingPath';
   static const String _slideshowSourceTypeKey = 'slideshowSourceType';
-
   static const String _slideshowSpeedKey = 'slideshowSpeedSeconds';
   static const String _slideshowTransitionDurationKey =
       'slideshowTransitionDurationSeconds';
   static const String _wallpaperFitKey = 'wallpaperFit';
   static const String _wallpaperPathKey = 'wallpaperPath';
-
-  // --- SOLID/GRADIENT/BLUR/CONTAINMENT KEYS ---
   static const String _solidColorKey = 'solidColor';
   static const String _gradientColor1Key = 'gradientColor1';
   static const String _gradientColor2Key = 'gradientColor2';
@@ -45,7 +40,12 @@ class AppSettings {
   static const String _defaultShowObjectIconsKey = 'defaultShowObjectIcons';
   static const String _objectIconOpacityKey = 'objectIconOpacity';
   static const String _interactableWhenHiddenKey = 'interactableWhenHidden';
-  // --- END KEYS ---
+
+  // --- NAVIGATION ARROW KEYS (BARU) ---
+  static const String _showNavigationArrowsKey = 'showNavigationArrows';
+  static const String _navigationArrowOpacityKey = 'navigationArrowOpacity';
+  static const String _navigationArrowScaleKey = 'navigationArrowScale';
+  static const String _navigationArrowColorKey = 'navigationArrowColor';
 
   // --- STATIC VARIABLES ---
   static String? baseBuildingsPath;
@@ -62,17 +62,13 @@ class AppSettings {
   static String? exportPath;
   static String? wallpaperPath;
 
-  // --- WALLPAPER & BACKGROUND VARIABLES ---
   static String wallpaperMode = 'default';
-  static String? slideshowBuildingPath; // Menyimpan Path Bangunan ATAU Distrik
-  // --- BARU: Variable Tipe Sumber ('building' atau 'district') ---
+  static String? slideshowBuildingPath;
   static String slideshowSourceType = 'building';
-
   static double slideshowSpeedSeconds = 10.0;
   static double slideshowTransitionDurationSeconds = 1.0;
   static String wallpaperFit = 'cover';
 
-  // --- SOLID/GRADIENT/BLUR VARIABLES ---
   static ValueNotifier<int> solidColor = ValueNotifier(
     Colors.grey.shade900.value,
   );
@@ -86,11 +82,15 @@ class AppSettings {
 
   static ValueNotifier<ThemeMode> themeMode = ValueNotifier(ThemeMode.system);
 
-  // --- OBJECT VISIBILITY VARIABLES ---
   static bool defaultShowObjectIcons = true;
   static double objectIconOpacity = 1.0;
   static bool interactableWhenHidden = true;
-  // --- END STATIC VARIABLES ---
+
+  // --- NAVIGATION ARROW VARIABLES (BARU) ---
+  static bool showNavigationArrows = true;
+  static double navigationArrowOpacity = 0.9;
+  static double navigationArrowScale = 1.5;
+  static int navigationArrowColor = 0xFFFFFFFF; // Putih
 
   static Future<void> loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
@@ -115,20 +115,16 @@ class AppSettings {
 
     exportPath = prefs.getString(_exportPathKey);
 
-    // Load Wallpaper
     wallpaperPath = prefs.getString(_wallpaperPathKey);
     wallpaperMode = prefs.getString(_wallpaperModeKey) ?? 'default';
     slideshowBuildingPath = prefs.getString(_slideshowBuildingPathKey);
-    // --- LOAD SOURCE TYPE ---
     slideshowSourceType =
         prefs.getString(_slideshowSourceTypeKey) ?? 'building';
-
     slideshowSpeedSeconds = prefs.getDouble(_slideshowSpeedKey) ?? 10.0;
     slideshowTransitionDurationSeconds =
         prefs.getDouble(_slideshowTransitionDurationKey) ?? 1.0;
     wallpaperFit = prefs.getString(_wallpaperFitKey) ?? 'cover';
 
-    // Load Solid/Gradient/Blur
     solidColor.value =
         prefs.getInt(_solidColorKey) ?? Colors.grey.shade900.value;
     gradientColor1 = prefs.getInt(_gradientColor1Key) ?? Colors.blue.value;
@@ -140,14 +136,18 @@ class AppSettings {
     backgroundOverlayOpacity =
         prefs.getDouble(_backgroundOverlayOpacityKey) ?? 0.5;
 
-    // --- LOAD OBJECT VISIBILITY SETTINGS ---
     defaultShowObjectIcons = prefs.getBool(_defaultShowObjectIconsKey) ?? true;
     objectIconOpacity = prefs.getDouble(_objectIconOpacityKey) ?? 1.0;
     interactableWhenHidden = prefs.getBool(_interactableWhenHiddenKey) ?? true;
+
+    // Load Navigation Settings
+    showNavigationArrows = prefs.getBool(_showNavigationArrowsKey) ?? true;
+    navigationArrowOpacity = prefs.getDouble(_navigationArrowOpacityKey) ?? 0.9;
+    navigationArrowScale = prefs.getDouble(_navigationArrowScaleKey) ?? 1.5;
+    navigationArrowColor = prefs.getInt(_navigationArrowColorKey) ?? 0xFFFFFFFF;
   }
 
   // --- SAVE FUNCTIONS ---
-  // ... (Fungsi save lain tetap sama) ...
 
   static Future<void> saveBackgroundMode(String mode) async {
     final prefs = await SharedPreferences.getInstance();
@@ -161,26 +161,23 @@ class AppSettings {
     }
   }
 
-  // --- UPDATE: Save Slideshow Settings dengan sourceType ---
   static Future<void> saveSlideshowSettings({
-    required String path, // Path Bangunan atau Distrik
-    required String sourceType, // 'building' atau 'district'
+    required String path,
+    required String sourceType,
     required double speed,
     required double transitionDuration,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_wallpaperModeKey, 'slideshow');
-
     await prefs.setString(_slideshowBuildingPathKey, path);
-    await prefs.setString(_slideshowSourceTypeKey, sourceType); // Simpan tipe
-
+    await prefs.setString(_slideshowSourceTypeKey, sourceType);
     await prefs.setDouble(_slideshowSpeedKey, speed);
     await prefs.setDouble(_slideshowTransitionDurationKey, transitionDuration);
     await prefs.remove(_wallpaperPathKey);
 
     wallpaperMode = 'slideshow';
     slideshowBuildingPath = path;
-    slideshowSourceType = sourceType; // Update variabel static
+    slideshowSourceType = sourceType;
     slideshowSpeedSeconds = speed;
     slideshowTransitionDurationSeconds = transitionDuration;
     wallpaperPath = null;
@@ -198,8 +195,6 @@ class AppSettings {
     wallpaperPath = path;
     slideshowBuildingPath = null;
   }
-
-  // ... (Fungsi save Solid, Gradient, Blur, dll tetap sama) ...
 
   static Future<void> saveSolidColor(int colorValue) async {
     final prefs = await SharedPreferences.getInstance();
@@ -248,7 +243,6 @@ class AppSettings {
     await prefs.setString(_wallpaperModeKey, 'default');
     await prefs.remove(_wallpaperPathKey);
     await prefs.remove(_slideshowBuildingPathKey);
-
     wallpaperMode = 'default';
     wallpaperPath = null;
     slideshowBuildingPath = null;
@@ -348,6 +342,31 @@ class AppSettings {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_interactableWhenHiddenKey, value);
     interactableWhenHidden = value;
+  }
+
+  // --- NAVIGATION ARROW SAVES (BARU) ---
+  static Future<void> saveShowNavigationArrows(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_showNavigationArrowsKey, value);
+    showNavigationArrows = value;
+  }
+
+  static Future<void> saveNavigationArrowOpacity(double value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_navigationArrowOpacityKey, value);
+    navigationArrowOpacity = value;
+  }
+
+  static Future<void> saveNavigationArrowScale(double value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_navigationArrowScaleKey, value);
+    navigationArrowScale = value;
+  }
+
+  static Future<void> saveNavigationArrowColor(int value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_navigationArrowColorKey, value);
+    navigationArrowColor = value;
   }
 
   static ThemeMode _getThemeModeFromString(String themeString) {

@@ -17,11 +17,10 @@ class VisualizationSettingsSection extends StatefulWidget {
   final Color currentRegionNameColor;
   final String currentListIconShape;
 
-  // --- Parameter Baru untuk Visibilitas Objek ---
+  // --- Parameter Visibilitas Objek ---
   final bool defaultShowObjectIcons;
   final double objectIconOpacity;
   final bool interactableWhenHidden;
-  // ----------------------------------------------
 
   final Function(VoidCallback fn) setStateCallback;
 
@@ -37,11 +36,9 @@ class VisualizationSettingsSection extends StatefulWidget {
     required this.currentRegionOutlineColor,
     required this.currentRegionNameColor,
     required this.currentListIconShape,
-    // --- Init Parameter Baru ---
     required this.defaultShowObjectIcons,
     required this.objectIconOpacity,
     required this.interactableWhenHidden,
-    // ---------------------------
     required this.setStateCallback,
   });
 
@@ -63,11 +60,15 @@ class _VisualizationSettingsSectionState
   late Color _regionNameColor;
   late String _listIconShape;
 
-  // --- State Lokal Baru ---
   late bool _defaultShowObjectIcons;
   late double _objectIconOpacity;
   late bool _interactableWhenHidden;
-  // -----------------------
+
+  // --- State Navigasi (BARU) ---
+  late bool _showNavigationArrows;
+  late double _navigationArrowOpacity;
+  late double _navigationArrowScale;
+  late Color _navigationArrowColor;
 
   @override
   void initState() {
@@ -83,60 +84,48 @@ class _VisualizationSettingsSectionState
     _regionNameColor = widget.currentRegionNameColor;
     _listIconShape = widget.currentListIconShape;
 
-    // --- Init State Baru ---
     _defaultShowObjectIcons = widget.defaultShowObjectIcons;
     _objectIconOpacity = widget.objectIconOpacity;
     _interactableWhenHidden = widget.interactableWhenHidden;
+
+    // Init Navigasi
+    _showNavigationArrows = AppSettings.showNavigationArrows;
+    _navigationArrowOpacity = AppSettings.navigationArrowOpacity;
+    _navigationArrowScale = AppSettings.navigationArrowScale;
+    _navigationArrowColor = Color(AppSettings.navigationArrowColor);
   }
 
   @override
   void didUpdateWidget(covariant VisualizationSettingsSection oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.currentMapPinShape != widget.currentMapPinShape) {
+    if (oldWidget.currentMapPinShape != widget.currentMapPinShape)
       _mapPinShape = widget.currentMapPinShape;
-    }
-    if (oldWidget.currentRegionPinShape != widget.currentRegionPinShape) {
+    if (oldWidget.currentRegionPinShape != widget.currentRegionPinShape)
       _regionPinShape = widget.currentRegionPinShape;
-    }
-    if (oldWidget.currentShowRegionOutline != widget.currentShowRegionOutline) {
+    if (oldWidget.currentShowRegionOutline != widget.currentShowRegionOutline)
       _showRegionOutline = widget.currentShowRegionOutline;
-    }
-    if (oldWidget.currentRegionOutlineWidth !=
-        widget.currentRegionOutlineWidth) {
+    if (oldWidget.currentRegionOutlineWidth != widget.currentRegionOutlineWidth)
       _regionOutlineWidth = widget.currentRegionOutlineWidth;
-    }
     if (oldWidget.currentRegionShapeStrokeWidth !=
-        widget.currentRegionShapeStrokeWidth) {
+        widget.currentRegionShapeStrokeWidth)
       _regionShapeStrokeWidth = widget.currentRegionShapeStrokeWidth;
-    }
     if (oldWidget.currentShowRegionDistrictNames !=
-        widget.currentShowRegionDistrictNames) {
+        widget.currentShowRegionDistrictNames)
       _showRegionDistrictNames = widget.currentShowRegionDistrictNames;
-    }
-    if (oldWidget.currentRegionPinColor != widget.currentRegionPinColor) {
+    if (oldWidget.currentRegionPinColor != widget.currentRegionPinColor)
       _regionPinColor = widget.currentRegionPinColor;
-    }
-    if (oldWidget.currentRegionOutlineColor !=
-        widget.currentRegionOutlineColor) {
+    if (oldWidget.currentRegionOutlineColor != widget.currentRegionOutlineColor)
       _regionOutlineColor = widget.currentRegionOutlineColor;
-    }
-    if (oldWidget.currentRegionNameColor != widget.currentRegionNameColor) {
+    if (oldWidget.currentRegionNameColor != widget.currentRegionNameColor)
       _regionNameColor = widget.currentRegionNameColor;
-    }
-    if (oldWidget.currentListIconShape != widget.currentListIconShape) {
+    if (oldWidget.currentListIconShape != widget.currentListIconShape)
       _listIconShape = widget.currentListIconShape;
-    }
-
-    // --- Update Widget Baru ---
-    if (oldWidget.defaultShowObjectIcons != widget.defaultShowObjectIcons) {
+    if (oldWidget.defaultShowObjectIcons != widget.defaultShowObjectIcons)
       _defaultShowObjectIcons = widget.defaultShowObjectIcons;
-    }
-    if (oldWidget.objectIconOpacity != widget.objectIconOpacity) {
+    if (oldWidget.objectIconOpacity != widget.objectIconOpacity)
       _objectIconOpacity = widget.objectIconOpacity;
-    }
-    if (oldWidget.interactableWhenHidden != widget.interactableWhenHidden) {
+    if (oldWidget.interactableWhenHidden != widget.interactableWhenHidden)
       _interactableWhenHidden = widget.interactableWhenHidden;
-    }
   }
 
   @override
@@ -213,7 +202,7 @@ class _VisualizationSettingsSectionState
 
         const SizedBox(height: 24),
 
-        // --- BAGIAN BARU: Visualisasi Objek Dalam Ruangan ---
+        // --- Visualisasi Objek Dalam Ruangan ---
         buildSectionHeader(context, 'Visualisasi Objek (Ruangan)'),
         buildSettingsCard([
           SwitchListTile(
@@ -255,7 +244,68 @@ class _VisualizationSettingsSectionState
           ),
         ]),
 
-        // ----------------------------------------------------
+        // --- VISUALISASI NAVIGASI (BARU) ---
+        const SizedBox(height: 24),
+        buildSectionHeader(context, 'Visualisasi Navigasi (Panah/Pintu)'),
+        buildSettingsCard([
+          SwitchListTile(
+            secondary: const Icon(Icons.navigation, color: Colors.lightBlue),
+            title: const Text('Tampilkan Panah Navigasi'),
+            value: _showNavigationArrows,
+            onChanged: (bool value) async {
+              await AppSettings.saveShowNavigationArrows(value);
+              widget.setStateCallback(() => _showNavigationArrows = value);
+            },
+          ),
+          if (_showNavigationArrows) ...[
+            const Divider(indent: 56),
+            buildSliderTile(
+              icon: Icons.opacity,
+              color: Colors.lightBlue,
+              title: 'Transparansi Panah',
+              value: _navigationArrowOpacity,
+              min: 0.1,
+              max: 1.0,
+              divisions: 9,
+              onChanged: (val) async {
+                widget.setStateCallback(() => _navigationArrowOpacity = val);
+                await AppSettings.saveNavigationArrowOpacity(val);
+              },
+            ),
+            const Divider(indent: 56),
+            buildSliderTile(
+              icon: Icons.zoom_out_map,
+              color: Colors.lightBlue,
+              title: 'Ukuran Panah',
+              value: _navigationArrowScale,
+              min: 0.5,
+              max: 3.0,
+              divisions: 25,
+              onChanged: (val) async {
+                widget.setStateCallback(() => _navigationArrowScale = val);
+                await AppSettings.saveNavigationArrowScale(val);
+              },
+            ),
+            const Divider(indent: 56),
+            ListTile(
+              leading: const Icon(Icons.color_lens, color: Colors.lightBlue),
+              title: const Text('Warna Panah'),
+              trailing: buildColorCircle(
+                _navigationArrowColor,
+                () => showColorPickerDialog(
+                  context,
+                  'Pilih Warna Panah',
+                  _navigationArrowColor,
+                  (c) async {
+                    widget.setStateCallback(() => _navigationArrowColor = c);
+                    await AppSettings.saveNavigationArrowColor(c.value);
+                  },
+                ),
+              ),
+            ),
+          ],
+        ]),
+
         const SizedBox(height: 24),
 
         // --- Detail & Outline ---
