@@ -17,7 +17,6 @@ class VisualizationSettingsSection extends StatefulWidget {
   final Color currentRegionNameColor;
   final String currentListIconShape;
 
-  // --- Parameter Visibilitas Objek ---
   final bool defaultShowObjectIcons;
   final double objectIconOpacity;
   final bool interactableWhenHidden;
@@ -64,15 +63,25 @@ class _VisualizationSettingsSectionState
   late double _objectIconOpacity;
   late bool _interactableWhenHidden;
 
-  // --- State Navigasi (BARU) ---
+  // State Navigasi
   late bool _showNavigationArrows;
   late double _navigationArrowOpacity;
   late double _navigationArrowScale;
   late Color _navigationArrowColor;
 
+  // State Transisi Awan (BARU)
+  late bool _enableCloudTransition;
+  late double _cloudTransitionDuration;
+  late Color _cloudColor;
+  late String _cloudShape;
+
   @override
   void initState() {
     super.initState();
+    _initValues();
+  }
+
+  void _initValues() {
     _mapPinShape = widget.currentMapPinShape;
     _regionPinShape = widget.currentRegionPinShape;
     _showRegionOutline = widget.currentShowRegionOutline;
@@ -88,44 +97,23 @@ class _VisualizationSettingsSectionState
     _objectIconOpacity = widget.objectIconOpacity;
     _interactableWhenHidden = widget.interactableWhenHidden;
 
-    // Init Nilai Navigasi
     _showNavigationArrows = AppSettings.showNavigationArrows;
     _navigationArrowOpacity = AppSettings.navigationArrowOpacity;
     _navigationArrowScale = AppSettings.navigationArrowScale;
     _navigationArrowColor = Color(AppSettings.navigationArrowColor);
+
+    // Init Cloud Transition
+    _enableCloudTransition = AppSettings.enableCloudTransition;
+    _cloudTransitionDuration = AppSettings.cloudTransitionDuration;
+    _cloudColor = Color(AppSettings.cloudColor);
+    _cloudShape = AppSettings.cloudShape;
   }
 
   @override
   void didUpdateWidget(covariant VisualizationSettingsSection oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.currentMapPinShape != widget.currentMapPinShape)
-      _mapPinShape = widget.currentMapPinShape;
-    if (oldWidget.currentRegionPinShape != widget.currentRegionPinShape)
-      _regionPinShape = widget.currentRegionPinShape;
-    if (oldWidget.currentShowRegionOutline != widget.currentShowRegionOutline)
-      _showRegionOutline = widget.currentShowRegionOutline;
-    if (oldWidget.currentRegionOutlineWidth != widget.currentRegionOutlineWidth)
-      _regionOutlineWidth = widget.currentRegionOutlineWidth;
-    if (oldWidget.currentRegionShapeStrokeWidth !=
-        widget.currentRegionShapeStrokeWidth)
-      _regionShapeStrokeWidth = widget.currentRegionShapeStrokeWidth;
-    if (oldWidget.currentShowRegionDistrictNames !=
-        widget.currentShowRegionDistrictNames)
-      _showRegionDistrictNames = widget.currentShowRegionDistrictNames;
-    if (oldWidget.currentRegionPinColor != widget.currentRegionPinColor)
-      _regionPinColor = widget.currentRegionPinColor;
-    if (oldWidget.currentRegionOutlineColor != widget.currentRegionOutlineColor)
-      _regionOutlineColor = widget.currentRegionOutlineColor;
-    if (oldWidget.currentRegionNameColor != widget.currentRegionNameColor)
-      _regionNameColor = widget.currentRegionNameColor;
-    if (oldWidget.currentListIconShape != widget.currentListIconShape)
-      _listIconShape = widget.currentListIconShape;
-    if (oldWidget.defaultShowObjectIcons != widget.defaultShowObjectIcons)
-      _defaultShowObjectIcons = widget.defaultShowObjectIcons;
-    if (oldWidget.objectIconOpacity != widget.objectIconOpacity)
-      _objectIconOpacity = widget.objectIconOpacity;
-    if (oldWidget.interactableWhenHidden != widget.interactableWhenHidden)
-      _interactableWhenHidden = widget.interactableWhenHidden;
+    // Refresh values if widget params change
+    _initValues();
   }
 
   @override
@@ -202,51 +190,80 @@ class _VisualizationSettingsSectionState
 
         const SizedBox(height: 24),
 
-        // --- Visualisasi Objek Dalam Ruangan ---
-        buildSectionHeader(context, 'Visualisasi Objek (Ruangan)'),
+        // --- TRANSISI & ANIMASI (BAGIAN BARU) ---
+        buildSectionHeader(context, 'Transisi & Animasi'),
         buildSettingsCard([
           SwitchListTile(
-            secondary: const Icon(Icons.visibility, color: Colors.teal),
-            title: const Text('Tampilkan Ikon Secara Default'),
-            subtitle: const Text('Status awal saat membuka ruangan'),
-            value: _defaultShowObjectIcons,
+            secondary: const Icon(Icons.cloud, color: Colors.blueAccent),
+            title: const Text('Aktifkan Transisi Awan'),
+            subtitle: const Text('Efek zoom saat masuk ke peta'),
+            value: _enableCloudTransition,
             onChanged: (bool value) async {
-              await AppSettings.saveDefaultShowObjectIcons(value);
-              widget.setStateCallback(() => _defaultShowObjectIcons = value);
+              await AppSettings.saveEnableCloudTransition(value);
+              widget.setStateCallback(() => _enableCloudTransition = value);
             },
           ),
-          const Divider(indent: 56),
-          buildSliderTile(
-            icon: Icons.opacity,
-            color: Colors.teal,
-            title: 'Transparansi Ikon',
-            value: _objectIconOpacity,
-            min: 0.1,
-            max: 1.0,
-            divisions: 9,
-            onChanged: (val) async {
-              widget.setStateCallback(() => _objectIconOpacity = val);
-              await AppSettings.saveObjectIconOpacity(val);
-            },
-          ),
-          const Divider(indent: 56),
-          SwitchListTile(
-            secondary: const Icon(Icons.touch_app, color: Colors.teal),
-            title: const Text('Interaksi Saat Tersembunyi'),
-            subtitle: const Text(
-              'Izinkan klik objek meski ikon disembunyikan/transparan',
+          if (_enableCloudTransition) ...[
+            const Divider(indent: 56),
+            buildSliderTile(
+              icon: Icons.speed,
+              color: Colors.blueAccent,
+              title: 'Durasi Transisi (Detik)',
+              value: _cloudTransitionDuration,
+              min: 0.5,
+              max: 3.0,
+              divisions: 25,
+              onChanged: (val) async {
+                widget.setStateCallback(() => _cloudTransitionDuration = val);
+                await AppSettings.saveCloudTransitionDuration(val);
+              },
             ),
-            value: _interactableWhenHidden,
-            onChanged: (bool value) async {
-              await AppSettings.saveInteractableWhenHidden(value);
-              widget.setStateCallback(() => _interactableWhenHidden = value);
-            },
-          ),
+            const Divider(indent: 56),
+            ListTile(
+              leading: const Icon(Icons.palette, color: Colors.blueAccent),
+              title: const Text('Warna Awan'),
+              trailing: buildColorCircle(
+                _cloudColor,
+                () => showColorPickerDialog(
+                  context,
+                  'Pilih Warna Awan',
+                  _cloudColor,
+                  (c) async {
+                    widget.setStateCallback(() => _cloudColor = c);
+                    await AppSettings.saveCloudColor(c.value);
+                  },
+                ),
+              ),
+            ),
+            const Divider(indent: 56),
+            ListTile(
+              leading: const Icon(Icons.shape_line, color: Colors.blueAccent),
+              title: const Text('Bentuk Partikel'),
+              trailing: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _cloudShape,
+                  items: ['Bulat', 'Kotak', 'Wajik'].map((String val) {
+                    return DropdownMenuItem<String>(
+                      value: val,
+                      child: Text(val),
+                    );
+                  }).toList(),
+                  onChanged: (String? val) async {
+                    if (val != null) {
+                      await AppSettings.saveCloudShape(val);
+                      widget.setStateCallback(() => _cloudShape = val);
+                    }
+                  },
+                ),
+              ),
+            ),
+          ],
         ]),
 
-        // --- VISUALISASI NAVIGASI (BAGIAN BARU) ---
         const SizedBox(height: 24),
-        buildSectionHeader(context, 'Visualisasi Navigasi (Panah/Pintu)'),
+
+        // --- Visualisasi Navigasi ---
+        buildSectionHeader(context, 'Visualisasi Navigasi'),
         buildSettingsCard([
           SwitchListTile(
             secondary: const Icon(Icons.navigation, color: Colors.lightBlue),
@@ -304,6 +321,50 @@ class _VisualizationSettingsSectionState
               ),
             ),
           ],
+        ]),
+
+        const SizedBox(height: 24),
+
+        // --- Visualisasi Objek Dalam Ruangan ---
+        buildSectionHeader(context, 'Visualisasi Objek (Ruangan)'),
+        buildSettingsCard([
+          SwitchListTile(
+            secondary: const Icon(Icons.visibility, color: Colors.teal),
+            title: const Text('Tampilkan Ikon Secara Default'),
+            subtitle: const Text('Status awal saat membuka ruangan'),
+            value: _defaultShowObjectIcons,
+            onChanged: (bool value) async {
+              await AppSettings.saveDefaultShowObjectIcons(value);
+              widget.setStateCallback(() => _defaultShowObjectIcons = value);
+            },
+          ),
+          const Divider(indent: 56),
+          buildSliderTile(
+            icon: Icons.opacity,
+            color: Colors.teal,
+            title: 'Transparansi Ikon',
+            value: _objectIconOpacity,
+            min: 0.1,
+            max: 1.0,
+            divisions: 9,
+            onChanged: (val) async {
+              widget.setStateCallback(() => _objectIconOpacity = val);
+              await AppSettings.saveObjectIconOpacity(val);
+            },
+          ),
+          const Divider(indent: 56),
+          SwitchListTile(
+            secondary: const Icon(Icons.touch_app, color: Colors.teal),
+            title: const Text('Interaksi Saat Tersembunyi'),
+            subtitle: const Text(
+              'Izinkan klik objek meski ikon disembunyikan/transparan',
+            ),
+            value: _interactableWhenHidden,
+            onChanged: (bool value) async {
+              await AppSettings.saveInteractableWhenHidden(value);
+              widget.setStateCallback(() => _interactableWhenHidden = value);
+            },
+          ),
         ]),
 
         const SizedBox(height: 24),

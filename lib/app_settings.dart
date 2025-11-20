@@ -41,11 +41,17 @@ class AppSettings {
   static const String _objectIconOpacityKey = 'objectIconOpacity';
   static const String _interactableWhenHiddenKey = 'interactableWhenHidden';
 
-  // --- NAVIGATION ARROW KEYS (BARU) ---
+  // --- NAVIGATION ARROW KEYS ---
   static const String _showNavigationArrowsKey = 'showNavigationArrows';
   static const String _navigationArrowOpacityKey = 'navigationArrowOpacity';
   static const String _navigationArrowScaleKey = 'navigationArrowScale';
   static const String _navigationArrowColorKey = 'navigationArrowColor';
+
+  // --- CLOUD TRANSITION KEYS (BARU) ---
+  static const String _enableCloudTransitionKey = 'enableCloudTransition';
+  static const String _cloudColorKey = 'cloudColor';
+  static const String _cloudTransitionDurationKey = 'cloudTransitionDuration';
+  static const String _cloudShapeKey = 'cloudShape';
 
   // --- VARIABLES ---
   static String? baseBuildingsPath;
@@ -78,8 +84,6 @@ class AppSettings {
   static ValueNotifier<int> containmentBackgroundColor = ValueNotifier(
     Colors.black.value,
   );
-
-  // --- PERUBAHAN DI SINI: Menggunakan ValueNotifier ---
   static ValueNotifier<double> backgroundOverlayOpacity = ValueNotifier(0.5);
 
   static ValueNotifier<ThemeMode> themeMode = ValueNotifier(ThemeMode.system);
@@ -88,11 +92,17 @@ class AppSettings {
   static double objectIconOpacity = 1.0;
   static bool interactableWhenHidden = true;
 
-  // --- NAVIGATION VARIABLES (BARU) ---
+  // Navigation Variables
   static bool showNavigationArrows = true;
-  static double navigationArrowOpacity = 0.9; // Default agak transparan
-  static double navigationArrowScale = 1.5; // Default ukuran sedang
-  static int navigationArrowColor = 0xFFFFFFFF; // Default Putih
+  static double navigationArrowOpacity = 0.9;
+  static double navigationArrowScale = 1.5;
+  static int navigationArrowColor = 0xFFFFFFFF;
+
+  // --- CLOUD TRANSITION VARIABLES (BARU) ---
+  static bool enableCloudTransition = true;
+  static int cloudColor = Colors.white.value;
+  static double cloudTransitionDuration = 1.8; // Detik
+  static String cloudShape = 'Bulat'; // 'Bulat', 'Kotak', 'Wajik'
 
   static Future<void> loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
@@ -135,8 +145,6 @@ class AppSettings {
     blurStrength.value = prefs.getDouble(_blurStrengthKey) ?? 5.0;
     containmentBackgroundColor.value =
         prefs.getInt(_containmentBackgroundColorKey) ?? Colors.black.value;
-
-    // --- PERUBAHAN DI SINI: Mengakses .value ---
     backgroundOverlayOpacity.value =
         prefs.getDouble(_backgroundOverlayOpacityKey) ?? 0.5;
 
@@ -144,14 +152,21 @@ class AppSettings {
     objectIconOpacity = prefs.getDouble(_objectIconOpacityKey) ?? 1.0;
     interactableWhenHidden = prefs.getBool(_interactableWhenHiddenKey) ?? true;
 
-    // --- LOAD NAVIGATION SETTINGS ---
     showNavigationArrows = prefs.getBool(_showNavigationArrowsKey) ?? true;
     navigationArrowOpacity = prefs.getDouble(_navigationArrowOpacityKey) ?? 0.9;
     navigationArrowScale = prefs.getDouble(_navigationArrowScaleKey) ?? 1.5;
     navigationArrowColor = prefs.getInt(_navigationArrowColorKey) ?? 0xFFFFFFFF;
+
+    // --- LOAD CLOUD TRANSITION SETTINGS ---
+    enableCloudTransition = prefs.getBool(_enableCloudTransitionKey) ?? true;
+    cloudColor = prefs.getInt(_cloudColorKey) ?? Colors.white.value;
+    cloudTransitionDuration =
+        prefs.getDouble(_cloudTransitionDurationKey) ?? 1.8;
+    cloudShape = prefs.getString(_cloudShapeKey) ?? 'Bulat';
   }
 
-  // --- SAVE FUNCTIONS ---
+  // --- SAVE FUNCTIONS (EXISTING) ---
+  // ... (Fungsi save yang lama tetap ada, saya singkat agar fokus ke yang baru) ...
 
   static Future<void> saveBackgroundMode(String mode) async {
     final prefs = await SharedPreferences.getInstance();
@@ -215,8 +230,6 @@ class AppSettings {
   static Future<void> saveBackgroundOverlayOpacity(double value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble(_backgroundOverlayOpacityKey, value);
-
-    // --- PERUBAHAN DI SINI: Mengakses .value ---
     backgroundOverlayOpacity.value = value;
   }
 
@@ -372,6 +385,32 @@ class AppSettings {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_navigationArrowColorKey, value);
     navigationArrowColor = value;
+  }
+
+  // --- SAVE FUNCTIONS: CLOUD TRANSITION (BARU) ---
+
+  static Future<void> saveEnableCloudTransition(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_enableCloudTransitionKey, value);
+    enableCloudTransition = value;
+  }
+
+  static Future<void> saveCloudColor(int colorValue) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_cloudColorKey, colorValue);
+    cloudColor = colorValue;
+  }
+
+  static Future<void> saveCloudTransitionDuration(double duration) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_cloudTransitionDurationKey, duration);
+    cloudTransitionDuration = duration;
+  }
+
+  static Future<void> saveCloudShape(String shape) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_cloudShapeKey, shape);
+    cloudShape = shape;
   }
 
   static ThemeMode _getThemeModeFromString(String themeString) {

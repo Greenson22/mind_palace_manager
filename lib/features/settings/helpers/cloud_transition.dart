@@ -2,14 +2,23 @@
 import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:mind_palace_manager/app_settings.dart'; // Import AppSettings
 
 /// Helper class untuk memanggil navigasi dengan efek awan
 class CloudNavigation {
-  // Cache posisi bubble agar konsisten (tidak berubah setiap kali animasi jalan)
+  // Cache posisi bubble agar konsisten
   static final List<_CloudBubble> _cachedBubbles = _generateBubbles();
 
   /// Fungsi utama untuk pindah halaman
   static void push(BuildContext context, Widget newPage) {
+    // CEK PENGATURAN: Jika dimatikan, gunakan navigasi standar
+    if (!AppSettings.enableCloudTransition) {
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (context) => newPage));
+      return;
+    }
+
     Navigator.of(context).push(_CloudPageRoute(newPage, _cachedBubbles));
   }
 
@@ -18,41 +27,41 @@ class CloudNavigation {
     final random = Random();
     final List<_CloudBubble> bubbles = [];
 
-    // 1. Awan Kiri (Bergerak dari kiri luar ke tengah)
+    // 1. Awan Kiri
     for (int i = 0; i < 20; i++) {
       bubbles.add(
         _CloudBubble(
-          initialX: -0.6 - random.nextDouble() * 0.6, // Start: Luar Kiri
-          initialY: random.nextDouble(), // Y: Acak atas-bawah
-          targetX: 0.3 + random.nextDouble() * 0.2, // End: Agak ke tengah
-          targetY: random.nextDouble(),
-          baseRadius: 0.18 + random.nextDouble() * 0.2, // Ukuran acak
-        ),
-      );
-    }
-
-    // 2. Awan Kanan (Bergerak dari kanan luar ke tengah)
-    for (int i = 0; i < 20; i++) {
-      bubbles.add(
-        _CloudBubble(
-          initialX: 1.6 + random.nextDouble() * 0.6, // Start: Luar Kanan
+          initialX: -0.6 - random.nextDouble() * 0.6,
           initialY: random.nextDouble(),
-          targetX: 0.7 - random.nextDouble() * 0.2, // End: Agak ke tengah
+          targetX: 0.3 + random.nextDouble() * 0.2,
           targetY: random.nextDouble(),
           baseRadius: 0.18 + random.nextDouble() * 0.2,
         ),
       );
     }
 
-    // 3. Awan Tengah/Filler (Untuk menutup celah di tengah)
+    // 2. Awan Kanan
+    for (int i = 0; i < 20; i++) {
+      bubbles.add(
+        _CloudBubble(
+          initialX: 1.6 + random.nextDouble() * 0.6,
+          initialY: random.nextDouble(),
+          targetX: 0.7 - random.nextDouble() * 0.2,
+          targetY: random.nextDouble(),
+          baseRadius: 0.18 + random.nextDouble() * 0.2,
+        ),
+      );
+    }
+
+    // 3. Awan Tengah/Filler
     for (int i = 0; i < 15; i++) {
       bubbles.add(
         _CloudBubble(
-          initialX: random.nextBool() ? -0.8 : 1.8, // Start: Jauh Kiri/Kanan
+          initialX: random.nextBool() ? -0.8 : 1.8,
           initialY: random.nextDouble(),
-          targetX: 0.5 + (random.nextDouble() - 0.5) * 0.4, // End: Area tengah
+          targetX: 0.5 + (random.nextDouble() - 0.5) * 0.4,
           targetY: random.nextDouble(),
-          baseRadius: 0.25 + random.nextDouble() * 0.25, // Lebih besar
+          baseRadius: 0.25 + random.nextDouble() * 0.25,
         ),
       );
     }
@@ -61,7 +70,7 @@ class CloudNavigation {
   }
 }
 
-/// Custom PageRouteBuilder untuk mengatur durasi dan animasi
+/// Custom PageRouteBuilder
 class _CloudPageRoute extends PageRouteBuilder {
   final Widget newPage;
   final List<_CloudBubble> bubbles;
@@ -69,46 +78,38 @@ class _CloudPageRoute extends PageRouteBuilder {
   _CloudPageRoute(this.newPage, this.bubbles)
     : super(
         pageBuilder: (context, animation, secondaryAnimation) => newPage,
-        transitionDuration: const Duration(milliseconds: 1800),
-        reverseTransitionDuration: const Duration(milliseconds: 1500),
+        // DURASI DINAMIS DARI SETTINGS
+        transitionDuration: Duration(
+          milliseconds: (AppSettings.cloudTransitionDuration * 1000).toInt(),
+        ),
+        reverseTransitionDuration: Duration(
+          milliseconds: (AppSettings.cloudTransitionDuration * 0.8 * 1000)
+              .toInt(),
+        ),
         opaque: false,
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return AnimatedBuilder(
             animation: animation,
             builder: (context, child) {
-              // Hitung progress:
-              // 0.0 -> 0.5 : Fase Menutup
-              // 0.5 -> 1.0 : Fase Membuka (di halaman baru)
-
               double cloudProgress = 0.0;
 
               if (animation.value <= 0.5) {
-                // Fase Menutup: 0.0 -> 1.0
                 cloudProgress = animation.value * 2;
               } else {
-                // Fase Membuka: 1.0 -> 0.0
                 cloudProgress = 2.0 - (animation.value * 2);
               }
 
-              // Tampilkan halaman baru hanya jika animasi sudah lewat setengah
               final bool showNewPage = animation.value > 0.5;
 
-              // PERBAIKAN:
-              // Jika animasi selesai (value >= 1.0), kita harus mengabaikan sentuhan
-              // pada layer awan agar tembus ke halaman di bawahnya.
-              // Saat animasi berjalan (< 1.0), kita blokir sentuhan agar user
-              // tidak tidak sengaja menekan tombol saat transisi.
+              // Ignore pointer saat animasi selesai agar tidak memblokir sentuhan
               final bool ignoreTouchesOnCloud = animation.value >= 0.99;
 
               return Stack(
                 children: [
-                  // Layer 1: Halaman (Lama atau Baru)
                   showNewPage ? child! : const SizedBox(),
-
-                  // Layer 2: Kanvas Awan (Dengan IgnorePointer)
                   Positioned.fill(
                     child: IgnorePointer(
-                      ignoring: ignoreTouchesOnCloud, // KUNCI PERBAIKAN
+                      ignoring: ignoreTouchesOnCloud,
                       child: CustomPaint(
                         painter: _CloudPainter(cloudProgress, bubbles),
                       ),
@@ -123,20 +124,23 @@ class _CloudPageRoute extends PageRouteBuilder {
       );
 }
 
-/// Painter yang menggambar lingkaran-lingkaran putih
+/// Painter yang menggambar partikel awan
 class _CloudPainter extends CustomPainter {
   final double progress;
   final List<_CloudBubble> bubbles;
+
+  // Ambil warna dan bentuk dari AppSettings
+  final Color cloudColor = Color(AppSettings.cloudColor);
+  final String shapeType = AppSettings.cloudShape;
 
   _CloudPainter(this.progress, this.bubbles);
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Jika progress 0, tidak perlu gambar apa-apa
     if (progress <= 0.01) return;
 
     final paint = Paint()
-      ..color = Colors.white
+      ..color = cloudColor
       ..style = PaintingStyle.fill;
 
     for (final bubble in bubbles) {
@@ -146,11 +150,42 @@ class _CloudPainter extends CustomPainter {
       double radiusFactor = 1.0 + (0.2 * progress);
       double currentRadius = (bubble.baseRadius * size.width) * radiusFactor;
 
-      canvas.drawCircle(
-        Offset(currentX * size.width, currentY * size.height),
-        currentRadius,
-        paint,
+      final Offset center = Offset(
+        currentX * size.width,
+        currentY * size.height,
       );
+
+      // LOGIKA BENTUK DINAMIS
+      switch (shapeType) {
+        case 'Kotak':
+          // Gambar Persegi
+          canvas.drawRect(
+            Rect.fromCenter(
+              center: center,
+              width: currentRadius * 2,
+              height: currentRadius * 2,
+            ),
+            paint,
+          );
+          break;
+
+        case 'Wajik':
+          // Gambar Wajik (Diamond)
+          final path = Path();
+          path.moveTo(center.dx, center.dy - currentRadius); // Top
+          path.lineTo(center.dx + currentRadius, center.dy); // Right
+          path.lineTo(center.dx, center.dy + currentRadius); // Bottom
+          path.lineTo(center.dx - currentRadius, center.dy); // Left
+          path.close();
+          canvas.drawPath(path, paint);
+          break;
+
+        case 'Bulat':
+        default:
+          // Gambar Lingkaran Default
+          canvas.drawCircle(center, currentRadius, paint);
+          break;
+      }
     }
   }
 
