@@ -6,12 +6,13 @@ import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:mind_palace_manager/app_settings.dart';
 import 'package:mind_palace_manager/features/building/presentation/management/district_building_management_page.dart';
-// Import Editor & Viewer Peta Distrik (yang sudah ada)
 import 'package:mind_palace_manager/features/building/presentation/map/district_map_editor_page.dart';
 import 'package:mind_palace_manager/features/building/presentation/map/district_map_viewer_page.dart';
-// Import Peta Wilayah (untuk FloatingActionButton)
 import 'package:mind_palace_manager/features/region/presentation/map/region_map_editor_page.dart';
 import 'package:mind_palace_manager/features/region/presentation/map/region_map_viewer_page.dart';
+
+// --- IMPORT BARU: Dialog Pindah Distrik ---
+import 'package:mind_palace_manager/features/region/presentation/dialogs/move_district_dialog.dart';
 
 class RegionDetailPage extends StatefulWidget {
   final Directory regionDirectory;
@@ -27,7 +28,6 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
   bool _isLoading = false;
   final TextEditingController _newDistrictController = TextEditingController();
 
-  // --- Controller untuk Edit Distrik ---
   final TextEditingController _editNameController = TextEditingController();
   final TextEditingController _editIconTextController = TextEditingController();
   String _editIconType = 'Default';
@@ -64,7 +64,6 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
     setState(() => _isLoading = false);
   }
 
-  // --- FUNGSI BUAT BARU ---
   Future<void> _createNewDistrict() async {
     _newDistrictController.clear();
     String? name = await showDialog<String>(
@@ -97,7 +96,6 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
         final newDir = Directory(newPath);
         await newDir.create();
 
-        // Inisialisasi data distrik
         await File(p.join(newPath, 'district_data.json')).writeAsString(
           json.encode({
             "map_image": null,
@@ -119,7 +117,6 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
     }
   }
 
-  // --- HELPER IKON (DIPERBARUI) ---
   Future<Map<String, dynamic>> _getDistrictIconData(
     Directory districtDir,
   ) async {
@@ -134,18 +131,12 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
 
       if (iconType == 'image' && iconData != null) {
         final imageFile = File(p.join(districtDir.path, iconData.toString()));
-
-        // --- PERBAIKAN: Cek apakah file gambar benar-benar ada ---
         if (await imageFile.exists()) {
-          // Jika ada, kembalikan File object.
           return {'type': 'image', 'data': iconData, 'file': imageFile};
         } else {
-          // Jika file tidak ada, kembalikan ke default.
           return {'type': null, 'data': null};
         }
-        // --- SELESAI PERBAIKAN ---
       }
-      // Untuk Teks atau Default
       return {'type': iconType, 'data': iconData};
     } catch (e) {
       return {'type': null, 'data': null};
@@ -194,14 +185,12 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
     }
   }
 
-  // --- FUNGSI EDIT DISTRIK (Nama & Ikon) ---
   Future<void> _showEditDistrictDialog(Directory districtDir) async {
     final currentName = p.basename(districtDir.path);
     final iconInfo = await _getDistrictIconData(districtDir);
     final currentType = iconInfo['type'] ?? 'Default';
     final currentData = iconInfo['data'];
 
-    // Cek gambar peta distrik untuk opsi "Gunakan Peta"
     String? currentMapImageName;
     try {
       final jsonFile = File(p.join(districtDir.path, 'district_data.json'));
@@ -233,12 +222,9 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
             String currentImageText = '...';
             if (_editIconType == 'Gambar') {
               if (_editIconImagePath != null) {
-                // Periksa apakah ini referensi peta untuk teks yang berbeda
                 if (_editIconImagePath!.startsWith('MAP_IMAGE_REF:')) {
-                  // --- PERBAIKAN SUBSTRING UNTUK DISPLAY ---
                   currentImageText =
                       'Referensi Peta: ${p.basename(_editIconImagePath!.substring(14))}';
-                  // --- SELESAI PERBAIKAN ---
                 } else {
                   currentImageText = 'Baru: ${p.basename(_editIconImagePath!)}';
                 }
@@ -306,12 +292,10 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
                                   p.join(districtDir.path, currentMapImageName),
                                 );
                                 if (await mapFile.exists()) {
-                                  // --- PERUBAHAN: Set path ke marker referensi ---
                                   setDialogState(
                                     () => _editIconImagePath =
                                         'MAP_IMAGE_REF:$currentMapImageName',
                                   );
-                                  // --- SELESAI PERUBAHAN ---
                                 } else {
                                   if (mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
@@ -365,17 +349,14 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
       final newName = _editNameController.text.trim();
       Directory currentDir = originalDir;
 
-      // 1. Rename
       if (newName != p.basename(originalDir.path)) {
         final newPath = p.join(originalDir.parent.path, newName);
         currentDir = await originalDir.rename(newPath);
       }
 
-      // 2. Icon Logic
       String? finalIconType;
       dynamic finalIconData;
 
-      // Variabel untuk menampung nama file icon fixed lama yang perlu dihapus
       String? oldFixedIconName;
       if (oldType == 'image' &&
           oldData.toString().startsWith('district_icon.')) {
@@ -390,20 +371,14 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
           finalIconType = 'image';
 
           if (_editIconImagePath!.startsWith('MAP_IMAGE_REF:')) {
-            // Referensi Peta Distrik: Gunakan nama file peta
-            // --- PERBAIKAN SUBSTRING UNTUK SAVE ---
             finalIconData = _editIconImagePath!.substring(14);
-            // --- SELESAI PERBAIKAN ---
           } else {
-            // File baru dipilih (bukan peta) - Lakukan copy ke fixed name
-
             final extension = p.extension(_editIconImagePath!);
             final fixedIconName = 'district_icon$extension';
             finalIconData = fixedIconName;
 
             final destPath = p.join(currentDir.path, finalIconData);
 
-            // Hindari copy ke diri sendiri
             if (File(_editIconImagePath!).absolute.path !=
                 File(destPath).absolute.path) {
               await File(_editIconImagePath!).copy(destPath);
@@ -418,10 +393,7 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
         finalIconData = null;
       }
 
-      // 3. Bersihkan file ikon lama yang tersimpan (hanya 'district_icon.ext')
       if (oldFixedIconName != null) {
-        // Hapus jika tipe ikon diubah ke Teks/Default, ATAU diganti ke file peta, ATAU diganti ke file ikon baru dengan ekstensi berbeda.
-        // Note: Jika diganti ke file peta, finalIconData akan berupa 'district_map.ext'
         if (finalIconType != 'image' ||
             (finalIconData != oldFixedIconName &&
                 !finalIconData.toString().startsWith('district_map.'))) {
@@ -438,7 +410,6 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
         }
       }
 
-      // 4. Update JSON
       final jsonFile = File(p.join(currentDir.path, 'district_data.json'));
       Map<String, dynamic> jsonData = {};
       if (await jsonFile.exists()) {
@@ -447,7 +418,6 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
 
       jsonData['icon_type'] = finalIconType;
       jsonData['icon_data'] = finalIconData;
-      // Pastikan field map terjaga
       jsonData['map_image'] ??= null;
       jsonData['building_placements'] ??= [];
 
@@ -484,7 +454,94 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
     }
   }
 
-  // --- NAVIGASI ---
+  // --- [BARU] FITUR PINDAH DISTRIK ---
+  Future<void> _moveDistrict(Directory districtDir) async {
+    // 1. Buka Dialog
+    final Directory? targetRegion = await showDialog<Directory>(
+      context: context,
+      builder: (context) =>
+          MoveDistrictDialog(currentRegionDir: widget.regionDirectory),
+    );
+
+    if (targetRegion == null) return; // Batal
+
+    setState(() => _isLoading = true);
+
+    try {
+      final String districtName = p.basename(districtDir.path);
+      String newName = districtName;
+
+      // 2. Cek Konflik Nama di Wilayah Tujuan
+      final expectedPath = p.join(targetRegion.path, districtName);
+      if (await Directory(expectedPath).exists()) {
+        // Auto-rename dengan timestamp
+        newName = "${districtName}_${DateTime.now().millisecondsSinceEpoch}";
+      }
+
+      final finalNewPath = p.join(targetRegion.path, newName);
+
+      // 3. Pindahkan Folder Secara Fisik (Rename)
+      await districtDir.rename(finalNewPath);
+
+      // 4. Bersihkan Data dari Peta Wilayah LAMA (Region saat ini)
+      await _removeDistrictFromRegionMapData(districtName);
+
+      // 5. Beri Notifikasi & Refresh
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Distrik berhasil dipindahkan ke ${p.basename(targetRegion.path)}' +
+                  (newName != districtName ? ' sebagai "$newName"' : ''),
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+      _loadDistricts(); // Refresh list (distrik akan hilang dari sini)
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal memindahkan distrik: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      setState(() => _isLoading = false);
+    }
+  }
+
+  // Helper untuk membersihkan data di region_data.json
+  Future<void> _removeDistrictFromRegionMapData(
+    String districtFolderName,
+  ) async {
+    try {
+      final jsonFile = File(
+        p.join(widget.regionDirectory.path, 'region_data.json'),
+      );
+      if (await jsonFile.exists()) {
+        final content = await jsonFile.readAsString();
+        final data = json.decode(content);
+        List<dynamic> placements = data['district_placements'] ?? [];
+
+        final int initialLen = placements.length;
+        // Hapus item yang folder namenya cocok
+        placements.removeWhere(
+          (item) => item['district_folder_name'] == districtFolderName,
+        );
+
+        if (placements.length != initialLen) {
+          data['district_placements'] = placements;
+          await jsonFile.writeAsString(json.encode(data));
+        }
+      }
+    } catch (e) {
+      print("Warning: Gagal membersihkan data peta wilayah lama: $e");
+    }
+  }
+  // -----------------------------------
+
   void _openDistrict(Directory districtDir) {
     Navigator.push(
       context,
@@ -496,7 +553,6 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
   }
 
   void _editDistrictMap(Directory districtDir) {
-    // INI DIA: Menghubungkan ke Editor Peta Distrik yang lama
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -602,7 +658,6 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
 
               final type = snapshot.data!['type'];
               final data = snapshot.data!['data'];
-              // Ambil File object yang sudah diverifikasi eksistensinya oleh _getDistrictIconData
               final imageFile = snapshot.data!['file'] as File?;
 
               if (type == 'text' && data != null) {
@@ -614,12 +669,9 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
                   ),
                 );
               }
-              // Jika tipe gambar dan file sudah diverifikasi ada
               if (type == 'image' && imageFile != null) {
                 return _buildIconContainer(null, imageFile: imageFile);
               }
-
-              // Fallback untuk semua kasus lain (termasuk file gambar yang hilang)
               return _buildIconContainer(const Icon(Icons.holiday_village));
             },
           ),
@@ -628,7 +680,6 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
             style: const TextStyle(fontSize: 18),
           ),
           subtitle: Text(dir.path, style: const TextStyle(fontSize: 10)),
-          // --- MENU OPSI UNTUK DISTRIK ---
           trailing: PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (v) {
@@ -637,10 +688,13 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
                   _openDistrict(dir);
                   break;
                 case 'edit_map':
-                  _editDistrictMap(dir); // <-- Akses ke Editor Peta Distrik
+                  _editDistrictMap(dir);
                   break;
                 case 'edit_info':
                   _showEditDistrictDialog(dir);
+                  break;
+                case 'move': // --- KASUS BARU ---
+                  _moveDistrict(dir);
                   break;
                 case 'delete':
                   _deleteDistrict(dir);
@@ -668,6 +722,18 @@ class _RegionDetailPageState extends State<RegionDetailPage> {
                   ],
                 ),
               ),
+              // --- MENU BARU: PINDAHKAN ---
+              const PopupMenuItem(
+                value: 'move',
+                child: Row(
+                  children: [
+                    Icon(Icons.drive_file_move, color: Colors.orange),
+                    SizedBox(width: 8),
+                    Text('Pindahkan'),
+                  ],
+                ),
+              ),
+              // ----------------------------
               const PopupMenuItem(
                 value: 'edit_info',
                 child: Row(
