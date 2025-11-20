@@ -1,8 +1,10 @@
 // lib/features/building/presentation/viewer/building_viewer_page.dart
-import 'package:flutter/material.dart';
-import 'package:path/path.dart' as p;
-import 'dart:io';
 import 'dart:convert';
+import 'dart:io';
+import 'dart:ui' as ui;
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart'; // Import penting untuk RepaintBoundary
+import 'package:path/path.dart' as p;
 import 'package:file_picker/file_picker.dart';
 import 'package:mind_palace_manager/app_settings.dart';
 import 'package:mind_palace_manager/features/building/presentation/editor/room_editor_page.dart';
@@ -35,6 +37,9 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
   // --- STATE DRAG ---
   String? _movingObjectId;
   String? _draggingConnectionId;
+
+  // --- EXPORT KEY ---
+  final GlobalKey _globalKey = GlobalKey();
 
   late bool _showIcons;
   final TransformationController _transformationController =
@@ -139,6 +144,120 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
     await _jsonFile.writeAsString(json.encode(_buildingData));
   }
 
+  // --- FUNGSI EXPORT 1: Export View (Dengan Ikon) ---
+  Future<void> _exportRoomView() async {
+    if (AppSettings.exportPath == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Atur folder export di Pengaturan terlebih dahulu.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    try {
+      final boundary =
+          _globalKey.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
+
+      if (boundary == null) {
+        throw Exception("Gagal menangkap tampilan layar.");
+      }
+
+      // Pixel ratio 3.0 untuk resolusi tinggi
+      final image = await boundary.toImage(pixelRatio: 3.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      final pngBytes = byteData!.buffer.asUint8List();
+
+      final now = DateTime.now();
+      final roomName = _currentRoom?['name'] ?? 'room';
+      final fileName =
+          'room_view_export_${roomName}_${now.year}${now.month}${now.day}_${now.hour}${now.minute}${now.second}.png';
+      final file = File(p.join(AppSettings.exportPath!, fileName));
+
+      await file.writeAsBytes(pngBytes);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Tampilan berhasil diexport ke: ${file.path}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal export tampilan: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // --- FUNGSI EXPORT 2: Export Original (Tanpa Ikon) ---
+  Future<void> _exportOriginalImage() async {
+    if (_currentRoom == null || _currentRoom!['image'] == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ruangan ini tidak memiliki gambar background.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (AppSettings.exportPath == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Atur folder export di Pengaturan terlebih dahulu.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    try {
+      final originalFile = File(
+        p.join(widget.buildingDirectory.path, _currentRoom!['image']),
+      );
+
+      if (!await originalFile.exists()) {
+        throw Exception("File gambar asli tidak ditemukan di penyimpanan.");
+      }
+
+      final now = DateTime.now();
+      final roomName = _currentRoom?['name'] ?? 'room';
+      final ext = p.extension(originalFile.path);
+      final fileName =
+          'room_original_${roomName}_${now.year}${now.month}${now.day}_${now.hour}${now.minute}${now.second}$ext';
+      final destination = p.join(AppSettings.exportPath!, fileName);
+
+      await originalFile.copy(destination);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gambar asli berhasil diexport ke: $destination'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal export gambar asli: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   // --- HELPER ICONS ---
   IconData _getIconForDirection(String? dir) {
     switch (dir) {
@@ -181,7 +300,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
 
   // --- LOGIKA DRAG & DROP & TAP ---
 
-  // 1. Objek (Pindah Posisi)
   void _startMovingObject(String id, String name) {
     setState(() {
       _movingObjectId = id;
@@ -210,7 +328,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
     }
   }
 
-  // --- LOGIKA EDIT OBJEK (Dialog Baru) ---
   Future<void> _showEditObjectDialog(Map<String, dynamic> obj) async {
     final nameController = TextEditingController(text: obj['name']);
     final iconTextController = TextEditingController();
@@ -270,7 +387,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
                       }).toList(),
                       onChanged: (v) => setDialogState(() => iconType = v!),
                     ),
-
                     if (iconType == 'text')
                       TextField(
                         controller: iconTextController,
@@ -280,7 +396,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
                         ),
                         maxLength: 2,
                       ),
-
                     if (iconType == 'image')
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -368,13 +483,11 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
   }) async {
     if (_roomObjectsRootDir == null) return;
 
-    // Update local state
     setState(() {
       obj['name'] = newName;
       obj['icon_type'] = newIconType;
     });
 
-    // Handle Image File Copy
     if (newIconType == 'image' && newIconData != null && isNewImage) {
       final File checkFile = File(newIconData);
       if (checkFile.existsSync()) {
@@ -395,7 +508,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
     } else if (newIconType == 'default') {
       obj['icon_data'] = null;
     } else {
-      // Keep existing image filename
       obj['icon_data'] = newIconData;
     }
 
@@ -438,10 +550,8 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
     }
   }
 
-  // --- FUNGSI NAVIGASI REKURSIF ---
   void _openObject(Map<String, dynamic> obj) {
     if (_roomObjectsRootDir == null) return;
-
     final objectId = obj['id'];
     final objectDir = Directory(p.join(_roomObjectsRootDir!.path, objectId));
 
@@ -454,14 +564,12 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
         ),
       ),
     ).then((_) {
-      // Refresh saat kembali
       if (_currentRoom != null) {
         _loadRoomObjects(_currentRoom!['id']);
       }
     });
   }
 
-  // 2. Navigasi
   Future<void> _updateConnectionPosition(
     String connId,
     double x,
@@ -618,7 +726,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
               tooltip: 'Batal Pindah',
               onPressed: () => setState(() => _movingObjectId = null),
             ),
-          // --- UPDATE: Menambahkan Ikon pada PopupMenuButton ---
           PopupMenuButton<String>(
             onSelected: (v) {
               if (v == 'edit') _toggleEditMode();
@@ -633,6 +740,8 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
                   ),
                 ).then((_) => _loadData());
               }
+              if (v == 'export_view') _exportRoomView();
+              if (v == 'export_original') _exportOriginalImage();
             },
             itemBuilder: (c) => [
               PopupMenuItem(
@@ -675,9 +784,30 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
                   ],
                 ),
               ),
+              // --- MENU EXPORT BARU ---
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'export_view',
+                child: Row(
+                  children: [
+                    Icon(Icons.camera_alt, color: Colors.blue),
+                    SizedBox(width: 12),
+                    Text('Export Tampilan (PNG)'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'export_original',
+                child: Row(
+                  children: [
+                    Icon(Icons.image, color: Colors.indigo),
+                    SizedBox(width: 12),
+                    Text('Export Gambar Asli'),
+                  ],
+                ),
+              ),
             ],
           ),
-          // --- END UPDATE ---
         ],
       ),
       body: _isLoading
@@ -710,135 +840,141 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
     bool objInteractive =
         _isObjectEditMode || _showIcons || AppSettings.interactableWhenHidden;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return InteractiveViewer(
-          transformationController: _transformationController,
-          minScale: 1.0,
-          maxScale: 5.0,
-          child: Center(
-            child: Stack(
-              children: [
-                // 1. Layer Gambar & Tap Area
-                GestureDetector(
-                  onTapDown: _isObjectEditMode
-                      ? (d) {
-                          final x = d.localPosition.dx / constraints.maxWidth;
-                          final y = d.localPosition.dy / constraints.maxHeight;
-                          if (_movingObjectId != null) {
-                            _confirmMoveObject(x, y);
-                          } else if (_draggingConnectionId == null) {
-                            setState(() => _tappedCoords = Offset(x, y));
-                            _showAddObjectDialog();
+    // --- Wrap dengan RepaintBoundary agar bisa di-capture ---
+    return RepaintBoundary(
+      key: _globalKey,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return InteractiveViewer(
+            transformationController: _transformationController,
+            minScale: 1.0,
+            maxScale: 5.0,
+            child: Center(
+              child: Stack(
+                children: [
+                  // 1. Layer Gambar & Tap Area
+                  GestureDetector(
+                    onTapDown: _isObjectEditMode
+                        ? (d) {
+                            final x = d.localPosition.dx / constraints.maxWidth;
+                            final y =
+                                d.localPosition.dy / constraints.maxHeight;
+                            if (_movingObjectId != null) {
+                              _confirmMoveObject(x, y);
+                            } else if (_draggingConnectionId == null) {
+                              setState(() => _tappedCoords = Offset(x, y));
+                              _showAddObjectDialog();
+                            }
                           }
-                        }
-                      : null,
-                  child: SizedBox(
-                    width: constraints.maxWidth,
-                    height: constraints.maxHeight,
-                    child: bgImage,
-                  ),
-                ),
-
-                // 2. Layer Objek (Furniture)
-                ..._roomObjects.map((obj) {
-                  final double x = obj['x'] ?? 0.5;
-                  final double y = obj['y'] ?? 0.5;
-                  final bool isMoving = obj['id'] == _movingObjectId;
-
-                  return Positioned(
-                    left: x * constraints.maxWidth - 20,
-                    top: y * constraints.maxHeight - 20,
-                    child: IgnorePointer(
-                      ignoring: !objInteractive,
-                      child: Opacity(
-                        opacity: objOpacity,
-                        child: _buildObjectWidget(obj, isMoving),
-                      ),
+                        : null,
+                    child: SizedBox(
+                      width: constraints.maxWidth,
+                      height: constraints.maxHeight,
+                      child: bgImage,
                     ),
-                  );
-                }),
+                  ),
 
-                // 3. Layer Navigasi (Panah)
-                if (AppSettings.showNavigationArrows)
-                  ...connections.map((conn) {
-                    final String direction = conn['direction'] ?? 'up';
-                    final String label = conn['label'] ?? 'Pintu';
-                    final String connId = conn['id'];
-
-                    double x = conn['x'] ?? 0.5;
-                    double y = conn['y'] ?? 0.5;
-                    if (conn['x'] == null) {
-                      x = 0.5;
-                      y = 0.5;
-                    }
-
-                    final double sizeBase =
-                        24 * AppSettings.navigationArrowScale;
+                  // 2. Layer Objek (Furniture)
+                  ..._roomObjects.map((obj) {
+                    final double x = obj['x'] ?? 0.5;
+                    final double y = obj['y'] ?? 0.5;
+                    final bool isMoving = obj['id'] == _movingObjectId;
 
                     return Positioned(
-                      left: x * constraints.maxWidth - sizeBase,
-                      top: y * constraints.maxHeight - sizeBase,
-                      child: GestureDetector(
-                        onPanUpdate: _isObjectEditMode
-                            ? (d) {
-                                setState(() {
-                                  double nx =
-                                      x + (d.delta.dx / constraints.maxWidth);
-                                  double ny =
-                                      y + (d.delta.dy / constraints.maxHeight);
-                                  conn['x'] = nx.clamp(0.0, 1.0);
-                                  conn['y'] = ny.clamp(0.0, 1.0);
-                                  _draggingConnectionId = connId;
-                                });
-                              }
-                            : null,
-                        onPanEnd: _isObjectEditMode
-                            ? (d) {
-                                _updateConnectionPosition(
-                                  connId,
-                                  conn['x'],
-                                  conn['y'],
-                                );
-                                setState(() => _draggingConnectionId = null);
-                              }
-                            : null,
-                        onTap: () {
-                          if (_isObjectEditMode) {
-                            _cycleConnectionDirection(connId);
-                          } else {
-                            _navigateToRoom(conn['targetRoomId']);
-                          }
-                        },
-                        child: ScaleTransition(
-                          scale: _isObjectEditMode
-                              ? const AlwaysStoppedAnimation(1.0)
-                              : _arrowPulseAnimation,
-                          child: _buildArrowWidget(
-                            label,
-                            direction,
-                            _draggingConnectionId == connId,
-                          ),
+                      left: x * constraints.maxWidth - 20,
+                      top: y * constraints.maxHeight - 20,
+                      child: IgnorePointer(
+                        ignoring: !objInteractive,
+                        child: Opacity(
+                          opacity: objOpacity,
+                          child: _buildObjectWidget(obj, isMoving),
                         ),
                       ),
                     );
                   }),
 
-                if (_tappedCoords != null)
-                  Positioned(
-                    left: _tappedCoords!.dx * constraints.maxWidth - 15,
-                    top: _tappedCoords!.dy * constraints.maxHeight - 30,
-                    child: const Icon(
-                      Icons.location_on,
-                      color: Colors.red,
-                      size: 30,
+                  // 3. Layer Navigasi (Panah)
+                  if (AppSettings.showNavigationArrows)
+                    ...connections.map((conn) {
+                      final String direction = conn['direction'] ?? 'up';
+                      final String label = conn['label'] ?? 'Pintu';
+                      final String connId = conn['id'];
+
+                      double x = conn['x'] ?? 0.5;
+                      double y = conn['y'] ?? 0.5;
+                      if (conn['x'] == null) {
+                        x = 0.5;
+                        y = 0.5;
+                      }
+
+                      final double sizeBase =
+                          24 * AppSettings.navigationArrowScale;
+
+                      return Positioned(
+                        left: x * constraints.maxWidth - sizeBase,
+                        top: y * constraints.maxHeight - sizeBase,
+                        child: GestureDetector(
+                          onPanUpdate: _isObjectEditMode
+                              ? (d) {
+                                  setState(() {
+                                    double nx =
+                                        x + (d.delta.dx / constraints.maxWidth);
+                                    double ny =
+                                        y +
+                                        (d.delta.dy / constraints.maxHeight);
+                                    conn['x'] = nx.clamp(0.0, 1.0);
+                                    conn['y'] = ny.clamp(0.0, 1.0);
+                                    _draggingConnectionId = connId;
+                                  });
+                                }
+                              : null,
+                          onPanEnd: _isObjectEditMode
+                              ? (d) {
+                                  _updateConnectionPosition(
+                                    connId,
+                                    conn['x'],
+                                    conn['y'],
+                                  );
+                                  setState(() => _draggingConnectionId = null);
+                                }
+                              : null,
+                          onTap: () {
+                            if (_isObjectEditMode) {
+                              _cycleConnectionDirection(connId);
+                            } else {
+                              _navigateToRoom(conn['targetRoomId']);
+                            }
+                          },
+                          child: ScaleTransition(
+                            scale: _isObjectEditMode
+                                ? const AlwaysStoppedAnimation(1.0)
+                                : _arrowPulseAnimation,
+                            child: _buildArrowWidget(
+                              label,
+                              direction,
+                              _draggingConnectionId == connId,
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+
+                  if (_tappedCoords != null)
+                    Positioned(
+                      left: _tappedCoords!.dx * constraints.maxWidth - 15,
+                      top: _tappedCoords!.dy * constraints.maxHeight - 30,
+                      child: const Icon(
+                        Icons.location_on,
+                        color: Colors.red,
+                        size: 30,
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
@@ -915,15 +1051,11 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
       content = _buildDefaultObjectIcon(obj, isMoving);
     }
 
-    // Wrapper GestureDetector untuk logika Tap
     return GestureDetector(
       onTap: () {
         if (_isObjectEditMode) {
-          // Jika sedang mode edit, buka dialog edit
-          // (Kecuali sedang memindahkan objek ini sendiri, tapi logic drag diurus parent)
           if (!isMoving) _showEditObjectDialog(obj);
         } else {
-          // Mode lihat: buka objek
           _openObject(obj);
         }
       },
