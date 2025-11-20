@@ -10,7 +10,6 @@ import 'package:mind_palace_manager/features/building/presentation/viewer/buildi
 import 'package:mind_palace_manager/permission_helper.dart';
 import 'package:mind_palace_manager/features/building/presentation/map/district_map_viewer_page.dart';
 import 'package:mind_palace_manager/features/building/presentation/dialogs/move_building_dialog.dart';
-// --- IMPORT BARU: Editor Peta ---
 import 'package:mind_palace_manager/features/building/presentation/map/district_map_editor_page.dart';
 
 class DistrictBuildingManagementPage extends StatefulWidget {
@@ -31,6 +30,10 @@ class _DistrictBuildingManagementPageState
   List<Directory> _buildingFolders = [];
   bool _isLoading = false;
 
+  // --- State untuk Expandable FAB ---
+  bool _isFabOpen = false;
+
+  // --- Controller untuk Dialog ---
   final TextEditingController _buildingNameController = TextEditingController();
   final TextEditingController _buildingIconTextController =
       TextEditingController();
@@ -70,25 +73,28 @@ class _DistrictBuildingManagementPageState
     }
 
     final Directory buildingsDir = widget.districtDirectory;
+
     try {
       if (!await buildingsDir.exists()) {
         await buildingsDir.create(recursive: true);
       }
+
       final entities = await buildingsDir.list().toList();
       setState(() {
         _buildingFolders = entities.whereType<Directory>().toList();
       });
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Gagal memuat bangunan: $e')));
+      }
     }
+
     setState(() => _isLoading = false);
   }
 
-  // ... (Fungsi _showCreateBuildingDialog, _createNewBuilding, _showEditBuildingDialog, _saveBuildingChanges tetap sama)
-  // ... (Kode tidak berubah untuk bagian dialog dan save, saya singkat di sini agar fokus pada perubahan FAB)
+  // --- LOGIKA BUAT BANGUNAN BARU ---
 
   Future<void> _showCreateBuildingDialog() async {
     _buildingNameController.clear();
@@ -106,7 +112,6 @@ class _DistrictBuildingManagementPageState
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     TextField(
                       controller: _buildingNameController,
@@ -115,30 +120,24 @@ class _DistrictBuildingManagementPageState
                       ),
                       autofocus: true,
                     ),
-                    const SizedBox(height: 24),
-                    Text(
-                      'Ikon Bangunan (Opsional)',
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
+                    const SizedBox(height: 16),
                     DropdownButton<String>(
                       value: _buildingIconType,
                       isExpanded: true,
-                      items: ['Default', 'Teks', 'Gambar']
-                          .map(
-                            (String value) => DropdownMenuItem<String>(
-                              value: value,
-                              child: Text(value),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (String? newValue) =>
-                          setDialogState(() => _buildingIconType = newValue!),
+                      items: ['Default', 'Teks', 'Gambar'].map((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value),
+                        );
+                      }).toList(),
+                      onChanged: (v) =>
+                          setDialogState(() => _buildingIconType = v!),
                     ),
                     if (_buildingIconType == 'Teks')
                       TextField(
                         controller: _buildingIconTextController,
                         decoration: const InputDecoration(
-                          hintText: 'Masukkan 1-2 karakter',
+                          hintText: 'Karakter (1-2 huruf)',
                         ),
                         maxLength: 2,
                       ),
@@ -175,20 +174,20 @@ class _DistrictBuildingManagementPageState
               actions: <Widget>[
                 TextButton(
                   child: const Text('Batal'),
-                  onPressed: () => Navigator.of(context).pop(),
+                  onPressed: () => Navigator.pop(context),
                 ),
                 ElevatedButton(
                   child: const Text('Buat'),
                   onPressed: () {
-                    if (_buildingNameController.text.trim().isEmpty) {
+                    if (_buildingNameController.text.trim().isNotEmpty) {
+                      _createNewBuilding();
+                    } else {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Nama bangunan tidak boleh kosong.'),
+                          content: Text('Nama tidak boleh kosong.'),
                           backgroundColor: Colors.red,
                         ),
                       );
-                    } else {
-                      _createNewBuilding();
                     }
                   },
                 ),
@@ -247,10 +246,12 @@ class _DistrictBuildingManagementPageState
 
       if (mounted) Navigator.of(context).pop();
       await _loadBuildings();
-      if (mounted)
+
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Bangunan "$buildingName" berhasil dibuat')),
         );
+      }
     } catch (e) {
       if (mounted) {
         Navigator.of(context).pop();
@@ -261,13 +262,9 @@ class _DistrictBuildingManagementPageState
     }
   }
 
-  // ... (Fungsi _showEditBuildingDialog, _saveBuildingChanges, _moveBuilding, _retractBuilding, _removeBuildingFromMapData, _viewBuilding, _editBuilding, _deleteBuilding, _viewDistrictMap, _exportBuildingIcon juga tetap ada. Pastikan tidak dihapus.)
-  // Saya sertakan fungsi-fungsi penting yang sudah dibuat sebelumnya agar file lengkap.
+  // --- LOGIKA EDIT BANGUNAN (Nama & Ikon) ---
 
   Future<void> _showEditBuildingDialog(Directory buildingDir) async {
-    // ... (Kode sama seperti sebelumnya)
-    // Untuk menghemat space saya tidak paste ulang bagian ini karena tidak berubah,
-    // tapi pastikan kode ini ada di file Anda.
     final currentName = p.basename(buildingDir.path);
     final iconData = await _getBuildingIconData(buildingDir);
     String currentType = iconData['type'] ?? 'Default';
@@ -305,6 +302,7 @@ class _DistrictBuildingManagementPageState
                 currentImageText = 'Pilih Gambar Ikon';
               }
             }
+
             return AlertDialog(
               title: const Text('Ubah Info Bangunan'),
               content: SingleChildScrollView(
@@ -413,6 +411,7 @@ class _DistrictBuildingManagementPageState
   ) async {
     final newName = _buildingNameController.text.trim();
     Directory currentDir = originalDir;
+
     if (newName != p.basename(originalDir.path)) {
       try {
         final newPath = p.join(originalDir.parent.path, newName);
@@ -428,6 +427,7 @@ class _DistrictBuildingManagementPageState
         return;
       }
     }
+
     final jsonFile = File(p.join(currentDir.path, 'data.json'));
     Map<String, dynamic> jsonData;
     try {
@@ -440,9 +440,11 @@ class _DistrictBuildingManagementPageState
     } catch (e) {
       jsonData = {"rooms": []};
     }
+
     String? iconType;
     dynamic iconData;
     String? oldImageName = oldType == 'image' ? oldData : null;
+
     if (_buildingIconType == 'Teks') {
       iconType = 'text';
       iconData = _buildingIconTextController.text.trim();
@@ -479,6 +481,8 @@ class _DistrictBuildingManagementPageState
       iconType = null;
       iconData = null;
     }
+
+    // Hapus file lama jika tidak dipakai lagi
     if (oldImageName != null &&
         (iconType != 'image' || iconData != oldImageName)) {
       try {
@@ -488,8 +492,10 @@ class _DistrictBuildingManagementPageState
         print("Gagal menghapus gambar ikon lama: $e");
       }
     }
+
     jsonData['icon_type'] = iconType;
     jsonData['icon_data'] = iconData;
+
     try {
       await jsonFile.writeAsString(json.encode(jsonData));
       if (mounted)
@@ -507,8 +513,11 @@ class _DistrictBuildingManagementPageState
     }
   }
 
+  // --- FITUR PINDAH & RETRACT (GUDANG) ---
+
   Future<void> _moveBuilding(Directory buildingDir) async {
     final currentRegionDir = widget.districtDirectory.parent;
+
     final Directory? targetDistrict = await showDialog<Directory>(
       context: context,
       builder: (context) => MoveBuildingDialog(
@@ -516,19 +525,26 @@ class _DistrictBuildingManagementPageState
         currentDistrictDir: widget.districtDirectory,
       ),
     );
+
     if (targetDistrict == null) return;
+
     setState(() => _isLoading = true);
+
     try {
       final String buildingName = p.basename(buildingDir.path);
       String newName = buildingName;
+
       final expectedPath = p.join(targetDistrict.path, buildingName);
       if (await Directory(expectedPath).exists()) {
         newName = "${buildingName}_${DateTime.now().millisecondsSinceEpoch}";
       }
+
       final finalNewPath = p.join(targetDistrict.path, newName);
+
       await buildingDir.rename(finalNewPath);
       await _removeBuildingFromMapData(widget.districtDirectory, buildingName);
-      if (mounted)
+
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -537,6 +553,7 @@ class _DistrictBuildingManagementPageState
             backgroundColor: Colors.green,
           ),
         );
+      }
       _loadBuildings();
     } catch (e) {
       if (mounted)
@@ -552,6 +569,7 @@ class _DistrictBuildingManagementPageState
 
   Future<void> _retractBuilding(Directory buildingDir) async {
     if (AppSettings.baseBuildingsPath == null) return;
+
     final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
@@ -571,27 +589,37 @@ class _DistrictBuildingManagementPageState
         ],
       ),
     );
+
     if (confirm != true) return;
+
     setState(() => _isLoading = true);
+
     try {
       final warehouseDir = Directory(
         p.join(AppSettings.baseBuildingsPath!, '_BUILDING_WAREHOUSE_'),
       );
-      if (!await warehouseDir.exists()) await warehouseDir.create();
+      if (!await warehouseDir.exists()) {
+        await warehouseDir.create();
+      }
+
       final String name = p.basename(buildingDir.path);
       String newName = name;
+
       if (await Directory(p.join(warehouseDir.path, name)).exists()) {
         newName = "${name}_${DateTime.now().millisecondsSinceEpoch}";
       }
+
       await buildingDir.rename(p.join(warehouseDir.path, newName));
       await _removeBuildingFromMapData(widget.districtDirectory, name);
-      if (mounted)
+
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Bangunan aman tersimpan di Bank Bangunan.'),
             backgroundColor: Colors.green,
           ),
         );
+      }
       _loadBuildings();
     } catch (e) {
       if (mounted)
@@ -616,6 +644,7 @@ class _DistrictBuildingManagementPageState
         placements.removeWhere(
           (item) => item['building_folder_name'] == buildingFolderName,
         );
+
         if (placements.length != initialLen) {
           data['building_placements'] = placements;
           await jsonFile.writeAsString(json.encode(data));
@@ -623,6 +652,112 @@ class _DistrictBuildingManagementPageState
       }
     } catch (e) {
       print("Warning: Gagal membersihkan data peta lama: $e");
+    }
+  }
+
+  // --- FITUR LAIN (Export, Delete, Navigasi) ---
+
+  Future<void> _exportBuildingIcon(Directory buildingDir) async {
+    if (AppSettings.exportPath == null) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Atur folder export di Pengaturan terlebih dahulu.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      return;
+    }
+
+    try {
+      final iconData = await _getBuildingIconData(buildingDir);
+      final iconType = iconData['type'];
+      final imageFile = iconData['file'] as File?;
+
+      if (iconType != 'image' ||
+          imageFile == null ||
+          !await imageFile.exists()) {
+        if (mounted)
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Ikon bukan gambar atau file ikon tidak ditemukan.',
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        return;
+      }
+
+      final extension = p.extension(imageFile.path);
+      final now = DateTime.now();
+      final fileName =
+          'icon_${p.basename(buildingDir.path)}_${now.year}${now.month}${now.day}_${now.hour}${now.minute}${now.second}$extension';
+      final destinationPath = p.join(AppSettings.exportPath!, fileName);
+      await imageFile.copy(destinationPath);
+
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ikon berhasil diexport ke: $destinationPath'),
+            backgroundColor: Colors.green,
+          ),
+        );
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal export ikon: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+    }
+  }
+
+  Future<void> _deleteBuilding(Directory buildingDir) async {
+    final buildingName = p.basename(buildingDir.path);
+    final bool? didConfirm = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Hapus Bangunan'),
+          content: Text(
+            'Apakah Anda yakin ingin menghapus "$buildingName"?\n\nTindakan ini akan menghapus semua folder, ruangan, dan gambar di dalamnya secara permanen.',
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Batal'),
+              onPressed: () => Navigator.of(context).pop(false),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Hapus'),
+              onPressed: () => Navigator.of(context).pop(true),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (didConfirm == true) {
+      try {
+        await buildingDir.delete(recursive: true);
+        if (mounted)
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Bangunan "$buildingName" berhasil dihapus.'),
+            ),
+          );
+        await _loadBuildings();
+      } catch (e) {
+        if (mounted)
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Gagal menghapus bangunan: $e')),
+          );
+      }
     }
   }
 
@@ -645,114 +780,16 @@ class _DistrictBuildingManagementPageState
     );
   }
 
-  Future<void> _deleteBuilding(Directory buildingDir) async {
-    final buildingName = p.basename(buildingDir.path);
-    final bool? didConfirm = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext context) => AlertDialog(
-        title: const Text('Hapus Bangunan'),
-        content: Text(
-          'Apakah Anda yakin ingin menghapus "$buildingName"?\n\nTindakan ini akan menghapus semua folder, ruangan, dan gambar di dalamnya secara permanen.',
-        ),
-        actions: <Widget>[
-          TextButton(
-            child: const Text('Batal'),
-            onPressed: () => Navigator.of(context).pop(false),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Hapus'),
-            onPressed: () => Navigator.of(context).pop(true),
-          ),
-        ],
-      ),
-    );
-    if (didConfirm == true) {
-      try {
-        await buildingDir.delete(recursive: true);
-        if (mounted)
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Bangunan "$buildingName" berhasil dihapus.'),
-            ),
-          );
-        await _loadBuildings();
-      } catch (e) {
-        if (mounted)
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Gagal menghapus bangunan: $e')),
-          );
-      }
-    }
-  }
-
   void _viewDistrictMap() {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) =>
+        builder: (c) =>
             DistrictMapViewerPage(districtDirectory: widget.districtDirectory),
       ),
     );
   }
 
-  Future<void> _exportBuildingIcon(Directory buildingDir) async {
-    if (AppSettings.exportPath == null) {
-      if (mounted)
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Atur folder export di Pengaturan terlebih dahulu.'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      return;
-    }
-    try {
-      final iconData = await _getBuildingIconData(buildingDir);
-      final iconType = iconData['type'];
-      final imageFile = iconData['file'] as File?;
-      if (iconType != 'image' ||
-          imageFile == null ||
-          !await imageFile.exists()) {
-        if (mounted)
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Ikon bukan gambar atau file ikon tidak ditemukan.',
-              ),
-              backgroundColor: Colors.red,
-            ),
-          );
-        return;
-      }
-      final extension = p.extension(imageFile.path);
-      final now = DateTime.now();
-      final fileName =
-          'icon_${p.basename(buildingDir.path)}_${now.year}${now.month}${now.day}_${now.hour}${now.minute}${now.second}$extension';
-      final destinationPath = p.join(AppSettings.exportPath!, fileName);
-      await imageFile.copy(destinationPath);
-      if (mounted)
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Ikon berhasil diexport ke: $destinationPath'),
-            backgroundColor: Colors.green,
-          ),
-        );
-    } catch (e) {
-      if (mounted)
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal export ikon: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-    }
-  }
-
-  // --- FUNGSI BARU: BUKA EDITOR PETA ---
   void _openMapEditor() {
     Navigator.push(
       context,
@@ -763,77 +800,27 @@ class _DistrictBuildingManagementPageState
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final districtName = p.basename(widget.districtDirectory.path);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Distrik: $districtName'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.map_outlined),
-            onPressed: _viewDistrictMap,
-            tooltip: 'Lihat Peta Distrik',
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadBuildings,
-            tooltip: 'Muat Ulang Daftar',
-          ),
-        ],
-      ),
-      body: _buildBody(),
-      // --- MODIFIKASI FAB: MENJADI KOLOM (TUMPUKAN TOMBOL) ---
-      floatingActionButton: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          FloatingActionButton(
-            heroTag: 'map_editor',
-            onPressed: _openMapEditor,
-            tooltip: 'Edit Peta Distrik',
-            backgroundColor: Colors.blue.shade100,
-            child: const Icon(Icons.map, color: Colors.black87),
-          ),
-          const SizedBox(height: 16),
-          FloatingActionButton(
-            heroTag: 'add_building',
-            onPressed: _showCreateBuildingDialog,
-            tooltip: 'Buat Bangunan Baru',
-            child: const Icon(Icons.add_business),
-          ),
-        ],
-      ),
-    );
-  }
+  // --- HELPER UTILS ---
 
   Future<Map<String, dynamic>> _getBuildingIconData(
     Directory buildingDir,
   ) async {
     try {
       final jsonFile = File(p.join(buildingDir.path, 'data.json'));
-      if (!await jsonFile.exists()) {
-        return {'type': null, 'data': null};
-      }
-
+      if (!await jsonFile.exists()) return {'type': null, 'data': null};
       final content = await jsonFile.readAsString();
       final data = json.decode(content);
-
       final iconType = data.containsKey('icon_type') ? data['icon_type'] : null;
       final iconData = data.containsKey('icon_data') ? data['icon_data'] : null;
-
       if (iconType == 'image' && iconData != null) {
         final imageFile = File(p.join(buildingDir.path, iconData.toString()));
-        if (await imageFile.exists()) {
+        if (await imageFile.exists())
           return {'type': 'image', 'data': iconData, 'file': imageFile};
-        } else {
+        else
           return {'type': null, 'data': null};
-        }
       }
-
       return {'type': iconType, 'data': iconData};
     } catch (e) {
-      print('Gagal membaca ikon: $e');
       return {'type': null, 'data': null};
     }
   }
@@ -885,103 +872,167 @@ class _DistrictBuildingManagementPageState
     }
   }
 
-  Widget _buildBody() {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+  @override
+  Widget build(BuildContext context) {
+    final districtName = p.basename(widget.districtDirectory.path);
 
-    if (_buildingFolders.isEmpty) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Distrik: $districtName'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.map_outlined),
+            onPressed: _viewDistrictMap,
+            tooltip: 'Lihat Peta Distrik',
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadBuildings,
+            tooltip: 'Muat Ulang Daftar',
+          ),
+        ],
+      ),
+      body: _buildBody(),
+
+      // --- EXPANDABLE FAB (SPEED DIAL) ---
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (_isFabOpen) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceVariant,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    "Edit Peta",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FloatingActionButton.small(
+                  heroTag: 'map_editor',
+                  onPressed: () {
+                    _openMapEditor();
+                    setState(() => _isFabOpen = false);
+                  },
+                  backgroundColor: Colors.blue.shade100,
+                  child: const Icon(Icons.map, color: Colors.black87),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceVariant,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    "Buat Bangunan",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FloatingActionButton.small(
+                  heroTag: 'add_building',
+                  onPressed: () {
+                    _showCreateBuildingDialog();
+                    setState(() => _isFabOpen = false);
+                  },
+                  child: const Icon(Icons.add_business),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+          FloatingActionButton(
+            heroTag: 'main_toggle',
+            onPressed: () => setState(() => _isFabOpen = !_isFabOpen),
+            child: Icon(_isFabOpen ? Icons.close : Icons.apps),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_isLoading) return const Center(child: CircularProgressIndicator());
+    if (_buildingFolders.isEmpty)
       return const Center(
         child: Text(
-          'Distrik ini belum memiliki bangunan.\nKlik tombol + untuk membuat yang baru.',
+          'Distrik ini belum memiliki bangunan.\nTekan tombol menu di bawah untuk memulai.',
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 16, color: Colors.grey),
         ),
       );
-    }
 
     return ListView.builder(
+      // Padding bawah agar item terakhir tidak tertutup FAB
+      padding: const EdgeInsets.only(bottom: 150),
       itemCount: _buildingFolders.length,
       itemBuilder: (context, index) {
         final folder = _buildingFolders[index];
         final folderName = p.basename(folder.path);
 
-        final Widget leadingIcon = FutureBuilder<Map<String, dynamic>>(
-          future: _getBuildingIconData(folder),
-          key: ValueKey(folder.path),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return _buildIconContainer(
-                const SizedBox(
+        return ListTile(
+          leading: FutureBuilder<Map<String, dynamic>>(
+            future: _getBuildingIconData(folder),
+            key: ValueKey(folder.path),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting)
+                return const SizedBox(
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              );
-            }
-
-            if (!snapshot.hasData || snapshot.hasError) {
+                );
+              if (!snapshot.hasData)
+                return _buildIconContainer(const Icon(Icons.location_city));
+              final type = snapshot.data!['type'];
+              final data = snapshot.data!['data'];
+              final imageFile = snapshot.data!['file'] as File?;
+              if (type == 'text' && data != null)
+                return _buildIconContainer(
+                  Text(
+                    data.toString(),
+                    style: const TextStyle(fontSize: 20),
+                    textAlign: TextAlign.center,
+                  ),
+                );
+              if (type == 'image' && imageFile != null)
+                return _buildIconContainer(null, imageFile: imageFile);
               return _buildIconContainer(const Icon(Icons.location_city));
-            }
-
-            final type = snapshot.data!['type'];
-            final data = snapshot.data!['data'];
-            final imageFile = snapshot.data!['file'] as File?;
-
-            if (type == 'text' && data != null && data.toString().isNotEmpty) {
-              return _buildIconContainer(
-                Text(
-                  data.toString(),
-                  style: const TextStyle(fontSize: 20),
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.clip,
-                ),
-              );
-            }
-
-            if (type == 'image' && imageFile != null) {
-              return _buildIconContainer(null, imageFile: imageFile);
-            }
-
-            return _buildIconContainer(const Icon(Icons.location_city));
-          },
-        );
-
-        return ListTile(
-          leading: leadingIcon,
+            },
+          ),
           title: Text(folderName, style: const TextStyle(fontSize: 18)),
           subtitle: Text(folder.path, style: const TextStyle(fontSize: 12)),
           trailing: PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
-            tooltip: 'Opsi Bangunan',
-            onSelected: (String value) {
-              switch (value) {
-                case 'view':
-                  _viewBuilding(folder);
-                  break;
-                case 'edit_room':
-                  _editBuilding(folder);
-                  break;
-                case 'edit_info':
-                  _showEditBuildingDialog(folder);
-                  break;
-                case 'move':
-                  _moveBuilding(folder);
-                  break;
-                case 'retract':
-                  _retractBuilding(folder);
-                  break;
-                case 'export_icon':
-                  _exportBuildingIcon(folder);
-                  break;
-                case 'delete':
-                  _deleteBuilding(folder);
-                  break;
-              }
+            onSelected: (v) {
+              if (v == 'view') _viewBuilding(folder);
+              if (v == 'edit_room') _editBuilding(folder);
+              if (v == 'edit_info') _showEditBuildingDialog(folder);
+              if (v == 'move') _moveBuilding(folder);
+              if (v == 'retract') _retractBuilding(folder);
+              if (v == 'export_icon') _exportBuildingIcon(folder);
+              if (v == 'delete') _deleteBuilding(folder);
             },
-            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-              const PopupMenuItem<String>(
+            itemBuilder: (c) => [
+              const PopupMenuItem(
                 value: 'view',
                 child: Row(
                   children: [
@@ -991,7 +1042,7 @@ class _DistrictBuildingManagementPageState
                   ],
                 ),
               ),
-              const PopupMenuItem<String>(
+              const PopupMenuItem(
                 value: 'edit_room',
                 child: Row(
                   children: [
@@ -1001,7 +1052,7 @@ class _DistrictBuildingManagementPageState
                   ],
                 ),
               ),
-              const PopupMenuItem<String>(
+              const PopupMenuItem(
                 value: 'move',
                 child: Row(
                   children: [
@@ -1011,7 +1062,7 @@ class _DistrictBuildingManagementPageState
                   ],
                 ),
               ),
-              const PopupMenuItem<String>(
+              const PopupMenuItem(
                 value: 'retract',
                 child: Row(
                   children: [
@@ -1021,34 +1072,34 @@ class _DistrictBuildingManagementPageState
                   ],
                 ),
               ),
-              const PopupMenuItem<String>(
+              const PopupMenuItem(
                 value: 'edit_info',
                 child: Row(
                   children: [
                     Icon(Icons.palette_outlined, color: Colors.blue),
                     SizedBox(width: 8),
-                    Text('Ubah Info (Nama/Ikon)'),
+                    Text('Ubah Info'),
                   ],
                 ),
               ),
-              const PopupMenuItem<String>(
+              const PopupMenuItem(
                 value: 'export_icon',
                 child: Row(
                   children: [
                     Icon(Icons.ios_share, color: Colors.indigo),
                     SizedBox(width: 8),
-                    Text('Export Ikon (Gambar)'),
+                    Text('Export Ikon'),
                   ],
                 ),
               ),
               const PopupMenuDivider(),
-              const PopupMenuItem<String>(
+              const PopupMenuItem(
                 value: 'delete',
                 child: Row(
                   children: [
                     Icon(Icons.delete, color: Colors.red),
                     SizedBox(width: 8),
-                    Text('Hapus', style: TextStyle(color: Colors.red)),
+                    Text('Hapus'),
                   ],
                 ),
               ),
