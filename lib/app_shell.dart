@@ -1,18 +1,18 @@
 // lib/app_shell.dart
 import 'package:flutter/material.dart';
-import 'package:mind_palace_manager/features/building/presentation/management/building_management_page.dart';
-import 'package:mind_palace_manager/features/settings/settings_page.dart';
 import 'package:mind_palace_manager/app_settings.dart';
+import 'package:mind_palace_manager/features/settings/settings_page.dart';
 import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ui';
 import 'package:path/path.dart' as p;
-// --- BARU: Import helper loader gambar ---
 import 'package:mind_palace_manager/features/settings/helpers/wallpaper_image_loader.dart';
 
+// --- PASTIKAN BARIS IMPORT INI ADA DAN BENAR ---
+import 'package:mind_palace_manager/features/building/presentation/management/building_management_page.dart';
+
 class MainApp extends StatelessWidget {
-  // ... (MainApp tetap sama)
   const MainApp({super.key});
 
   @override
@@ -96,8 +96,7 @@ class _DashboardPageState extends State<DashboardPage> {
     _roomImagePaths.clear();
     _currentImageIndex = 0;
 
-    final contentPath =
-        AppSettings.slideshowBuildingPath; // Bisa Bangunan/Distrik
+    final contentPath = AppSettings.slideshowBuildingPath;
     if (contentPath == null) {
       _slideshowTimer?.cancel();
       setState(() => _isLoadingSlideshow = false);
@@ -106,14 +105,12 @@ class _DashboardPageState extends State<DashboardPage> {
     final contentDir = Directory(contentPath);
     if (!await contentDir.exists()) {
       _slideshowTimer?.cancel();
-      AppSettings.clearWallpaper(); // Reset jika folder hilang
+      AppSettings.clearWallpaper();
       setState(() => _isLoadingSlideshow = false);
       return;
     }
 
-    // --- UPDATE LOGIKA ---
     if (AppSettings.slideshowSourceType == 'district') {
-      // Jika Tipe adalah DISTRIK, gunakan helper loader
       try {
         final images = await WallpaperImageLoader.loadRoomImagesFromDistrict(
           contentDir,
@@ -123,8 +120,6 @@ class _DashboardPageState extends State<DashboardPage> {
         print("Error loading district slideshow: $e");
       }
     } else {
-      // Jika Tipe adalah BANGUNAN (Default logic)
-      // Kita masih bisa gunakan manual load atau helper, tapi manual lebih cepat untuk single file
       final buildingDataFile = File(p.join(contentDir.path, 'data.json'));
       if (await buildingDataFile.exists()) {
         try {
@@ -146,7 +141,6 @@ class _DashboardPageState extends State<DashboardPage> {
         }
       }
     }
-    // ----------------------
 
     if (_roomImagePaths.length <= 1) {
       _slideshowTimer?.cancel();
@@ -345,9 +339,7 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
           ],
         ),
-        actions: const [],
       ),
-
       body: Stack(
         children: [
           Positioned.fill(child: backgroundWidget),
@@ -372,6 +364,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 const SizedBox(height: 32),
                 ElevatedButton.icon(
                   icon: const Icon(Icons.business),
+                  // Pastikan BuildingManagementPage dikenali
                   onPressed: () {
                     Navigator.push(
                       context,
