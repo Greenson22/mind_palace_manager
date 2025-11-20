@@ -8,8 +8,6 @@ import 'dart:convert';
 import 'dart:ui';
 import 'package:path/path.dart' as p;
 import 'package:mind_palace_manager/features/settings/helpers/wallpaper_image_loader.dart';
-
-// --- PASTIKAN BARIS IMPORT INI ADA DAN BENAR ---
 import 'package:mind_palace_manager/features/building/presentation/management/building_management_page.dart';
 
 class MainApp extends StatelessWidget {
@@ -343,15 +341,18 @@ class _DashboardPageState extends State<DashboardPage> {
       body: Stack(
         children: [
           Positioned.fill(child: backgroundWidget),
+
+          // --- PERUBAHAN DI SINI: Menambahkan .value pada backgroundOverlayOpacity ---
           Positioned.fill(
             child: Container(
               color:
                   (Theme.of(context).brightness == Brightness.dark
                           ? Colors.black
                           : Colors.white)
-                      .withOpacity(AppSettings.backgroundOverlayOpacity),
+                      .withOpacity(AppSettings.backgroundOverlayOpacity.value),
             ),
           ),
+
           Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -364,7 +365,6 @@ class _DashboardPageState extends State<DashboardPage> {
                 const SizedBox(height: 32),
                 ElevatedButton.icon(
                   icon: const Icon(Icons.business),
-                  // Pastikan BuildingManagementPage dikenali
                   onPressed: () {
                     Navigator.push(
                       context,

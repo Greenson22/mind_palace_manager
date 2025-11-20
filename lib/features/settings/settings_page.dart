@@ -90,7 +90,9 @@ class _SettingsPageState extends State<SettingsPage> {
     _currentGradientColor1 = Color(AppSettings.gradientColor1);
     _currentGradientColor2 = Color(AppSettings.gradientColor2);
     _currentBlurStrength = AppSettings.blurStrength.value;
-    _currentOverlayOpacity = AppSettings.backgroundOverlayOpacity;
+
+    // --- PERUBAHAN DI SINI: Menambahkan .value ---
+    _currentOverlayOpacity = AppSettings.backgroundOverlayOpacity.value;
 
     _slideshowSpeed = AppSettings.slideshowSpeedSeconds;
     _slideshowTransitionDuration =

@@ -78,7 +78,9 @@ class AppSettings {
   static ValueNotifier<int> containmentBackgroundColor = ValueNotifier(
     Colors.black.value,
   );
-  static double backgroundOverlayOpacity = 0.5;
+
+  // --- PERUBAHAN DI SINI: Menggunakan ValueNotifier ---
+  static ValueNotifier<double> backgroundOverlayOpacity = ValueNotifier(0.5);
 
   static ValueNotifier<ThemeMode> themeMode = ValueNotifier(ThemeMode.system);
 
@@ -133,7 +135,9 @@ class AppSettings {
     blurStrength.value = prefs.getDouble(_blurStrengthKey) ?? 5.0;
     containmentBackgroundColor.value =
         prefs.getInt(_containmentBackgroundColorKey) ?? Colors.black.value;
-    backgroundOverlayOpacity =
+
+    // --- PERUBAHAN DI SINI: Mengakses .value ---
+    backgroundOverlayOpacity.value =
         prefs.getDouble(_backgroundOverlayOpacityKey) ?? 0.5;
 
     defaultShowObjectIcons = prefs.getBool(_defaultShowObjectIconsKey) ?? true;
@@ -148,8 +152,6 @@ class AppSettings {
   }
 
   // --- SAVE FUNCTIONS ---
-
-  // ... (Fungsi save lama tetap sama) ...
 
   static Future<void> saveBackgroundMode(String mode) async {
     final prefs = await SharedPreferences.getInstance();
@@ -213,7 +215,9 @@ class AppSettings {
   static Future<void> saveBackgroundOverlayOpacity(double value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble(_backgroundOverlayOpacityKey, value);
-    backgroundOverlayOpacity = value;
+
+    // --- PERUBAHAN DI SINI: Mengakses .value ---
+    backgroundOverlayOpacity.value = value;
   }
 
   static Future<void> saveGradientColor1(int colorValue) async {
@@ -346,7 +350,6 @@ class AppSettings {
     interactableWhenHidden = value;
   }
 
-  // --- SAVE FUNCTIONS UNTUK NAVIGASI (BARU) ---
   static Future<void> saveShowNavigationArrows(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_showNavigationArrowsKey, value);
