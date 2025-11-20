@@ -160,7 +160,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
     }
   }
 
-  // Fungsi untuk mengganti arah panah (cycle) saat ditap di mode edit
   String _getNextDirection(String current) {
     const directions = [
       'up',
@@ -439,7 +438,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
           child: Center(
             child: Stack(
               children: [
-                // 1. Layer Gambar & Tap Area (Tambah Objek)
+                // 1. Layer Gambar & Tap Area
                 GestureDetector(
                   onTapDown: _isObjectEditMode
                       ? (d) {
@@ -448,7 +447,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
                           if (_movingObjectId != null) {
                             _confirmMoveObject(x, y);
                           } else if (_draggingConnectionId == null) {
-                            // Hanya jika tidak sedang drag navigasi
                             setState(() => _tappedCoords = Offset(x, y));
                             _showAddObjectDialog();
                           }
@@ -476,10 +474,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
                         opacity: objOpacity,
                         child: GestureDetector(
                           onTap: () => _isObjectEditMode && !isMoving
-                              ? _startMovingObject(
-                                  obj['id'],
-                                  obj['name'],
-                                ) // Simple tap to move in edit
+                              ? _startMovingObject(obj['id'], obj['name'])
                               : null,
                           child: Container(
                             padding: const EdgeInsets.all(6),
@@ -502,7 +497,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
                   );
                 }),
 
-                // 3. Layer Navigasi (Panah)
+                // 3. Layer Navigasi (Panah) - Menggunakan AppSettings
                 if (AppSettings.showNavigationArrows)
                   ...connections.map((conn) {
                     final String direction = conn['direction'] ?? 'up';
@@ -511,20 +506,18 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
 
                     double x = conn['x'] ?? 0.5;
                     double y = conn['y'] ?? 0.5;
-                    // Perbaiki fallback default jika data belum ada
                     if (conn['x'] == null) {
-                      // Jika data lama, default ke tengah
                       x = 0.5;
                       y = 0.5;
                     }
 
+                    // Hitung ukuran based on scale setting
+                    final double sizeBase =
+                        24 * AppSettings.navigationArrowScale;
+
                     return Positioned(
-                      left:
-                          x * constraints.maxWidth -
-                          (24 * AppSettings.navigationArrowScale),
-                      top:
-                          y * constraints.maxHeight -
-                          (24 * AppSettings.navigationArrowScale),
+                      left: x * constraints.maxWidth - sizeBase,
+                      top: y * constraints.maxHeight - sizeBase,
                       child: GestureDetector(
                         onPanUpdate: _isObjectEditMode
                             ? (d) {
@@ -551,10 +544,8 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
                             : null,
                         onTap: () {
                           if (_isObjectEditMode) {
-                            // TAP DI MODE EDIT = GANTI ARAH
                             _cycleConnectionDirection(connId);
                           } else {
-                            // TAP DI MODE VIEW = NAVIGASI
                             _navigateToRoom(conn['targetRoomId']);
                           }
                         },
@@ -572,7 +563,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
                     );
                   }),
 
-                // Marker Tap Baru
                 if (_tappedCoords != null)
                   Positioned(
                     left: _tappedCoords!.dx * constraints.maxWidth - 15,
@@ -591,6 +581,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
     );
   }
 
+  // --- WIDGET BUILDER UTAMA: Panah & Teks mengikuti Setting ---
   Widget _buildArrowWidget(String label, String direction, bool isDragging) {
     final double scale = AppSettings.navigationArrowScale;
     final Color color = Color(AppSettings.navigationArrowColor);
@@ -604,6 +595,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
           Container(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
+              // Bayangan tetap hitam agar kontras
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.5),
@@ -614,26 +606,31 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
             child: Icon(
               _getIconForDirection(direction),
               size: 48 * scale,
-              color: isDragging ? Colors.yellow : color,
+              color: isDragging ? Colors.yellow : color, // Icon ikut setting
               shadows: const [Shadow(blurRadius: 4, color: Colors.black)],
             ),
           ),
+          // Label Navigasi
           if (_isObjectEditMode || AppSettings.showRegionDistrictNames)
             Container(
               margin: const EdgeInsets.only(top: 4),
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: Colors.black54,
+                color: Colors
+                    .black54, // Background hitam transparan agar teks terbaca di berbagai background
                 borderRadius: BorderRadius.circular(4),
                 border: isDragging ? Border.all(color: Colors.yellow) : null,
               ),
               child: Text(
                 label,
                 style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12 * scale,
+                  color: isDragging
+                      ? Colors.yellow
+                      : color, // TEKS IKUT WARNA SETTING
+                  fontSize: 12 * scale, // UKURAN TEKS IKUT SKALA
                   fontWeight: FontWeight.bold,
                 ),
+                textAlign: TextAlign.center,
               ),
             ),
         ],

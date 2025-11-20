@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AppSettings {
-  // --- KEYS ---
+  // --- KEYS EXISTING ---
   static const String _basePathKey = 'baseBuildingsPath';
   static const String _mapPinShapeKey = 'mapPinShape';
   static const String _listIconShapeKey = 'listIconShape';
@@ -19,7 +19,7 @@ class AppSettings {
   static const String _themeModeKey = 'themeMode';
   static const String _exportPathKey = 'exportPath';
 
-  // --- WALLPAPER & BACKGROUND KEYS ---
+  // --- WALLPAPER KEYS ---
   static const String _wallpaperModeKey = 'wallpaperMode';
   static const String _slideshowBuildingPathKey = 'slideshowBuildingPath';
   static const String _slideshowSourceTypeKey = 'slideshowSourceType';
@@ -47,7 +47,7 @@ class AppSettings {
   static const String _navigationArrowScaleKey = 'navigationArrowScale';
   static const String _navigationArrowColorKey = 'navigationArrowColor';
 
-  // --- STATIC VARIABLES ---
+  // --- VARIABLES ---
   static String? baseBuildingsPath;
   static String mapPinShape = 'Bulat';
   static String listIconShape = 'Bulat';
@@ -86,11 +86,11 @@ class AppSettings {
   static double objectIconOpacity = 1.0;
   static bool interactableWhenHidden = true;
 
-  // --- NAVIGATION ARROW VARIABLES (BARU) ---
+  // --- NAVIGATION VARIABLES (BARU) ---
   static bool showNavigationArrows = true;
-  static double navigationArrowOpacity = 0.9;
-  static double navigationArrowScale = 1.5;
-  static int navigationArrowColor = 0xFFFFFFFF; // Putih
+  static double navigationArrowOpacity = 0.9; // Default agak transparan
+  static double navigationArrowScale = 1.5; // Default ukuran sedang
+  static int navigationArrowColor = 0xFFFFFFFF; // Default Putih
 
   static Future<void> loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
@@ -140,7 +140,7 @@ class AppSettings {
     objectIconOpacity = prefs.getDouble(_objectIconOpacityKey) ?? 1.0;
     interactableWhenHidden = prefs.getBool(_interactableWhenHiddenKey) ?? true;
 
-    // Load Navigation Settings
+    // --- LOAD NAVIGATION SETTINGS ---
     showNavigationArrows = prefs.getBool(_showNavigationArrowsKey) ?? true;
     navigationArrowOpacity = prefs.getDouble(_navigationArrowOpacityKey) ?? 0.9;
     navigationArrowScale = prefs.getDouble(_navigationArrowScaleKey) ?? 1.5;
@@ -148,6 +148,8 @@ class AppSettings {
   }
 
   // --- SAVE FUNCTIONS ---
+
+  // ... (Fungsi save lama tetap sama) ...
 
   static Future<void> saveBackgroundMode(String mode) async {
     final prefs = await SharedPreferences.getInstance();
@@ -344,7 +346,7 @@ class AppSettings {
     interactableWhenHidden = value;
   }
 
-  // --- NAVIGATION ARROW SAVES (BARU) ---
+  // --- SAVE FUNCTIONS UNTUK NAVIGASI (BARU) ---
   static Future<void> saveShowNavigationArrows(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_showNavigationArrowsKey, value);

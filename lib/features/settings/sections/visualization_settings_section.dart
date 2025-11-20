@@ -88,7 +88,7 @@ class _VisualizationSettingsSectionState
     _objectIconOpacity = widget.objectIconOpacity;
     _interactableWhenHidden = widget.interactableWhenHidden;
 
-    // Init Navigasi
+    // Init Nilai Navigasi
     _showNavigationArrows = AppSettings.showNavigationArrows;
     _navigationArrowOpacity = AppSettings.navigationArrowOpacity;
     _navigationArrowScale = AppSettings.navigationArrowScale;
@@ -244,7 +244,7 @@ class _VisualizationSettingsSectionState
           ),
         ]),
 
-        // --- VISUALISASI NAVIGASI (BARU) ---
+        // --- VISUALISASI NAVIGASI (BAGIAN BARU) ---
         const SizedBox(height: 24),
         buildSectionHeader(context, 'Visualisasi Navigasi (Panah/Pintu)'),
         buildSettingsCard([
