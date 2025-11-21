@@ -1,6 +1,7 @@
 // lib/app_settings.dart
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert'; // <-- TAMBAHAN PENTING
 
 class AppSettings {
   // --- KEYS EXISTING ---
@@ -47,7 +48,10 @@ class AppSettings {
   static const String _navigationArrowScaleKey = 'navigationArrowScale';
   static const String _navigationArrowColorKey = 'navigationArrowColor';
 
-  // --- CLOUD TRANSITION KEYS (BARU) ---
+  // --- KEY BARU UNTUK PRESET SUDUT ---
+  static const String _customRotationPresetsKey = 'customRotationPresets';
+
+  // --- CLOUD TRANSITION KEYS ---
   static const String _enableCloudTransitionKey = 'enableCloudTransition';
   static const String _cloudColorKey = 'cloudColor';
   static const String _cloudTransitionDurationKey = 'cloudTransitionDuration';
@@ -98,13 +102,15 @@ class AppSettings {
   static double navigationArrowScale = 1.5;
   static int navigationArrowColor = 0xFFFFFFFF;
 
-  // --- CLOUD TRANSITION VARIABLES (BARU) ---
-  // --- PERUBAHAN DI SINI: Default jadi false ---
+  // --- VARIABLE BARU: List Preset Sudut Custom ---
+  // Format: [{"name": "Miring Kiri", "value": 0.78}, ...]
+  static List<Map<String, dynamic>> customRotationPresets = [];
+
+  // --- CLOUD TRANSITION VARIABLES ---
   static bool enableCloudTransition = false;
-  // -------------------------------------------
   static int cloudColor = Colors.white.value;
-  static double cloudTransitionDuration = 1.8; // Detik
-  static String cloudShape = 'Bulat'; // 'Bulat', 'Kotak', 'Wajik'
+  static double cloudTransitionDuration = 1.8;
+  static String cloudShape = 'Bulat';
 
   static Future<void> loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
@@ -159,10 +165,19 @@ class AppSettings {
     navigationArrowScale = prefs.getDouble(_navigationArrowScaleKey) ?? 1.5;
     navigationArrowColor = prefs.getInt(_navigationArrowColorKey) ?? 0xFFFFFFFF;
 
-    // --- LOAD CLOUD TRANSITION SETTINGS ---
-    // --- PERUBAHAN DI SINI: Default fallback juga false ---
+    // --- LOAD CUSTOM PRESETS ---
+    final customPresetsList = prefs.getStringList(_customRotationPresetsKey);
+    if (customPresetsList != null) {
+      try {
+        customRotationPresets = customPresetsList
+            .map((e) => json.decode(e) as Map<String, dynamic>)
+            .toList();
+      } catch (_) {
+        customRotationPresets = [];
+      }
+    }
+
     enableCloudTransition = prefs.getBool(_enableCloudTransitionKey) ?? false;
-    // ------------------------------------------------------
     cloudColor = prefs.getInt(_cloudColorKey) ?? Colors.white.value;
     cloudTransitionDuration =
         prefs.getDouble(_cloudTransitionDurationKey) ?? 1.8;
@@ -170,8 +185,6 @@ class AppSettings {
   }
 
   // --- SAVE FUNCTIONS (EXISTING) ---
-  // ... (Fungsi save yang lama tetap ada, saya singkat agar fokus ke yang baru) ...
-
   static Future<void> saveBackgroundMode(String mode) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_wallpaperModeKey, mode);
@@ -391,8 +404,18 @@ class AppSettings {
     navigationArrowColor = value;
   }
 
-  // --- SAVE FUNCTIONS: CLOUD TRANSITION (BARU) ---
+  // --- SAVE FUNCTION: CUSTOM ROTATION PRESETS ---
+  static Future<void> saveCustomRotationPresets(
+    List<Map<String, dynamic>> presets,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    // Encode List<Map> ke List<String> (JSON)
+    List<String> strings = presets.map((e) => json.encode(e)).toList();
+    await prefs.setStringList(_customRotationPresetsKey, strings);
+    customRotationPresets = presets;
+  }
 
+  // --- SAVE FUNCTIONS: CLOUD TRANSITION ---
   static Future<void> saveEnableCloudTransition(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_enableCloudTransitionKey, value);

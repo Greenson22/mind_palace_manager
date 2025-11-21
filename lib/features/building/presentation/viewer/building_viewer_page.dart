@@ -157,14 +157,10 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
     await _jsonFile.writeAsString(json.encode(_buildingData));
   }
 
-  // --- HELPER: Konversi data lama (direction string) ke rotasi (radian) ---
   double _getRotation(Map<String, dynamic> conn) {
-    // Jika sudah ada data rotasi baru, pakai itu
     if (conn['rotation'] != null) {
       return (conn['rotation'] as num).toDouble();
     }
-
-    // Fallback: Konversi data lama (string direction)
     String dir = conn['direction'] ?? 'up';
     switch (dir) {
       case 'up':
@@ -188,51 +184,405 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
     }
   }
 
-  // --- DIALOG: Slider Rotasi ---
+  // --- MODIFIED DIALOG: HAPUS TANDA X & KONFIRMASI ---
   Future<void> _showRotationDialog(Map<String, dynamic> conn) async {
     double currentRotation = _getRotation(conn);
+
+    // Sudut default
+    final List<Map<String, dynamic>> defaultPresets = [
+      {"label": "Atas", "deg": 0},
+      {"label": "Kanan", "deg": 90},
+      {"label": "Bawah", "deg": 180},
+      {"label": "Kiri", "deg": 270},
+      {"label": "45°", "deg": 45},
+      {"label": "135°", "deg": 135},
+      {"label": "225°", "deg": 225},
+      {"label": "315°", "deg": 315},
+    ];
+
+    // Load preset user dari settings
+    List<Map<String, dynamic>> userPresets = List.from(
+      AppSettings.customRotationPresets,
+    );
 
     await showDialog(
       context: context,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('Atur Rotasi Panah'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Preview Ikon di Dialog
-                  Transform.rotate(
-                    angle: currentRotation,
-                    child: const Icon(
-                      Icons.arrow_upward,
-                      size: 48,
-                      color: Colors.blue,
+            // Helper: Tambah Preset Baru
+            Future<void> _addNewPreset() async {
+              String newName = "";
+              final currentDeg =
+                  (currentRotation * 180 / math.pi).round() % 360;
+
+              await showDialog(
+                context: context,
+                builder: (c) => AlertDialog(
+                  title: const Text("Simpan Sudut Ini"),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        "Nilai: $currentDeg°",
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      TextField(
+                        autofocus: true,
+                        decoration: const InputDecoration(
+                          labelText: "Nama Sudut",
+                          hintText: "Contoh: Lorong Miring",
+                        ),
+                        onChanged: (v) => newName = v,
+                      ),
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(c),
+                      child: const Text("Batal"),
                     ),
+                    ElevatedButton(
+                      onPressed: () {
+                        if (newName.trim().isNotEmpty) {
+                          final newPreset = {
+                            "name": newName.trim(),
+                            "value": currentRotation,
+                          };
+                          final updatedList = [
+                            ...AppSettings.customRotationPresets,
+                            newPreset,
+                          ];
+
+                          AppSettings.saveCustomRotationPresets(updatedList);
+                          setDialogState(() {
+                            userPresets = updatedList;
+                          });
+                          Navigator.pop(c);
+                        }
+                      },
+                      child: const Text("Simpan"),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            // Helper: Hapus Preset
+            void _deletePreset(int index) {
+              List<Map<String, dynamic>> updatedList = List.from(userPresets);
+              updatedList.removeAt(index);
+              AppSettings.saveCustomRotationPresets(updatedList);
+              setDialogState(() {
+                userPresets = updatedList;
+              });
+            }
+
+            // Helper: Ganti Nama Preset
+            Future<void> _renamePreset(
+              int index,
+              Map<String, dynamic> preset,
+            ) async {
+              String newName = preset['name'];
+              await showDialog(
+                context: context,
+                builder: (c) => AlertDialog(
+                  title: const Text("Ganti Nama"),
+                  content: TextField(
+                    autofocus: true,
+                    controller: TextEditingController(text: newName),
+                    decoration: const InputDecoration(labelText: "Nama Baru"),
+                    onChanged: (v) => newName = v,
                   ),
-                  const SizedBox(height: 16),
-                  const Text("Geser untuk memutar:"),
-                  Slider(
-                    value: currentRotation,
-                    min: 0.0,
-                    max: 2 * math.pi, // 360 derajat dalam radian
-                    onChanged: (val) {
-                      setDialogState(() => currentRotation = val);
-                      // Update realtime di layar utama juga
-                      setState(() {
-                        conn['rotation'] = val;
-                        // Hapus legacy direction agar data bersih
-                        conn.remove('direction');
-                      });
-                    },
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(c),
+                      child: const Text("Batal"),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        if (newName.trim().isNotEmpty) {
+                          List<Map<String, dynamic>> updatedList = List.from(
+                            userPresets,
+                          );
+                          updatedList[index]['name'] = newName.trim();
+                          AppSettings.saveCustomRotationPresets(updatedList);
+                          setDialogState(() {
+                            userPresets = updatedList;
+                          });
+                          Navigator.pop(c);
+                        }
+                      },
+                      child: const Text("Simpan"),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            // Helper: Update Nilai Preset ke Slider Saat Ini
+            void _updatePresetValue(int index) {
+              List<Map<String, dynamic>> updatedList = List.from(userPresets);
+              updatedList[index]['value'] = currentRotation;
+              AppSettings.saveCustomRotationPresets(updatedList);
+              setDialogState(() {
+                userPresets = updatedList;
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Preset "${updatedList[index]['name']}" diupdate ke ${(currentRotation * 180 / math.pi).round()}°',
                   ),
-                ],
+                  duration: const Duration(seconds: 1),
+                ),
+              );
+            }
+
+            // Helper: Menu Opsi Preset (Long Press)
+            void _showPresetOptions(int index, Map<String, dynamic> preset) {
+              showModalBottomSheet(
+                context: context,
+                builder: (c) => SafeArea(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ListTile(
+                        title: Text('Kelola: ${preset['name']}'),
+                        subtitle: const Text('Pilih aksi untuk sudut ini'),
+                      ),
+                      const Divider(),
+                      ListTile(
+                        leading: const Icon(Icons.edit),
+                        title: const Text('Ganti Nama'),
+                        onTap: () {
+                          Navigator.pop(c);
+                          _renamePreset(index, preset);
+                        },
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.save_as),
+                        title: const Text('Timpa dengan Nilai Slider Saat Ini'),
+                        subtitle: Text(
+                          'Ubah nilai menjadi ${(currentRotation * 180 / math.pi).round()}°',
+                        ),
+                        onTap: () {
+                          Navigator.pop(c);
+                          _updatePresetValue(index);
+                        },
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.delete, color: Colors.red),
+                        title: const Text(
+                          'Hapus',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                        // --- MODIFIED: KONFIRMASI SEBELUM HAPUS ---
+                        onTap: () {
+                          Navigator.pop(c); // Tutup bottom sheet
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text("Hapus Sudut?"),
+                              content: Text(
+                                "Apakah Anda yakin ingin menghapus preset \"${preset['name']}\"?",
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx),
+                                  child: const Text("Batal"),
+                                ),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                  ),
+                                  onPressed: () {
+                                    Navigator.pop(ctx); // Tutup dialog
+                                    _deletePreset(index); // Hapus
+                                  },
+                                  child: const Text("Hapus"),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            final int degreeDisplay =
+                (currentRotation * 180 / math.pi).round() % 360;
+
+            return AlertDialog(
+              title: const Text('Atur Arah Panah'),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // PREVIEW
+                      Center(
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade200,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Transform.rotate(
+                            angle: currentRotation,
+                            child: const Icon(
+                              Icons.arrow_upward,
+                              size: 64,
+                              color: Colors.blue,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // SLIDER & INDIKATOR
+                      Center(
+                        child: Text(
+                          "Posisi: $degreeDisplay°",
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      Slider(
+                        value: currentRotation,
+                        min: 0.0,
+                        max: 2 * math.pi,
+                        onChanged: (val) {
+                          setDialogState(() => currentRotation = val);
+                          setState(() {
+                            conn['rotation'] = val;
+                            conn.remove('direction');
+                          });
+                        },
+                      ),
+
+                      const Divider(height: 24),
+
+                      // SECTION: DEFAULT PRESETS
+                      const Text(
+                        "Sudut Default",
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: defaultPresets.map((p) {
+                          return ActionChip(
+                            label: Text(p['label']),
+                            padding: EdgeInsets.zero,
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () {
+                              final double rad =
+                                  (p['deg'] as int) * (math.pi / 180);
+                              setDialogState(() => currentRotation = rad);
+                              setState(() {
+                                conn['rotation'] = rad;
+                                conn.remove('direction');
+                              });
+                            },
+                          );
+                        }).toList(),
+                      ),
+
+                      const Divider(height: 24),
+
+                      // SECTION: USER PRESETS
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            "Sudut Pengguna",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(
+                              Icons.add_circle_outline,
+                              color: Colors.blue,
+                            ),
+                            tooltip: "Simpan sudut saat ini",
+                            onPressed: _addNewPreset,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      if (userPresets.isNotEmpty)
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 8.0),
+                          child: Text(
+                            "Tekan lama untuk kelola (hapus/edit)",
+                            style: TextStyle(fontSize: 10, color: Colors.grey),
+                          ),
+                        ),
+
+                      if (userPresets.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Text(
+                            "Belum ada sudut tersimpan.",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        )
+                      else
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: userPresets.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final p = entry.value;
+                            // --- MODIFIED: MENGGUNAKAN ACTION CHIP TANPA 'X' ---
+                            return GestureDetector(
+                              onLongPress: () => _showPresetOptions(index, p),
+                              child: ActionChip(
+                                label: Text(p['name']),
+                                padding: EdgeInsets.zero,
+                                visualDensity: VisualDensity.compact,
+                                onPressed: () {
+                                  final double val = (p['value'] as num)
+                                      .toDouble();
+                                  setDialogState(() => currentRotation = val);
+                                  setState(() {
+                                    conn['rotation'] = val;
+                                    conn.remove('direction');
+                                  });
+                                },
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                    ],
+                  ),
+                ),
               ),
               actions: [
-                ElevatedButton(
+                TextButton(
                   onPressed: () {
-                    _saveBuildingData(); // Simpan permanen
+                    _saveBuildingData();
                     Navigator.pop(context);
                   },
                   child: const Text('Selesai'),
@@ -385,7 +735,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
     }
   }
 
-  // ... (Dialogs: _showEditObjectDialog, _updateObject, _deleteObject, _showAddObjectDialog, _createNewObject)
   Future<void> _showEditObjectDialog(Map<String, dynamic> obj) async {
     final nameController = TextEditingController(text: obj['name']);
     final iconTextController = TextEditingController();
@@ -919,7 +1268,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
                   ),
                 ),
 
-                // Layer Objek
                 ..._roomObjects.map((obj) {
                   final double x = obj['x'] ?? 0.5;
                   final double y = obj['y'] ?? 0.5;
@@ -938,13 +1286,10 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
                   );
                 }),
 
-                // Layer Navigasi (Panah)
                 if (AppSettings.showNavigationArrows)
                   ...connections.map((conn) {
                     final String label = conn['label'] ?? 'Pintu';
                     final String connId = conn['id'];
-
-                    // Ambil rotasi (bisa dari data lama atau baru)
                     final double rotation = _getRotation(conn);
 
                     double x = conn['x'] ?? 0.5;
@@ -986,7 +1331,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
                             : null,
                         onTap: () {
                           if (_isObjectEditMode) {
-                            // --- PERUBAHAN: Buka Dialog Rotasi ---
                             _showRotationDialog(conn);
                           } else {
                             _navigateToRoom(conn['targetRoomId']);
@@ -998,7 +1342,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
                               : _arrowPulseAnimation,
                           child: _buildArrowWidget(
                             label,
-                            rotation, // Pass rotasi presisi
+                            rotation,
                             _draggingConnectionId == connId,
                           ),
                         ),
@@ -1122,7 +1466,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
     );
   }
 
-  // --- UPDATED: Arrow Widget dengan Rotasi ---
   Widget _buildArrowWidget(String label, double rotation, bool isDragging) {
     final double scale = AppSettings.navigationArrowScale;
     final Color color = Color(AppSettings.navigationArrowColor);
@@ -1143,11 +1486,10 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
                 ),
               ],
             ),
-            // --- MENGGUNAKAN TRANSFORM ROTATE ---
             child: Transform.rotate(
               angle: rotation,
               child: Icon(
-                Icons.arrow_upward, // Selalu gunakan panah atas sebagai base
+                Icons.arrow_upward,
                 size: 48 * scale,
                 color: isDragging ? Colors.yellow : color,
                 shadows: const [Shadow(blurRadius: 4, color: Colors.black)],
