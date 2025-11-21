@@ -1,7 +1,3 @@
-Berikut adalah versi **README.md** yang telah diperbarui. Bagian informasi pengembang telah dihapus, dan fitur-fitur teknis baru (seperti transisi awan, slideshow distrik, dan animasi navigasi) yang ditemukan dalam kode telah ditambahkan untuk membuat dokumentasi lebih lengkap.
-
------
-
 # 🧠 Mind Palace Manager
 
 **Mind Palace Manager** adalah aplikasi Flutter yang dirancang untuk membantu Anda membangun, memvisualisasikan, dan mengelola "Istana Pikiran" (Memory Palace) digital Anda secara offline dan aman.
