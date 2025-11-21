@@ -12,8 +12,13 @@ import 'package:mind_palace_manager/features/objects/presentation/recursive_obje
 
 class BuildingViewerPage extends StatefulWidget {
   final Directory buildingDirectory;
+  final String? initialRoomId; // <--- TAMBAHAN: Parameter ID Ruangan Awal
 
-  const BuildingViewerPage({super.key, required this.buildingDirectory});
+  const BuildingViewerPage({
+    super.key,
+    required this.buildingDirectory,
+    this.initialRoomId, // <--- TAMBAHAN
+  });
 
   @override
   State<BuildingViewerPage> createState() => _BuildingViewerPageState();
@@ -89,12 +94,22 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
 
         if (_rooms.isNotEmpty) {
           if (_currentRoom != null) {
+            // Jika sudah ada _currentRoom (misal setelah reload), pertahankan
             _currentRoom = _rooms.firstWhere(
               (r) => r['id'] == _currentRoom!['id'],
               orElse: () => _rooms[0],
             );
           } else {
-            _currentRoom = _rooms[0];
+            // --- PERUBAHAN DI SINI: Cek initialRoomId ---
+            if (widget.initialRoomId != null) {
+              _currentRoom = _rooms.firstWhere(
+                (r) => r['id'] == widget.initialRoomId,
+                orElse: () => _rooms[0],
+              );
+            } else {
+              _currentRoom = _rooms[0];
+            }
+            // --------------------------------------------
           }
           await _loadRoomObjects(_currentRoom!['id']);
         } else {
@@ -326,10 +341,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
   }
 
   // ... (Dialogs: _showEditObjectDialog, _updateObject, _deleteObject, _showAddObjectDialog, _createNewObject)
-  // Kode dialog ini SAMA PERSIS dengan yang lama, disingkat agar fokus ke perubahan visual.
-  // Pastikan Anda tetap menyertakan implementasi fungsi CRUD objek yang sudah ada di kode sebelumnya.
   Future<void> _showEditObjectDialog(Map<String, dynamic> obj) async {
-    // (Implementasi sama seperti sebelumnya)
     final nameController = TextEditingController(text: obj['name']);
     final iconTextController = TextEditingController();
     String iconType = obj['icon_type'] ?? 'default';
@@ -607,15 +619,13 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
   }
 
   // ==========================================
-  // BUILDER METHODS UTAMA (MODIFIKASI DI SINI)
+  // BUILDER METHODS
   // ==========================================
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // 1. Buat Scaffold tembus pandang ke belakang AppBar
       extendBodyBehindAppBar: true,
-      // 2. AppBar transparan
       appBar: AppBar(
         title: Text(
           _currentRoom?['name'] ?? 'Viewer',
@@ -726,18 +736,12 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          // 3. Wrap dengan RepaintBoundary untuk Export Lengkap
           : RepaintBoundary(
               key: _globalKey,
               child: Stack(
                 children: [
-                  // Layer 1: Background (Blurred Image / Solid / Gradient)
                   _buildImmersiveBackground(),
-
-                  // Layer 2: Overlay Gelap agar konten terbaca
                   _buildOverlay(),
-
-                  // Layer 3: Konten Interaktif (Gambar Ruangan Fokus + Objek)
                   _buildInteractiveContent(),
                 ],
               ),
@@ -751,7 +755,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
 
     final imagePath = _currentRoom!['image'];
 
-    // JIKA ADA GAMBAR RUANGAN -> Tampilkan sebagai background blur
     if (imagePath != null) {
       final file = File(p.join(widget.buildingDirectory.path, imagePath));
       if (file.existsSync()) {
@@ -760,7 +763,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
           builder: (context, blur, child) {
             return Stack(
               children: [
-                // Gambar Full Cover
                 Positioned.fill(
                   child: Image.file(
                     file,
@@ -769,7 +771,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
                     height: double.infinity,
                   ),
                 ),
-                // Efek Blur
                 Positioned.fill(
                   child: BackdropFilter(
                     filter: ui.ImageFilter.blur(sigmaX: blur, sigmaY: blur),
@@ -783,9 +784,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
       }
     }
 
-    // JIKA TIDAK ADA GAMBAR -> Gunakan Fallback (Solid/Gradient) dari AppSettings
-    // Kita baca mode dari AppSettings.wallpaperMode, tapi untuk konsistensi
-    // kita bisa langsung cek preferensi warna saja.
     final mode = AppSettings.wallpaperMode;
 
     if (mode == 'gradient') {
@@ -810,17 +808,12 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
       );
     }
 
-    // Default Fallback jika mode wallpaper adalah static/slideshow tapi ruangan ini kosong
-    // Kita gunakan warna solid default atau theme
     return Container(color: Theme.of(context).scaffoldBackgroundColor);
   }
 
   Widget _buildOverlay() {
     return ValueListenableBuilder<double>(
-      valueListenable: AppSettings
-          .backgroundOverlayOpacity, // Kita gunakan opacity umum dulu
-      // Atau jika ingin opacity khusus, bisa buat key baru.
-      // Untuk sekarang kita pakai opacity background overlay yang ada.
+      valueListenable: AppSettings.backgroundOverlayOpacity,
       builder: (context, opacity, child) {
         return Container(color: Colors.black.withOpacity(opacity));
       },
@@ -843,8 +836,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
         );
       }
     } else {
-      // Jika tidak ada gambar, tampilkan placeholder transparan agar interaktifitas tetap jalan
-      // Atau ikon besar di tengah
       bgImage = const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -875,7 +866,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
           child: Center(
             child: Stack(
               children: [
-                // 1. Layer Gambar Utama (Fit Contain) & Tap Area
                 GestureDetector(
                   onTapDown: _isObjectEditMode
                       ? (d) {
@@ -896,7 +886,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
                   ),
                 ),
 
-                // 2. Layer Objek (Furniture)
                 ..._roomObjects.map((obj) {
                   final double x = obj['x'] ?? 0.5;
                   final double y = obj['y'] ?? 0.5;
@@ -915,7 +904,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
                   );
                 }),
 
-                // 3. Layer Navigasi (Panah)
                 if (AppSettings.showNavigationArrows)
                   ...connections.map((conn) {
                     final String direction = conn['direction'] ?? 'up';
@@ -997,8 +985,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
       },
     );
   }
-
-  // --- BUILDER METHODS (Icons & Arrows - Sama seperti sebelumnya) ---
 
   Widget _buildObjectWidget(Map<String, dynamic> obj, bool isMoving) {
     final iconType = obj['icon_type'] ?? 'default';

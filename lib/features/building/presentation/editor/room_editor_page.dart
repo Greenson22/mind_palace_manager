@@ -6,6 +6,9 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:mind_palace_manager/app_settings.dart';
 
+// --- TAMBAHAN IMPORT ---
+import 'package:mind_palace_manager/features/building/presentation/viewer/building_viewer_page.dart';
+
 class RoomEditorPage extends StatefulWidget {
   final Directory buildingDirectory;
 
@@ -253,25 +256,14 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
                   child: const Text('Batal'),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
-                // --- PERBAIKAN DIMULAI DI SINI ---
                 ElevatedButton(
                   child: const Text('Simpan'),
                   onPressed: () async {
-                    // Tambahkan async
                     if (_roomNameController.text.trim().isEmpty) return;
-
-                    // Tampilkan indikator loading jika perlu, atau nonaktifkan tombol
-                    // Untuk sederhananya, kita tunggu proses selesai:
-                    await _updateRoom(room); // Tambahkan await!
-
-                    if (context.mounted) {
-                      Navigator.of(
-                        context,
-                      ).pop(); // Tutup dialog setelah selesai
-                    }
+                    await _updateRoom(room);
+                    if (context.mounted) Navigator.of(context).pop();
                   },
                 ),
-                // --- PERBAIKAN SELESAI ---
               ],
             );
           },
@@ -288,8 +280,6 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
       final String newName = _roomNameController.text.trim();
       final String? oldImageName = room['image'];
       String? newRelativeImagePath = oldImageName;
-
-      // Logika Hapus/Ganti Gambar
       if (_pickedImagePath == 'DELETE_IMAGE') {
         if (oldImageName != null) {
           final oldFile = File(
@@ -314,14 +304,11 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
         );
         newRelativeImagePath = uniqueFileName;
       }
-
       setState(() {
         room['name'] = newName;
         room['image'] = newRelativeImagePath;
       });
-
       await _saveData();
-
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -536,9 +523,7 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
                     await _saveData();
 
                     // Tawaran otomatis navigasi balik
-                    if (mounted) {
-                      _offerReturnNavigation(fromRoom, selectedTargetRoomId!);
-                    }
+                    _offerReturnNavigation(fromRoom, selectedTargetRoomId!);
 
                     labelController.clear();
                     selectedTargetRoomId = null;
@@ -657,6 +642,21 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
           key: ValueKey(room['id']),
           leading: leading,
           title: Text(room['name'] ?? '?'),
+
+          // --- TAMBAHAN: Navigasi saat di-tap ---
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (c) => BuildingViewerPage(
+                  buildingDirectory: widget.buildingDirectory,
+                  initialRoomId: room['id'], // Pass ID Ruangan
+                ),
+              ),
+            );
+          },
+
+          // ---------------------------------------
           trailing: _isReorderMode
               ? ReorderableDragStartListener(
                   index: index,
