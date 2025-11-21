@@ -260,7 +260,7 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
       "type": viewMode,
       "parent_room_id": parentRoomId,
       "icon_type": "default",
-      "icon_data": null, // Digunakan untuk nama file gambar atau string teks
+      "icon_data": null,
     };
 
     setState(() {
@@ -277,18 +277,13 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
     }
   }
 
-  // --- UPDATED: Dialog Edit Child untuk mendukung Teks & Gambar ---
   Future<void> _showEditChildDialog(Map<String, dynamic> child) async {
     final nameController = TextEditingController(text: child['name']);
     final iconTextController = TextEditingController();
 
     String selectedType = child['type'] ?? 'mapContainer';
     String iconType = child['icon_type'] ?? 'default';
-
-    // Handling data lama (icon_path) vs data baru (icon_data)
     dynamic currentIconData = child['icon_data'] ?? child['icon_path'];
-
-    // Temp variable untuk gambar baru
     String? tempNewImagePath;
 
     if (iconType == 'text') {
@@ -327,10 +322,6 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    const Text(
-                      'Tipe Perilaku:',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
                     DropdownButton<String>(
                       value: selectedType,
                       isExpanded: true,
@@ -348,10 +339,6 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
                           setDialogState(() => selectedType = val!),
                     ),
                     const SizedBox(height: 16),
-                    const Text(
-                      'Tampilan Ikon:',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
                     DropdownButton<String>(
                       value: iconType,
                       isExpanded: true,
@@ -363,19 +350,15 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
                       }).toList(),
                       onChanged: (v) => setDialogState(() => iconType = v!),
                     ),
-
-                    // Input jika Teks
                     if (iconType == 'text')
                       TextField(
                         controller: iconTextController,
                         decoration: const InputDecoration(
-                          labelText: 'Karakter (Emoji/Huruf)',
+                          labelText: 'Karakter',
                           hintText: 'Contoh: 📦',
                         ),
                         maxLength: 2,
                       ),
-
-                    // Input jika Gambar
                     if (iconType == 'image')
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -429,18 +412,12 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
                   onPressed: () {
                     if (nameController.text.trim().isNotEmpty) {
                       Navigator.pop(c);
-
-                      // Tentukan data ikon yang akan disimpan
                       String? finalIconData;
-
                       if (iconType == 'text') {
                         finalIconData = iconTextController.text;
                       } else if (iconType == 'image') {
-                        // Jika ada gambar baru, gunakan path sementaranya
-                        // Nanti _updateChild yang akan copy file-nya
                         finalIconData = tempNewImagePath ?? currentIconData;
                       }
-
                       _updateChild(
                         child,
                         nameController.text.trim(),
@@ -461,7 +438,6 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
     );
   }
 
-  // --- UPDATED: Update Logic untuk handle Teks & Gambar ---
   Future<void> _updateChild(
     Map<String, dynamic> child,
     String newName,
@@ -476,9 +452,7 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
       child['icon_type'] = newIconType;
     });
 
-    // Proses penyimpanan Icon Data
     if (newIconType == 'image' && newIconData != null && isNewImage) {
-      // Jika gambar baru dipilih, copy ke folder objek
       final File checkFile = File(newIconData);
       if (checkFile.existsSync()) {
         final childDir = Directory(
@@ -491,22 +465,18 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
         final destPath = p.join(childDir.path, fileName);
 
         await checkFile.copy(destPath);
-        child['icon_data'] = fileName; // Simpan nama file saja
+        child['icon_data'] = fileName;
       }
     } else if (newIconType == 'text') {
-      // Jika teks, simpan string langsung
       child['icon_data'] = newIconData;
     } else if (newIconType == 'default') {
       child['icon_data'] = null;
     } else {
-      // Case: Image tapi tidak ganti gambar (keep existing filename)
       child['icon_data'] = newIconData;
     }
 
-    // Bersihkan field legacy jika ada
     child.remove('icon_path');
 
-    // Update metadata di dalam file anak juga (opsional, agar sinkron)
     try {
       final childJson = File(
         p.join(widget.objectDirectory.path, child['id'], 'object_data.json'),
@@ -692,13 +662,32 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
     }
 
     return Scaffold(
+      extendBodyBehindAppBar: true, // --- AGAR APPBAR TEMBUS PANDANG ---
       appBar: AppBar(
+        // --- APPBAR TRANSPARAN ---
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(
+          color: Colors.white,
+          shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+        ),
         title: Column(
           children: [
-            Text(widget.objectName, style: const TextStyle(fontSize: 16)),
+            Text(
+              widget.objectName,
+              style: const TextStyle(
+                fontSize: 16,
+                color: Colors.white,
+                shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+              ),
+            ),
             Text(
               isMapMode ? '(Mode Wadah)' : '(Mode Lokasi)',
-              style: const TextStyle(fontSize: 10, color: Colors.grey),
+              style: const TextStyle(
+                fontSize: 10,
+                color: Colors.white70,
+                shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+              ),
             ),
           ],
         ),
@@ -825,31 +814,131 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
           ),
         ],
       ),
-      body: Column(
+      // --- GUNAKAN STACK UNTUK BACKGROUND BURAM & OVERLAY ---
+      body: Stack(
         children: [
-          if (_isEditMode)
-            Container(
-              color: _movingChildId != null
-                  ? Colors.blue.shade100
-                  : Theme.of(context).colorScheme.surfaceVariant,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              width: double.infinity,
-              child: Text(
-                _movingChildId != null
-                    ? "MODE PINDAH: Ketuk lokasi baru untuk meletakkan."
-                    : "Mode Edit Aktif: Ketuk objek untuk edit.",
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: _movingChildId != null ? Colors.blue : null,
-                  fontWeight: _movingChildId != null ? FontWeight.bold : null,
+          // Layer 1: Background Buram
+          _buildImmersiveBackground(),
+
+          // Layer 2: Overlay Gelap
+          _buildOverlay(),
+
+          // Layer 3: Konten Utama
+          Column(
+            children: [
+              if (_isEditMode)
+                Container(
+                  color: _movingChildId != null
+                      ? Colors.blue.shade100.withOpacity(0.9)
+                      : Theme.of(
+                          context,
+                        ).colorScheme.surfaceVariant.withOpacity(0.9),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  margin: EdgeInsets.only(
+                    top: MediaQuery.of(context).padding.top + 56,
+                  ), // Geser ke bawah AppBar
+                  width: double.infinity,
+                  child: Text(
+                    _movingChildId != null
+                        ? "MODE PINDAH: Ketuk lokasi baru untuk meletakkan."
+                        : "Mode Edit Aktif: Ketuk objek untuk edit.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: _movingChildId != null ? Colors.blue : null,
+                      fontWeight: _movingChildId != null
+                          ? FontWeight.bold
+                          : null,
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          Expanded(child: mainContent),
+              Expanded(child: mainContent),
+            ],
+          ),
         ],
       ),
       floatingActionButton: _buildFloatingActionButton(isMapMode),
+    );
+  }
+
+  // --- FUNGSI BUILD BACKGROUND BURAM (BARU) ---
+  Widget _buildImmersiveBackground() {
+    final isMapMode = _objectData['view_mode'] == 'mapContainer';
+    File? bgFile;
+
+    if (isMapMode) {
+      bgFile = _backgroundImageFile;
+    } else {
+      // Mode Immersive: Ambil gambar ruangan saat ini
+      if (_currentRoom != null && _currentRoom!['image'] != null) {
+        final imagePath = _currentRoom!['image'];
+        bgFile = File(p.join(widget.objectDirectory.path, imagePath));
+      }
+    }
+
+    if (bgFile != null && bgFile.existsSync()) {
+      return ValueListenableBuilder<double>(
+        valueListenable: AppSettings.blurStrength,
+        builder: (context, blur, child) {
+          return Stack(
+            children: [
+              Positioned.fill(
+                child: Image.file(
+                  bgFile!,
+                  fit: BoxFit.cover, // Background memenuhi layar
+                  width: double.infinity,
+                  height: double.infinity,
+                ),
+              ),
+              Positioned.fill(
+                child: BackdropFilter(
+                  filter: ui.ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+                  child: Container(color: Colors.black.withOpacity(0)),
+                ),
+              ),
+            ],
+          );
+        },
+      );
+    }
+
+    // Fallback ke Solid/Gradient jika tidak ada gambar
+    final mode = AppSettings.wallpaperMode;
+    if (mode == 'gradient') {
+      return Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(AppSettings.gradientColor1),
+              Color(AppSettings.gradientColor2),
+            ],
+          ),
+        ),
+      );
+    } else if (mode == 'solid') {
+      return ValueListenableBuilder<int>(
+        valueListenable: AppSettings.solidColor,
+        builder: (context, colorVal, child) {
+          return Container(color: Color(colorVal));
+        },
+      );
+    }
+
+    return Container(color: Theme.of(context).scaffoldBackgroundColor);
+  }
+
+  // --- FUNGSI BUILD OVERLAY (BARU) ---
+  Widget _buildOverlay() {
+    return ValueListenableBuilder<double>(
+      valueListenable: AppSettings.backgroundOverlayOpacity,
+      builder: (context, opacity, child) {
+        return Container(color: Colors.black.withOpacity(opacity));
+      },
     );
   }
 
@@ -879,7 +968,7 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
         child: Text(
           'Belum ada isi/objek.\nMasuk Mode Edit untuk menambahkan.',
           textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.grey),
+          style: TextStyle(color: Colors.white70), // Warna teks disesuaikan
         ),
       );
     }
@@ -900,16 +989,20 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
               color: type == 'mapContainer' ? Colors.blue : Colors.orange,
             ),
           ),
-          title: Text(child['name']),
+          title: Text(
+            child['name'],
+            style: const TextStyle(color: Colors.white),
+          ), // Teks putih
           subtitle: Text(
             type == 'mapContainer' ? 'Tipe: Wadah' : 'Tipe: Lokasi',
+            style: const TextStyle(color: Colors.white70),
           ),
           trailing: _isEditMode
               ? IconButton(
                   icon: const Icon(Icons.edit, color: Colors.green),
                   onPressed: () => _showEditChildDialog(child),
                 )
-              : const Icon(Icons.chevron_right),
+              : const Icon(Icons.chevron_right, color: Colors.white70),
           onTap: () => _handleChildTap(child),
         );
       },
@@ -919,7 +1012,10 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
   Widget _buildImmersiveRoomCanvas() {
     if (_currentRoom == null) {
       return const Center(
-        child: Text('Belum ada ruangan.\nKlik tombol menu > Kelola Ruangan.'),
+        child: Text(
+          'Belum ada ruangan.\nKlik tombol menu > Kelola Ruangan.',
+          style: TextStyle(color: Colors.white),
+        ),
       );
     }
 
@@ -935,14 +1031,32 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
       if (f.existsSync()) roomFile = f;
     }
 
+    // Jika tidak ada gambar ruangan, interaksi tetap bisa dilakukan di area kosong
+    // Background sudah ditangani oleh _buildImmersiveBackground
+    Widget content;
     if (roomFile == null) {
-      return const Center(
-        child: Icon(Icons.image_not_supported, size: 64, color: Colors.grey),
+      content = const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.image_not_supported, size: 64, color: Colors.white54),
+            SizedBox(height: 16),
+            Text(
+              "Tidak ada gambar ruangan",
+              style: TextStyle(color: Colors.white70),
+            ),
+          ],
+        ),
       );
+    } else {
+      content = Image.file(
+        roomFile,
+        fit: BoxFit.contain,
+      ); // Gambar interaktif (tajam)
     }
 
     return _buildInteractiveArea(
-      imageFile: roomFile,
+      contentWidget: content,
       children: roomChildren,
       isMapStyle: false,
     );
@@ -954,9 +1068,16 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.image_not_supported, size: 64, color: Colors.grey),
+            const Icon(
+              Icons.image_not_supported,
+              size: 64,
+              color: Colors.white54,
+            ),
             const SizedBox(height: 16),
-            const Text('Belum ada gambar wadah.'),
+            const Text(
+              'Belum ada gambar wadah.',
+              style: TextStyle(color: Colors.white70),
+            ),
             if (_isEditMode)
               ElevatedButton(
                 onPressed: _pickBackgroundImage,
@@ -968,14 +1089,14 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
     }
 
     return _buildInteractiveArea(
-      imageFile: _backgroundImageFile!,
+      contentWidget: Image.file(_backgroundImageFile!, fit: BoxFit.contain),
       children: _objectData['children'] as List? ?? [],
       isMapStyle: isMapStyle,
     );
   }
 
   Widget _buildInteractiveArea({
-    required File imageFile,
+    required Widget contentWidget,
     required List children,
     required bool isMapStyle,
   }) {
@@ -1007,7 +1128,6 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
                       final y =
                           details.localPosition.dy / constraints.maxHeight;
 
-                      // LOGIKA PINDAH
                       if (_movingChildId != null) {
                         _confirmMoveChild(x, y);
                       } else {
@@ -1020,11 +1140,11 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
 
               child: Stack(
                 children: [
-                  Image.file(
-                    imageFile,
+                  // Gambar/Konten Utama (Fit Contain)
+                  SizedBox(
                     width: constraints.maxWidth,
                     height: constraints.maxHeight,
-                    fit: BoxFit.contain,
+                    child: contentWidget,
                   ),
 
                   ...children.map((child) {
@@ -1069,7 +1189,6 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
     );
   }
 
-  // --- UPDATED: Build Widget untuk mendukung render Teks & Gambar ---
   Widget _buildChildWidget(
     Map<String, dynamic> child,
     BoxConstraints constraints,
@@ -1079,7 +1198,6 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
     final String type = child['type'] ?? 'mapContainer';
 
     final String iconType = child['icon_type'] ?? 'default';
-    // Support legacy (icon_path) vs new (icon_data)
     final String? iconData = child['icon_data'] ?? child['icon_path'];
 
     final bool isMoving = (child['id'] == _movingChildId);
@@ -1092,7 +1210,6 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
     Widget childContent;
 
     if (iconType == 'image' && iconData != null) {
-      // RENDER GAMBAR
       final file = File(
         p.join(widget.objectDirectory.path, child['id'], iconData),
       );
@@ -1132,7 +1249,6 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
         );
       }
     } else if (iconType == 'text' && iconData != null) {
-      // RENDER TEKS / EMOJI
       childContent = Container(
         width: 40,
         height: 40,
@@ -1160,7 +1276,6 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
         ),
       );
     } else {
-      // RENDER DEFAULT
       childContent = _buildDefaultMarker(
         defaultIcon,
         color,
@@ -1169,8 +1284,6 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
       );
     }
 
-    // Jika bukan map style dan bukan gambar (atau jika user mau label tetap muncul)
-    // Kita tambahkan label nama di bawahnya
     if (!isMapStyle && iconType != 'image') {
       childContent = Column(
         mainAxisSize: MainAxisSize.min,
@@ -1256,7 +1369,8 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
       width: double.infinity,
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        // Transparan agar background terlihat, atau beri warna semi-transparan
+        color: Theme.of(context).colorScheme.surface.withOpacity(0.8),
         boxShadow: [
           BoxShadow(blurRadius: 5, color: Colors.black.withOpacity(0.1)),
         ],
@@ -1306,7 +1420,8 @@ class _RecursiveObjectPageState extends State<RecursiveObjectPage> {
               child: Text(
                 'Tidak ada pintu navigasi.',
                 style: TextStyle(
-                  color: Colors.grey,
+                  color: Colors
+                      .grey, // Atau warna yang kontras dengan background gelap
                   fontStyle: FontStyle.italic,
                 ),
               ),
