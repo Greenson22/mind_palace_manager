@@ -19,10 +19,7 @@ class _ObjectRoomEditorPageState extends State<ObjectRoomEditorPage> {
   late File _jsonFile;
   Map<String, dynamic> _objectData = {};
   bool _isLoading = true;
-
-  // Mode urutkan ruangan
   bool _isReorderMode = false;
-
   final TextEditingController _roomNameController = TextEditingController();
   String? _pickedImagePath;
 
@@ -41,6 +38,7 @@ class _ObjectRoomEditorPageState extends State<ObjectRoomEditorPage> {
     super.dispose();
   }
 
+  // ... (Bagian loadData, saveData, showAddRoomDialog, createRoom, showEditRoomDialog, updateRoom, exportRoomImage, deleteRoom TETAP SAMA) ...
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
@@ -54,7 +52,6 @@ class _ObjectRoomEditorPageState extends State<ObjectRoomEditorPage> {
           "children": [],
         };
       }
-      // Pastikan array rooms ada
       _objectData['rooms'] ??= [];
       for (var room in _rooms) {
         room['connections'] ??= [];
@@ -69,12 +66,9 @@ class _ObjectRoomEditorPageState extends State<ObjectRoomEditorPage> {
     await _jsonFile.writeAsString(json.encode(_objectData));
   }
 
-  // --- CRUD RUANGAN ---
-
   Future<void> _showAddRoomDialog() async {
     _roomNameController.clear();
     _pickedImagePath = null;
-
     await showDialog(
       context: context,
       builder: (c) => StatefulBuilder(
@@ -129,7 +123,6 @@ class _ObjectRoomEditorPageState extends State<ObjectRoomEditorPage> {
   Future<void> _createRoom() async {
     if (_roomNameController.text.isEmpty) return;
     Navigator.pop(context);
-
     String? relativePath;
     if (_pickedImagePath != null) {
       final ext = p.extension(_pickedImagePath!);
@@ -139,24 +132,19 @@ class _ObjectRoomEditorPageState extends State<ObjectRoomEditorPage> {
       ).copy(p.join(widget.objectDirectory.path, fileName));
       relativePath = fileName;
     }
-
     final newRoom = {
       'id': DateTime.now().millisecondsSinceEpoch.toString(),
       'name': _roomNameController.text.trim(),
       'image': relativePath,
       'connections': [],
     };
-
     setState(() => _rooms.add(newRoom));
     await _saveData();
   }
 
-  // --- EDIT RUANGAN (BARU) ---
-
   Future<void> _showEditRoomDialog(Map<String, dynamic> room) async {
     _roomNameController.text = room['name'] ?? '';
     _pickedImagePath = null;
-
     await showDialog<void>(
       context: context,
       builder: (BuildContext context) {
@@ -165,13 +153,11 @@ class _ObjectRoomEditorPageState extends State<ObjectRoomEditorPage> {
             String currentImageName = room['image'] == null
                 ? 'Tidak ada gambar'
                 : 'Saat ini: ${room['image']}';
-
             if (_pickedImagePath != null) {
               currentImageName = 'Baru: ${p.basename(_pickedImagePath!)}';
             } else if (_pickedImagePath == 'DELETE_IMAGE') {
               currentImageName = 'Gambar akan dihapus';
             }
-
             return AlertDialog(
               title: Text('Ubah Ruangan: ${room['name']}'),
               content: SingleChildScrollView(
@@ -253,7 +239,6 @@ class _ObjectRoomEditorPageState extends State<ObjectRoomEditorPage> {
         );
       },
     );
-
     _roomNameController.clear();
     _pickedImagePath = null;
     await _loadData();
@@ -264,7 +249,6 @@ class _ObjectRoomEditorPageState extends State<ObjectRoomEditorPage> {
       final String newName = _roomNameController.text.trim();
       final String? oldImageName = room['image'];
       String? newRelativeImagePath = oldImageName;
-
       if (_pickedImagePath == 'DELETE_IMAGE') {
         if (oldImageName != null) {
           final oldFile = File(
@@ -281,28 +265,22 @@ class _ObjectRoomEditorPageState extends State<ObjectRoomEditorPage> {
           );
           if (await oldFile.exists()) await oldFile.delete();
         }
-
         final sourceFile = File(newPath);
         final extension = p.extension(newPath);
         final uniqueFileName =
             'room_${DateTime.now().millisecondsSinceEpoch}$extension';
-
         final destinationPath = p.join(
           widget.objectDirectory.path,
           uniqueFileName,
         );
-
         await sourceFile.copy(destinationPath);
         newRelativeImagePath = uniqueFileName;
       }
-
       setState(() {
         room['name'] = newName;
         room['image'] = newRelativeImagePath;
       });
-
       await _saveData();
-
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -312,68 +290,56 @@ class _ObjectRoomEditorPageState extends State<ObjectRoomEditorPage> {
         );
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Gagal memperbarui ruangan: $e')),
         );
-      }
     }
   }
-
-  // --- EXPORT IMAGE (BARU) ---
 
   Future<void> _exportRoomImage(Map<String, dynamic> room) async {
     final roomImageName = room['image'];
     if (roomImageName == null) {
-      if (mounted) {
+      if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Ruangan ini tidak memiliki gambar untuk diexport.'),
+            content: Text('Ruangan ini tidak memiliki gambar.'),
             backgroundColor: Colors.red,
           ),
         );
-      }
       return;
     }
-
     if (AppSettings.exportPath == null) {
-      if (mounted) {
+      if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Atur folder export di Pengaturan terlebih dahulu.'),
             backgroundColor: Colors.orange,
           ),
         );
-      }
       return;
     }
-
     try {
       final sourceFile = File(
         p.join(widget.objectDirectory.path, roomImageName),
       );
-
       if (!await sourceFile.exists()) {
-        if (mounted) {
+        if (mounted)
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('File gambar tidak ditemukan.'),
               backgroundColor: Colors.red,
             ),
           );
-        }
         return;
       }
-
       final roomName = room['name'] ?? 'tanpa_nama';
       final extension = p.extension(roomImageName);
       final now = DateTime.now();
       final fileName =
           'objroom_${roomName}_${now.year}${now.month}${now.day}_${now.hour}${now.minute}${now.second}$extension';
-
       final destinationPath = p.join(AppSettings.exportPath!, fileName);
       await sourceFile.copy(destinationPath);
-
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -385,18 +351,15 @@ class _ObjectRoomEditorPageState extends State<ObjectRoomEditorPage> {
         );
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Gagal export gambar ruangan: $e'),
             backgroundColor: Colors.red,
           ),
         );
-      }
     }
   }
-
-  // --- DELETE ROOM ---
 
   Future<void> _deleteRoom(Map<String, dynamic> room) async {
     final bool? didConfirm = await showDialog<bool>(
@@ -417,14 +380,11 @@ class _ObjectRoomEditorPageState extends State<ObjectRoomEditorPage> {
         ],
       ),
     );
-
     if (didConfirm != true) return;
-
     if (room['image'] != null) {
       final f = File(p.join(widget.objectDirectory.path, room['image']));
       if (await f.exists()) await f.delete();
     }
-
     setState(() {
       _rooms.removeWhere((r) => r['id'] == room['id']);
       for (var r in _rooms) {
@@ -435,8 +395,6 @@ class _ObjectRoomEditorPageState extends State<ObjectRoomEditorPage> {
     });
     await _saveData();
   }
-
-  // --- NAVIGASI (CONNECTION) MANAGER ---
 
   Future<void> _handleDeleteNavigation(
     Map<String, dynamic> fromRoom,
@@ -461,13 +419,10 @@ class _ObjectRoomEditorPageState extends State<ObjectRoomEditorPage> {
         ],
       ),
     );
-
     if (didConfirm != true) return;
-
     final String targetRoomId = conn['targetRoomId'];
     Map<String, dynamic>? targetRoom;
     Map<String, dynamic>? returnConnection;
-
     try {
       targetRoom = _rooms.firstWhere(
         (r) => r['id'] == targetRoomId,
@@ -481,7 +436,6 @@ class _ObjectRoomEditorPageState extends State<ObjectRoomEditorPage> {
             );
       }
     } catch (_) {}
-
     if (returnConnection != null) {
       final bool? deleteReturn = await showDialog<bool>(
         context: context,
@@ -503,29 +457,24 @@ class _ObjectRoomEditorPageState extends State<ObjectRoomEditorPage> {
           ],
         ),
       );
-
       if (deleteReturn == true) {
         (targetRoom!['connections'] as List).remove(returnConnection);
       }
     }
-
     setDialogState(() {
       (fromRoom['connections'] as List).remove(conn);
     });
-
     await _saveData();
-
-    if (mounted) {
+    if (mounted)
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Navigasi berhasil dihapus')),
       );
-    }
   }
 
+  // --- MODIFIED NAVIGATION DIALOG ---
   Future<void> _showNavigationDialog(Map<String, dynamic> fromRoom) async {
     final otherRooms = _rooms.where((r) => r['id'] != fromRoom['id']).toList();
     final connections = (fromRoom['connections'] as List? ?? []);
-
     final labelController = TextEditingController();
     String? selectedTargetRoomId;
 
@@ -554,15 +503,31 @@ class _ObjectRoomEditorPageState extends State<ObjectRoomEditorPage> {
                       )['name'];
                       return ListTile(
                         title: Text("${conn['label']} -> $targetName"),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () {
-                            _handleDeleteNavigation(
-                              fromRoom,
-                              conn,
-                              setDialogState,
-                            );
-                          },
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // --- TOMBOL EDIT LABEL BARU ---
+                            IconButton(
+                              icon: const Icon(
+                                Icons.edit,
+                                color: Colors.orange,
+                              ),
+                              onPressed: () async {
+                                await _showEditLabelDialog(conn);
+                                setDialogState(() {}); // Refresh
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () {
+                                _handleDeleteNavigation(
+                                  fromRoom,
+                                  conn,
+                                  setDialogState,
+                                );
+                              },
+                            ),
+                          ],
                         ),
                       );
                     }),
@@ -604,10 +569,8 @@ class _ObjectRoomEditorPageState extends State<ObjectRoomEditorPage> {
               ElevatedButton(
                 onPressed: () async {
                   if (selectedTargetRoomId == null) return;
-
                   Map<String, dynamic> targetRoom;
                   String targetRoomName;
-
                   try {
                     targetRoom = _rooms.firstWhere(
                       (r) => r['id'] == selectedTargetRoomId,
@@ -617,6 +580,7 @@ class _ObjectRoomEditorPageState extends State<ObjectRoomEditorPage> {
                     return;
                   }
 
+                  // LOGIKA LABEL DEFAULT SUDAH BENAR DI SINI
                   String label = labelController.text.trim();
                   if (label.isEmpty) {
                     label = targetRoomName;
@@ -627,17 +591,13 @@ class _ObjectRoomEditorPageState extends State<ObjectRoomEditorPage> {
                     'label': label,
                     'targetRoomId': selectedTargetRoomId,
                   };
-
                   setDialogState(() {
                     connections.add(newConnection);
                   });
                   await _saveData();
-
-                  String addedLabel = label;
                   labelController.clear();
                   selectedTargetRoomId = null;
 
-                  // Logika navigasi balik otomatis
                   final bool? createReturn = await showDialog<bool>(
                     context: context,
                     builder: (ctx) => AlertDialog(
@@ -668,20 +628,17 @@ class _ObjectRoomEditorPageState extends State<ObjectRoomEditorPage> {
                       };
                       (targetRoom['connections'] as List).add(returnConnection);
                       await _saveData();
-
-                      if (mounted) {
+                      if (mounted)
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text('Navigasi balik berhasil dibuat.'),
                             backgroundColor: Colors.green,
                           ),
                         );
-                      }
                     } catch (e) {
                       debugPrint("Gagal buat navigasi balik: $e");
                     }
                   }
-
                   setDialogState(() {});
                 },
                 child: const Text('Tambah'),
@@ -691,7 +648,39 @@ class _ObjectRoomEditorPageState extends State<ObjectRoomEditorPage> {
         },
       ),
     );
-    setState(() {}); // Refresh UI
+    setState(() {});
+  }
+
+  // --- DIALOG EDIT LABEL BARU ---
+  Future<void> _showEditLabelDialog(Map<String, dynamic> connection) async {
+    final controller = TextEditingController(text: connection['label']);
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Ubah Label Tombol'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(labelText: 'Label Baru'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (controller.text.trim().isNotEmpty) {
+                connection['label'] = controller.text.trim();
+                await _saveData();
+              }
+              if (mounted) Navigator.pop(context);
+            },
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

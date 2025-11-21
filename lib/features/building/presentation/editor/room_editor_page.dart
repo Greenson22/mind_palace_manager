@@ -5,8 +5,6 @@ import 'package:path/path.dart' as p;
 import 'dart:io';
 import 'dart:convert';
 import 'package:mind_palace_manager/app_settings.dart';
-
-// --- TAMBAHAN IMPORT ---
 import 'package:mind_palace_manager/features/building/presentation/viewer/building_viewer_page.dart';
 
 class RoomEditorPage extends StatefulWidget {
@@ -19,6 +17,7 @@ class RoomEditorPage extends StatefulWidget {
 }
 
 class _RoomEditorPageState extends State<RoomEditorPage> {
+  // ... (Kode state lainnya tetap sama: _jsonFile, _buildingData, dll) ...
   late File _jsonFile;
   Map<String, dynamic> _buildingData = {'rooms': []};
   bool _isLoading = true;
@@ -41,6 +40,7 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
     super.dispose();
   }
 
+  // ... (Fungsi _loadData, _saveData, _showAddRoomDialog, _createNewRoom, _showEditRoomDialog, _updateRoom, _deleteRoom TETAP SAMA) ...
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
@@ -74,8 +74,6 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
       }
     }
   }
-
-  // --- ROOM CRUD ---
 
   Future<void> _showAddRoomDialog() async {
     _roomNameController.clear();
@@ -375,7 +373,6 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
 
   // --- NAVIGATION LOGIC (WYSIWYG) ---
 
-  // Helper: Koordinat default untuk navigasi balik (atau navigasi baru)
   Map<String, double> _getDefaultCoordsForDirection(String dir) {
     switch (dir) {
       case 'up':
@@ -391,6 +388,7 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
     }
   }
 
+  // --- MODIFIED NAVIGATION DIALOG ---
   Future<void> _showNavigationDialog(Map<String, dynamic> fromRoom) async {
     final otherRooms = _rooms.where((r) => r['id'] != fromRoom['id']).toList();
     final connections = (fromRoom['connections'] as List? ?? []);
@@ -430,7 +428,6 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
                           orElse: () => {'name': '?'},
                         )['name'];
 
-                        // --- TAMPILAN DIPERBAIKI ---
                         return Card(
                           margin: const EdgeInsets.symmetric(vertical: 4),
                           child: ListTile(
@@ -445,20 +442,39 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
                               ),
                             ),
                             subtitle: Text(
-                              "Label: ${conn['label'] ?? 'Pintu'}\nArah: ${conn['direction'] ?? 'up'}\n(Atur posisi di Viewer)",
+                              "Label: ${conn['label'] ?? 'Pintu'}\nArah: ${conn['direction'] ?? 'up'}",
                             ),
                             isThreeLine: true,
-                            trailing: IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () {
-                                setState(() => connections.remove(conn));
-                                _saveData();
-                                setDialogState(() {});
-                              },
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // --- TOMBOL EDIT LABEL BARU ---
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.edit,
+                                    color: Colors.orange,
+                                  ),
+                                  onPressed: () async {
+                                    await _showEditLabelDialog(conn);
+                                    setDialogState(() {}); // Refresh dialog UI
+                                  },
+                                  tooltip: "Ubah Label",
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.delete,
+                                    color: Colors.red,
+                                  ),
+                                  onPressed: () {
+                                    setState(() => connections.remove(conn));
+                                    _saveData();
+                                    setDialogState(() {});
+                                  },
+                                ),
+                              ],
                             ),
                           ),
                         );
-                        // ---------------------------
                       }),
                       const Divider(height: 24),
                       const Text(
@@ -484,12 +500,12 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
                       TextField(
                         controller: labelController,
                         decoration: const InputDecoration(
-                          labelText: 'Label Tombol (Opsional)',
+                          labelText: 'Label Tombol (Kosong = Nama Ruangan)',
                         ),
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        "Catatan: Posisi dan Arah panah akan diatur secara visual di halaman Viewer (Mode Edit).",
+                        "Catatan: Posisi dan Arah panah diatur di Viewer.",
                         style: TextStyle(fontSize: 11, color: Colors.grey),
                       ),
                     ],
@@ -506,24 +522,30 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
                   onPressed: () async {
                     if (selectedTargetRoomId == null) return;
 
-                    // Default values agar muncul di layar dulu
-                    // User akan menggesernya nanti di Viewer
+                    // --- LOGIKA BARU: GUNAKAN NAMA RUANGAN JIKA KOSONG ---
+                    final targetRoom = _rooms.firstWhere(
+                      (r) => r['id'] == selectedTargetRoomId,
+                    );
+                    final targetName = targetRoom['name'] ?? 'Ruangan';
+
+                    final label = labelController.text.trim().isEmpty
+                        ? targetName
+                        : labelController.text.trim();
+
                     final newConnection = {
                       'id': DateTime.now().millisecondsSinceEpoch.toString(),
-                      'label': labelController.text.isEmpty
-                          ? 'Pintu'
-                          : labelController.text,
+                      'label': label,
                       'targetRoomId': selectedTargetRoomId,
-                      'direction': 'up', // Default arah
-                      'x': 0.5, // Default tengah
-                      'y': 0.5, // Default tengah
+                      'direction': 'up',
+                      'x': 0.5,
+                      'y': 0.5,
                     };
 
                     setState(() => connections.add(newConnection));
                     await _saveData();
 
-                    // Tawaran otomatis navigasi balik
-                    _offerReturnNavigation(fromRoom, selectedTargetRoomId!);
+                    if (mounted)
+                      _offerReturnNavigation(fromRoom, selectedTargetRoomId!);
 
                     labelController.clear();
                     selectedTargetRoomId = null;
@@ -535,6 +557,39 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
           },
         );
       },
+    );
+  }
+
+  // --- DIALOG EDIT LABEL BARU ---
+  Future<void> _showEditLabelDialog(Map<String, dynamic> connection) async {
+    final controller = TextEditingController(text: connection['label']);
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Ubah Label Tombol'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(labelText: 'Label Baru'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              // Jika kosong, biarkan label lama atau default
+              if (controller.text.trim().isNotEmpty) {
+                connection['label'] = controller.text.trim();
+                await _saveData();
+              }
+              if (mounted) Navigator.pop(context);
+            },
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -565,7 +620,6 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
 
     if (create == true) {
       targetRoom['connections'] ??= [];
-      // Default posisi untuk navigasi balik (biasanya di bawah/mundur)
       final coords = _getDefaultCoordsForDirection('down');
       (targetRoom['connections'] as List).add({
         'id': DateTime.now().millisecondsSinceEpoch.toString(),
@@ -642,21 +696,17 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
           key: ValueKey(room['id']),
           leading: leading,
           title: Text(room['name'] ?? '?'),
-
-          // --- TAMBAHAN: Navigasi saat di-tap ---
           onTap: () {
             Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (c) => BuildingViewerPage(
                   buildingDirectory: widget.buildingDirectory,
-                  initialRoomId: room['id'], // Pass ID Ruangan
+                  initialRoomId: room['id'],
                 ),
               ),
             );
           },
-
-          // ---------------------------------------
           trailing: _isReorderMode
               ? ReorderableDragStartListener(
                   index: index,
