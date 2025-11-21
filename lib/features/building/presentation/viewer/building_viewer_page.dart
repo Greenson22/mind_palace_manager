@@ -1,6 +1,7 @@
 // lib/features/building/presentation/viewer/building_viewer_page.dart
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math; // Import math untuk PI
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -12,12 +13,12 @@ import 'package:mind_palace_manager/features/objects/presentation/recursive_obje
 
 class BuildingViewerPage extends StatefulWidget {
   final Directory buildingDirectory;
-  final String? initialRoomId; // <--- TAMBAHAN: Parameter ID Ruangan Awal
+  final String? initialRoomId;
 
   const BuildingViewerPage({
     super.key,
     required this.buildingDirectory,
-    this.initialRoomId, // <--- TAMBAHAN
+    this.initialRoomId,
   });
 
   @override
@@ -43,7 +44,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
   String? _movingObjectId;
   String? _draggingConnectionId;
 
-  // --- EXPORT KEY (Sekarang mencakup background) ---
+  // --- EXPORT KEY ---
   final GlobalKey _globalKey = GlobalKey();
 
   late bool _showIcons;
@@ -94,13 +95,11 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
 
         if (_rooms.isNotEmpty) {
           if (_currentRoom != null) {
-            // Jika sudah ada _currentRoom (misal setelah reload), pertahankan
             _currentRoom = _rooms.firstWhere(
               (r) => r['id'] == _currentRoom!['id'],
               orElse: () => _rooms[0],
             );
           } else {
-            // --- PERUBAHAN DI SINI: Cek initialRoomId ---
             if (widget.initialRoomId != null) {
               _currentRoom = _rooms.firstWhere(
                 (r) => r['id'] == widget.initialRoomId,
@@ -109,7 +108,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
             } else {
               _currentRoom = _rooms[0];
             }
-            // --------------------------------------------
           }
           await _loadRoomObjects(_currentRoom!['id']);
         } else {
@@ -159,6 +157,94 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
     await _jsonFile.writeAsString(json.encode(_buildingData));
   }
 
+  // --- HELPER: Konversi data lama (direction string) ke rotasi (radian) ---
+  double _getRotation(Map<String, dynamic> conn) {
+    // Jika sudah ada data rotasi baru, pakai itu
+    if (conn['rotation'] != null) {
+      return (conn['rotation'] as num).toDouble();
+    }
+
+    // Fallback: Konversi data lama (string direction)
+    String dir = conn['direction'] ?? 'up';
+    switch (dir) {
+      case 'up':
+        return 0.0;
+      case 'up_right':
+        return math.pi / 4;
+      case 'right':
+        return math.pi / 2;
+      case 'down_right':
+        return 3 * math.pi / 4;
+      case 'down':
+        return math.pi;
+      case 'down_left':
+        return 5 * math.pi / 4;
+      case 'left':
+        return 3 * math.pi / 2;
+      case 'up_left':
+        return 7 * math.pi / 4;
+      default:
+        return 0.0;
+    }
+  }
+
+  // --- DIALOG: Slider Rotasi ---
+  Future<void> _showRotationDialog(Map<String, dynamic> conn) async {
+    double currentRotation = _getRotation(conn);
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Atur Rotasi Panah'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Preview Ikon di Dialog
+                  Transform.rotate(
+                    angle: currentRotation,
+                    child: const Icon(
+                      Icons.arrow_upward,
+                      size: 48,
+                      color: Colors.blue,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text("Geser untuk memutar:"),
+                  Slider(
+                    value: currentRotation,
+                    min: 0.0,
+                    max: 2 * math.pi, // 360 derajat dalam radian
+                    onChanged: (val) {
+                      setDialogState(() => currentRotation = val);
+                      // Update realtime di layar utama juga
+                      setState(() {
+                        conn['rotation'] = val;
+                        // Hapus legacy direction agar data bersih
+                        conn.remove('direction');
+                      });
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                ElevatedButton(
+                  onPressed: () {
+                    _saveBuildingData(); // Simpan permanen
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Selesai'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   // --- EXPORT FUNCTIONS ---
   Future<void> _exportRoomView() async {
     if (AppSettings.exportPath == null) {
@@ -172,7 +258,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
     }
 
     try {
-      // Mengambil boundary dari Stack utama (termasuk background)
       final boundary =
           _globalKey.currentContext?.findRenderObject()
               as RenderRepaintBoundary?;
@@ -270,46 +355,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
         );
       }
     }
-  }
-
-  // --- HELPER ICONS & LOGIC ---
-  IconData _getIconForDirection(String? dir) {
-    switch (dir) {
-      case 'up':
-        return Icons.arrow_upward;
-      case 'down':
-        return Icons.arrow_downward;
-      case 'left':
-        return Icons.arrow_back;
-      case 'right':
-        return Icons.arrow_forward;
-      case 'up_left':
-        return Icons.north_west;
-      case 'up_right':
-        return Icons.north_east;
-      case 'down_left':
-        return Icons.south_west;
-      case 'down_right':
-        return Icons.south_east;
-      default:
-        return Icons.arrow_circle_up;
-    }
-  }
-
-  String _getNextDirection(String current) {
-    const directions = [
-      'up',
-      'up_right',
-      'right',
-      'down_right',
-      'down',
-      'down_left',
-      'left',
-      'up_left',
-    ];
-    int index = directions.indexOf(current);
-    if (index == -1) return 'up';
-    return directions[(index + 1) % directions.length];
   }
 
   void _startMovingObject(String id, String name) {
@@ -502,18 +547,6 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
     }
   }
 
-  Future<void> _cycleConnectionDirection(String connId) async {
-    if (_currentRoom == null) return;
-    final connections = _currentRoom!['connections'] as List;
-    final index = connections.indexWhere((c) => c['id'] == connId);
-    if (index != -1) {
-      final currentDir = connections[index]['direction'] ?? 'up';
-      final nextDir = _getNextDirection(currentDir);
-      setState(() => connections[index]['direction'] = nextDir);
-      await _saveBuildingData();
-    }
-  }
-
   Future<void> _showAddObjectDialog() async {
     if (_tappedCoords == null) return;
     final nameController = TextEditingController();
@@ -593,7 +626,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
       SnackBar(
         content: Text(
           _isObjectEditMode
-              ? 'Mode Edit Aktif: Ketuk Objek untuk Edit'
+              ? 'Mode Edit Aktif: Ketuk Objek/Panah untuk Edit'
               : 'Mode Lihat',
         ),
         duration: const Duration(seconds: 2),
@@ -886,6 +919,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
                   ),
                 ),
 
+                // Layer Objek
                 ..._roomObjects.map((obj) {
                   final double x = obj['x'] ?? 0.5;
                   final double y = obj['y'] ?? 0.5;
@@ -904,11 +938,14 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
                   );
                 }),
 
+                // Layer Navigasi (Panah)
                 if (AppSettings.showNavigationArrows)
                   ...connections.map((conn) {
-                    final String direction = conn['direction'] ?? 'up';
                     final String label = conn['label'] ?? 'Pintu';
                     final String connId = conn['id'];
+
+                    // Ambil rotasi (bisa dari data lama atau baru)
+                    final double rotation = _getRotation(conn);
 
                     double x = conn['x'] ?? 0.5;
                     double y = conn['y'] ?? 0.5;
@@ -949,7 +986,8 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
                             : null,
                         onTap: () {
                           if (_isObjectEditMode) {
-                            _cycleConnectionDirection(connId);
+                            // --- PERUBAHAN: Buka Dialog Rotasi ---
+                            _showRotationDialog(conn);
                           } else {
                             _navigateToRoom(conn['targetRoomId']);
                           }
@@ -960,7 +998,7 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
                               : _arrowPulseAnimation,
                           child: _buildArrowWidget(
                             label,
-                            direction,
+                            rotation, // Pass rotasi presisi
                             _draggingConnectionId == connId,
                           ),
                         ),
@@ -1084,7 +1122,8 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
     );
   }
 
-  Widget _buildArrowWidget(String label, String direction, bool isDragging) {
+  // --- UPDATED: Arrow Widget dengan Rotasi ---
+  Widget _buildArrowWidget(String label, double rotation, bool isDragging) {
     final double scale = AppSettings.navigationArrowScale;
     final Color color = Color(AppSettings.navigationArrowColor);
     final double opacity = AppSettings.navigationArrowOpacity;
@@ -1104,11 +1143,15 @@ class _BuildingViewerPageState extends State<BuildingViewerPage>
                 ),
               ],
             ),
-            child: Icon(
-              _getIconForDirection(direction),
-              size: 48 * scale,
-              color: isDragging ? Colors.yellow : color,
-              shadows: const [Shadow(blurRadius: 4, color: Colors.black)],
+            // --- MENGGUNAKAN TRANSFORM ROTATE ---
+            child: Transform.rotate(
+              angle: rotation,
+              child: Icon(
+                Icons.arrow_upward, // Selalu gunakan panah atas sebagai base
+                size: 48 * scale,
+                color: isDragging ? Colors.yellow : color,
+                shadows: const [Shadow(blurRadius: 4, color: Colors.black)],
+              ),
             ),
           ),
           if (_isObjectEditMode || AppSettings.showRegionDistrictNames)
