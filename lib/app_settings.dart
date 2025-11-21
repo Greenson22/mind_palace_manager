@@ -99,7 +99,9 @@ class AppSettings {
   static int navigationArrowColor = 0xFFFFFFFF;
 
   // --- CLOUD TRANSITION VARIABLES (BARU) ---
-  static bool enableCloudTransition = true;
+  // --- PERUBAHAN DI SINI: Default jadi false ---
+  static bool enableCloudTransition = false;
+  // -------------------------------------------
   static int cloudColor = Colors.white.value;
   static double cloudTransitionDuration = 1.8; // Detik
   static String cloudShape = 'Bulat'; // 'Bulat', 'Kotak', 'Wajik'
@@ -158,7 +160,9 @@ class AppSettings {
     navigationArrowColor = prefs.getInt(_navigationArrowColorKey) ?? 0xFFFFFFFF;
 
     // --- LOAD CLOUD TRANSITION SETTINGS ---
-    enableCloudTransition = prefs.getBool(_enableCloudTransitionKey) ?? true;
+    // --- PERUBAHAN DI SINI: Default fallback juga false ---
+    enableCloudTransition = prefs.getBool(_enableCloudTransitionKey) ?? false;
+    // ------------------------------------------------------
     cloudColor = prefs.getInt(_cloudColorKey) ?? Colors.white.value;
     cloudTransitionDuration =
         prefs.getDouble(_cloudTransitionDurationKey) ?? 1.8;

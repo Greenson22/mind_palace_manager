@@ -53,7 +53,7 @@ class CloudNavigation {
       );
     }
 
-    // 3. Awan Atas (Bergerak dari Atas -> Tengah) -- BARU
+    // 3. Awan Atas (Bergerak dari Atas -> Tengah)
     for (int i = 0; i < 15; i++) {
       bubbles.add(
         _CloudBubble(
@@ -66,7 +66,7 @@ class CloudNavigation {
       );
     }
 
-    // 4. Awan Bawah (Bergerak dari Bawah -> Tengah) -- BARU
+    // 4. Awan Bawah (Bergerak dari Bawah -> Tengah)
     for (int i = 0; i < 15; i++) {
       bubbles.add(
         _CloudBubble(
@@ -81,7 +81,6 @@ class CloudNavigation {
 
     // 5. Filler / Penutup Celah (Datang acak dari jauh untuk menutup lubang di tengah)
     for (int i = 0; i < 10; i++) {
-      // Tentukan secara acak datang dari arah mana (Horizontal atau Vertikal)
       bool vertical = random.nextBool();
       double startX, startY;
 
@@ -129,6 +128,15 @@ class _CloudPageRoute extends PageRouteBuilder {
           return AnimatedBuilder(
             animation: animation,
             builder: (context, child) {
+              // --- PERUBAHAN DI SINI: PENGHAPUSAN WIDGET ---
+              // Jika animasi selesai (status completed), kita kembalikan child saja.
+              // Ini akan menghapus Stack dan CustomPaint awan dari widget tree
+              // sehingga tidak memakan resource saat halaman idle.
+              if (animation.status == AnimationStatus.completed) {
+                return child!;
+              }
+              // ---------------------------------------------
+
               double cloudProgress = 0.0;
 
               if (animation.value <= 0.5) {
@@ -142,20 +150,15 @@ class _CloudPageRoute extends PageRouteBuilder {
               // Ganti halaman saat tertutup penuh (progress > 0.5)
               final bool showNewPage = animation.value > 0.5;
 
-              // IGNORE POINTER LOGIC:
-              // Saat animasi hampir selesai (value >= 0.99), matikan hit-test pada awan
-              // agar pengguna bisa menekan tombol di halaman baru.
-              final bool ignoreTouchesOnCloud = animation.value >= 0.99;
-
               return Stack(
                 children: [
                   showNewPage ? child! : const SizedBox(),
                   Positioned.fill(
-                    child: IgnorePointer(
-                      ignoring: ignoreTouchesOnCloud,
-                      child: CustomPaint(
-                        painter: _CloudPainter(cloudProgress, bubbles),
-                      ),
+                    // Kita tidak perlu IgnorePointer lagi di sini untuk state 'selesai',
+                    // karena widget ini akan dihapus total saat completed.
+                    // Namun tetap berguna saat animasi hampir selesai tapi belum status completed.
+                    child: CustomPaint(
+                      painter: _CloudPainter(cloudProgress, bubbles),
                     ),
                   ),
                 ],
