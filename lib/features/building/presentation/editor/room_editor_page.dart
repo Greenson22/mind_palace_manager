@@ -253,14 +253,25 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
                   child: const Text('Batal'),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
+                // --- PERBAIKAN DIMULAI DI SINI ---
                 ElevatedButton(
                   child: const Text('Simpan'),
-                  onPressed: () {
+                  onPressed: () async {
+                    // Tambahkan async
                     if (_roomNameController.text.trim().isEmpty) return;
-                    _updateRoom(room);
-                    Navigator.of(context).pop();
+
+                    // Tampilkan indikator loading jika perlu, atau nonaktifkan tombol
+                    // Untuk sederhananya, kita tunggu proses selesai:
+                    await _updateRoom(room); // Tambahkan await!
+
+                    if (context.mounted) {
+                      Navigator.of(
+                        context,
+                      ).pop(); // Tutup dialog setelah selesai
+                    }
                   },
                 ),
+                // --- PERBAIKAN SELESAI ---
               ],
             );
           },
@@ -277,6 +288,8 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
       final String newName = _roomNameController.text.trim();
       final String? oldImageName = room['image'];
       String? newRelativeImagePath = oldImageName;
+
+      // Logika Hapus/Ganti Gambar
       if (_pickedImagePath == 'DELETE_IMAGE') {
         if (oldImageName != null) {
           final oldFile = File(
@@ -301,11 +314,14 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
         );
         newRelativeImagePath = uniqueFileName;
       }
+
       setState(() {
         room['name'] = newName;
         room['image'] = newRelativeImagePath;
       });
+
       await _saveData();
+
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -520,7 +536,9 @@ class _RoomEditorPageState extends State<RoomEditorPage> {
                     await _saveData();
 
                     // Tawaran otomatis navigasi balik
-                    _offerReturnNavigation(fromRoom, selectedTargetRoomId!);
+                    if (mounted) {
+                      _offerReturnNavigation(fromRoom, selectedTargetRoomId!);
+                    }
 
                     labelController.clear();
                     selectedTargetRoomId = null;
