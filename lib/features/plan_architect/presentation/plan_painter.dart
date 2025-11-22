@@ -7,7 +7,6 @@ import '../data/plan_models.dart';
 
 class PlanPainter extends CustomPainter {
   final PlanController controller;
-
   PlanPainter({required this.controller}) : super(repaint: controller);
 
   @override
@@ -15,12 +14,10 @@ class PlanPainter extends CustomPainter {
     _drawGrid(canvas, size);
     if (controller.enableSnap) _drawSnapPoints(canvas, size);
 
-    // --- 1. GAMBAR BENTUK (SHAPES) - BARU ---
+    // 1. Shapes (Gunakan warna shape)
     for (var shape in controller.shapes) {
       _drawShape(canvas, shape, controller.selectedId == shape.id);
     }
-
-    // Preview Shape
     if (controller.activeTool == PlanTool.shape &&
         controller.tempStart != null &&
         controller.tempEnd != null) {
@@ -28,25 +25,26 @@ class PlanPainter extends CustomPainter {
         controller.tempStart!,
         controller.tempEnd!,
       );
-      final previewShape = PlanShape(
-        id: 'temp',
-        rect: previewRect,
-        type: controller.selectedShapeType,
-        color: Colors.blue.withOpacity(0.5),
+      _drawShape(
+        canvas,
+        PlanShape(
+          id: 'temp',
+          rect: previewRect,
+          type: controller.selectedShapeType,
+          color: controller.activeColor.withOpacity(0.5),
+        ),
+        false,
       );
-      _drawShape(canvas, previewShape, false);
     }
 
-    // ... (Logic Label, Path, Wall, Object SAMA) ...
-
-    // Labels
+    // 2. Labels (Gunakan warna label)
     TextPainter tp = TextPainter(textDirection: TextDirection.ltr);
     for (var label in controller.labels) {
       bool isSel = (controller.selectedId == label.id);
       tp.text = TextSpan(
         text: label.text,
         style: TextStyle(
-          color: isSel ? Colors.blue : Colors.black87,
+          color: isSel ? Colors.blue : label.color,
           fontSize: label.fontSize,
           fontWeight: FontWeight.bold,
           backgroundColor: Colors.white.withOpacity(0.5),
@@ -79,7 +77,7 @@ class PlanPainter extends CustomPainter {
       }
     }
 
-    // Paths
+    // 3. Paths (Gunakan warna dan strokeWidth path)
     final Paint pathPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
@@ -100,8 +98,9 @@ class PlanPainter extends CustomPainter {
     }
     if (controller.activeTool == PlanTool.freehand &&
         controller.currentPathPoints.isNotEmpty) {
-      pathPaint.color = Colors.brown.withOpacity(0.7);
-      pathPaint.strokeWidth = 2.0;
+      pathPaint.color = controller.activeColor.withOpacity(0.7);
+      pathPaint.strokeWidth =
+          controller.activeStrokeWidth; // Preview pakai active settings
       Path p = Path();
       p.moveTo(
         controller.currentPathPoints.first.dx,
@@ -115,18 +114,17 @@ class PlanPainter extends CustomPainter {
       canvas.drawPath(p, pathPaint);
     }
 
-    // Walls
-    final Paint wallPaint = Paint()
-      ..color = Colors.black
-      ..strokeWidth = 6.0
-      ..strokeCap = StrokeCap.square;
+    // 4. Walls (Gunakan warna dan thickness wall)
+    final Paint wallPaint = Paint()..strokeCap = StrokeCap.square;
     final Paint selectedPaint = Paint()
       ..color = Colors.blueAccent
-      ..strokeWidth = 8.0
       ..strokeCap = StrokeCap.square;
     for (var wall in controller.walls) {
       bool isSel =
           (!controller.isObjectSelected && controller.selectedId == wall.id);
+      wallPaint.color = wall.color;
+      wallPaint.strokeWidth = wall.thickness;
+      selectedPaint.strokeWidth = wall.thickness + 2.0;
       canvas.drawLine(wall.start, wall.end, isSel ? selectedPaint : wallPaint);
       _drawWallLabel(canvas, wall);
     }
@@ -134,8 +132,9 @@ class PlanPainter extends CustomPainter {
         controller.tempStart != null &&
         controller.tempEnd != null) {
       Paint previewPaint = Paint()
-        ..color = Colors.grey.withOpacity(0.5)
-        ..strokeWidth = 6.0;
+        ..color = controller.activeColor.withOpacity(0.5)
+        ..strokeWidth =
+            controller.activeStrokeWidth; // Preview pakai active settings
       canvas.drawLine(controller.tempStart!, controller.tempEnd!, previewPaint);
       _drawWallLabel(
         canvas,
@@ -157,52 +156,40 @@ class PlanPainter extends CustomPainter {
       );
     }
 
-    // Objects (dengan Rotasi)
+    // 5. Objects (Gunakan warna object)
     for (var obj in controller.objects) {
       bool isSel =
           (controller.isObjectSelected && controller.selectedId == obj.id);
-
-      canvas.save(); // Simpan state canvas
-      canvas.translate(
-        obj.position.dx,
-        obj.position.dy,
-      ); // Pindah ke titik objek
-      canvas.rotate(obj.rotation); // Putar
-
-      if (isSel) {
+      canvas.save();
+      canvas.translate(obj.position.dx, obj.position.dy);
+      canvas.rotate(obj.rotation);
+      if (isSel)
         canvas.drawCircle(
           Offset.zero,
           24,
           Paint()..color = Colors.blue.withOpacity(0.3),
         );
-      }
       final icon = IconData(obj.iconCodePoint, fontFamily: 'MaterialIcons');
       tp.text = TextSpan(
         text: String.fromCharCode(icon.codePoint),
         style: TextStyle(
           fontSize: 32,
           fontFamily: icon.fontFamily,
-          color: isSel ? Colors.blue : Colors.black87,
+          color: isSel ? Colors.blue : obj.color,
         ),
       );
       tp.layout();
-      tp.paint(
-        canvas,
-        Offset(-16, -16),
-      ); // Center icon relative to translated origin
-
-      canvas.restore(); // Kembalikan state canvas
+      tp.paint(canvas, Offset(-16, -16));
+      canvas.restore();
     }
   }
 
-  // --- HELPER DRAW SHAPE ---
   void _drawShape(Canvas canvas, PlanShape shape, bool isSelected) {
     canvas.save();
     final center = shape.rect.center;
     canvas.translate(center.dx, center.dy);
     canvas.rotate(shape.rotation);
     canvas.translate(-center.dx, -center.dy);
-
     final Paint paint = Paint()
       ..color = isSelected
           ? Colors.blue.withOpacity(0.5)
@@ -212,7 +199,6 @@ class PlanPainter extends CustomPainter {
       ..color = isSelected ? Colors.blue : shape.color
       ..strokeWidth = 3
       ..style = PaintingStyle.stroke;
-
     if (shape.type == PlanShapeType.rectangle) {
       canvas.drawRect(shape.rect, paint);
       canvas.drawRect(shape.rect, border);
@@ -230,9 +216,8 @@ class PlanPainter extends CustomPainter {
     final radius = math.min(rect.width, rect.height) / 2;
     final innerRadius = radius / 2.5;
     final path = Path();
-
     for (int i = 0; i < 10; i++) {
-      double angle = (i * 36) * (math.pi / 180) - (math.pi / 2); // Start top
+      double angle = (i * 36) * (math.pi / 180) - (math.pi / 2);
       double r = (i % 2 == 0) ? radius : innerRadius;
       double x = center.dx + r * math.cos(angle);
       double y = center.dy + r * math.sin(angle);
@@ -246,7 +231,7 @@ class PlanPainter extends CustomPainter {
     canvas.drawPath(path, border);
   }
 
-  // ... (Helpers Grid, Snap, WallLabel SAMA) ...
+  // ... (Helpers SAMA) ...
   void _drawGrid(Canvas canvas, Size size) {
     Paint gridPaint = Paint()
       ..color = Colors.grey.shade200

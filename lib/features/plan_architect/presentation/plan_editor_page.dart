@@ -18,13 +18,27 @@ class PlanEditorPage extends StatefulWidget {
 class _PlanEditorPageState extends State<PlanEditorPage> {
   final PlanController _controller = PlanController();
 
+  // Palet Warna Sederhana
+  final List<Color> _colors = [
+    Colors.black,
+    Colors.grey,
+    Colors.red,
+    Colors.orange,
+    Colors.yellow,
+    Colors.green,
+    Colors.blue,
+    Colors.indigo,
+    Colors.purple,
+    Colors.brown,
+  ];
+
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
 
-  // ... (Metode Export dan Handle TapUp SAMA) ...
+  // ... (Metode Export & Handle TapUp SAMA) ...
   Future<void> _exportImage() async {
     if (AppSettings.exportPath == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -110,8 +124,42 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
     }
   }
 
+  // --- WIDGET DIALOG WARNA ---
+  void _showColorPicker(BuildContext context, Function(Color) onColorSelected) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Pilih Warna"),
+        content: SingleChildScrollView(
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _colors
+                .map(
+                  (color) => InkWell(
+                    onTap: () {
+                      onColorSelected(color);
+                      Navigator.pop(ctx);
+                    },
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showEditDialog() {
-    /* ... SAMA SEPERTI SEBELUMNYA ... */
     final data = _controller.getSelectedItemData();
     if (data == null) return;
     final titleCtrl = TextEditingController(text: data['title']);
@@ -219,136 +267,186 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
       ),
       body: Column(
         children: [
-          // TOOLBAR ATAS
+          // --- TOOLBAR ATAS (DEFAULTS) ---
           Container(
             color: Colors.grey.shade100,
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: ListenableBuilder(
-                listenable: _controller,
-                builder: (context, _) {
-                  return Row(
-                    children: [
-                      IconButton(
-                        icon: Icon(
-                          _controller.enableSnap
-                              ? Icons.grid_on
-                              : Icons.grid_off,
-                          color: Colors.grey,
-                        ),
-                        onPressed: _controller.toggleSnap,
-                        tooltip: "Snap",
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.undo, color: Colors.grey),
-                        onPressed: _controller.canUndo
-                            ? _controller.undo
-                            : null,
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.redo, color: Colors.grey),
-                        onPressed: _controller.canRedo
-                            ? _controller.redo
-                            : null,
-                      ),
-                      const VerticalDivider(width: 20, thickness: 1),
-
-                      _buildToolBtn(
-                        icon: Icons.pan_tool,
-                        label: "Pilih",
-                        isActive: _controller.activeTool == PlanTool.select,
-                        onTap: () => _controller.setTool(PlanTool.select),
-                      ),
-                      const SizedBox(width: 8),
-                      _buildToolBtn(
-                        icon: Icons.format_paint,
-                        label: "Tembok",
-                        isActive: _controller.activeTool == PlanTool.wall,
-                        onTap: () => _controller.setTool(PlanTool.wall),
-                      ),
-                      const SizedBox(width: 8),
-                      _buildToolBtn(
-                        icon: Icons.text_fields,
-                        label: "Label",
-                        isActive: _controller.activeTool == PlanTool.text,
-                        onTap: () => _controller.setTool(PlanTool.text),
-                      ),
-                      const SizedBox(width: 8),
-                      _buildToolBtn(
-                        icon: Icons.brush,
-                        label: "Gambar",
-                        isActive: _controller.activeTool == PlanTool.freehand,
-                        onTap: () => _controller.setTool(PlanTool.freehand),
-                      ),
-                      const SizedBox(width: 8),
-
-                      // Shape Menu
-                      PopupMenuButton<PlanShapeType>(
-                        child: _buildToolBtn(
-                          icon: Icons.category,
-                          label: "Bentuk",
-                          isActive: _controller.activeTool == PlanTool.shape,
-                          onTap: null,
-                        ),
-                        onSelected: (type) => _controller.selectShape(type),
-                        itemBuilder: (ctx) => [
-                          const PopupMenuItem(
-                            value: PlanShapeType.rectangle,
-                            child: Row(
-                              children: [
-                                Icon(Icons.crop_square),
-                                SizedBox(width: 8),
-                                Text("Kotak"),
-                              ],
+            child: Column(
+              children: [
+                // Baris 1: Tools & Actions
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: ListenableBuilder(
+                    listenable: _controller,
+                    builder: (context, _) {
+                      return Row(
+                        children: [
+                          IconButton(
+                            icon: Icon(
+                              _controller.enableSnap
+                                  ? Icons.grid_on
+                                  : Icons.grid_off,
+                              color: Colors.grey,
                             ),
+                            onPressed: _controller.toggleSnap,
+                            tooltip: "Snap",
                           ),
-                          const PopupMenuItem(
-                            value: PlanShapeType.circle,
-                            child: Row(
-                              children: [
-                                Icon(Icons.circle_outlined),
-                                SizedBox(width: 8),
-                                Text("Bulat"),
-                              ],
-                            ),
+                          IconButton(
+                            icon: const Icon(Icons.undo, color: Colors.grey),
+                            onPressed: _controller.canUndo
+                                ? _controller.undo
+                                : null,
                           ),
-                          const PopupMenuItem(
-                            value: PlanShapeType.star,
-                            child: Row(
-                              children: [
-                                Icon(Icons.star_border),
-                                SizedBox(width: 8),
-                                Text("Bintang"),
-                              ],
+                          IconButton(
+                            icon: const Icon(Icons.redo, color: Colors.grey),
+                            onPressed: _controller.canRedo
+                                ? _controller.redo
+                                : null,
+                          ),
+                          const VerticalDivider(width: 20, thickness: 1),
+                          _buildToolBtn(
+                            icon: Icons.pan_tool,
+                            label: "Pilih",
+                            isActive: _controller.activeTool == PlanTool.select,
+                            onTap: () => _controller.setTool(PlanTool.select),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildToolBtn(
+                            icon: Icons.format_paint,
+                            label: "Tembok",
+                            isActive: _controller.activeTool == PlanTool.wall,
+                            onTap: () => _controller.setTool(PlanTool.wall),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildToolBtn(
+                            icon: Icons.text_fields,
+                            label: "Label",
+                            isActive: _controller.activeTool == PlanTool.text,
+                            onTap: () => _controller.setTool(PlanTool.text),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildToolBtn(
+                            icon: Icons.brush,
+                            label: "Gambar",
+                            isActive:
+                                _controller.activeTool == PlanTool.freehand,
+                            onTap: () => _controller.setTool(PlanTool.freehand),
+                          ),
+                          const SizedBox(width: 8),
+                          PopupMenuButton<PlanShapeType>(
+                            child: _buildToolBtn(
+                              icon: Icons.category,
+                              label: "Bentuk",
+                              isActive:
+                                  _controller.activeTool == PlanTool.shape,
+                              onTap: null,
                             ),
+                            onSelected: (type) => _controller.selectShape(type),
+                            itemBuilder: (ctx) => [
+                              const PopupMenuItem(
+                                value: PlanShapeType.rectangle,
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.crop_square),
+                                    SizedBox(width: 8),
+                                    Text("Kotak"),
+                                  ],
+                                ),
+                              ),
+                              const PopupMenuItem(
+                                value: PlanShapeType.circle,
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.circle_outlined),
+                                    SizedBox(width: 8),
+                                    Text("Bulat"),
+                                  ],
+                                ),
+                              ),
+                              const PopupMenuItem(
+                                value: PlanShapeType.star,
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.star_border),
+                                    SizedBox(width: 8),
+                                    Text("Bintang"),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(width: 8),
+                          _buildInteriorMenu(),
+                          const SizedBox(width: 8),
+                          _buildToolBtn(
+                            icon: Icons.delete_forever,
+                            label: "Hapus",
+                            isActive: _controller.activeTool == PlanTool.eraser,
+                            iconColor: Colors.red,
+                            onTap: () => _controller.setTool(PlanTool.eraser),
                           ),
                         ],
+                      );
+                    },
+                  ),
+                ),
+                const Divider(height: 12),
+                // Baris 2: Default Color & Stroke
+                ListenableBuilder(
+                  listenable: _controller,
+                  builder: (context, _) => Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text("Default: ", style: TextStyle(fontSize: 12)),
+                      InkWell(
+                        onTap: () => _showColorPicker(
+                          context,
+                          (c) => _controller.setActiveColor(c),
+                        ),
+                        child: Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            color: _controller.activeColor,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.grey),
+                          ),
+                        ),
                       ),
-                      const SizedBox(width: 8),
-
-                      _buildInteriorMenu(),
-                      const SizedBox(width: 8),
-                      _buildToolBtn(
-                        icon: Icons.delete_forever,
-                        label: "Hapus",
-                        isActive: _controller.activeTool == PlanTool.eraser,
-                        iconColor: Colors.red,
-                        onTap: () => _controller.setTool(PlanTool.eraser),
+                      const SizedBox(width: 16),
+                      const Icon(
+                        Icons.line_weight,
+                        size: 20,
+                        color: Colors.grey,
+                      ),
+                      SizedBox(
+                        width: 100,
+                        child: Slider(
+                          value: _controller.activeStrokeWidth,
+                          min: 1.0,
+                          max: 20.0,
+                          divisions: 19,
+                          label: _controller.activeStrokeWidth
+                              .round()
+                              .toString(),
+                          onChanged: (v) => _controller.setActiveStrokeWidth(v),
+                        ),
                       ),
                     ],
-                  );
-                },
-              ),
+                  ),
+                ),
+              ],
             ),
           ),
 
-          // BAR SELEKSI & EDIT (BAWAH TOOLBAR)
+          // --- BAR SELEKSI (BAWAH TOOLBAR) ---
           ListenableBuilder(
             listenable: _controller,
             builder: (context, _) {
               if (_controller.selectedId != null) {
                 final data = _controller.getSelectedItemData();
+                final bool canHaveStroke =
+                    data?['type'] == 'Struktur' || data?['type'] == 'Gambar';
                 return Container(
                   color: Colors.blue.shade50,
                   padding: const EdgeInsets.symmetric(
@@ -367,6 +465,42 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
                               ),
                             ),
                           ),
+                          // Tombol Ubah Warna Seleksi
+                          InkWell(
+                            onTap: () => _showColorPicker(
+                              context,
+                              (c) => _controller.updateSelectedColor(c),
+                            ),
+                            child: const Padding(
+                              padding: EdgeInsets.all(8.0),
+                              child: Icon(Icons.color_lens, color: Colors.blue),
+                            ),
+                          ),
+                          // Slider Ubah Stroke Seleksi
+                          if (canHaveStroke)
+                            SizedBox(
+                              width: 80,
+                              child: Slider(
+                                value: (data?['type'] == 'Struktur')
+                                    ? (_controller.walls
+                                          .firstWhere(
+                                            (w) =>
+                                                w.id == _controller.selectedId,
+                                          )
+                                          .thickness)
+                                    : (_controller.paths
+                                          .firstWhere(
+                                            (p) =>
+                                                p.id == _controller.selectedId,
+                                          )
+                                          .strokeWidth),
+                                min: 1.0,
+                                max: 20.0,
+                                divisions: 19,
+                                onChanged: (v) =>
+                                    _controller.updateSelectedStrokeWidth(v),
+                              ),
+                            ),
                           ElevatedButton.icon(
                             icon: const Icon(Icons.edit, size: 14),
                             label: const Text("Info"),
@@ -377,7 +511,6 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
                           ),
                         ],
                       ),
-                      // ACTION BAR (Copy, Rotate, Layer)
                       const Divider(height: 8),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -434,7 +567,7 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
             },
           ),
 
-          // CANVAS
+          // --- CANVAS ---
           Expanded(
             child: GestureDetector(
               onPanStart: (d) => _controller.onPanStart(d.localPosition),
@@ -456,7 +589,7 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
     );
   }
 
-  // ... (Helper Widgets SAMA: _buildInteriorMenu, _buildToolBtn) ...
+  // ... (Helper Widgets SAMA: _buildInteriorMenu, _buildToolBtn, _buildPopupItem) ...
   Widget _buildInteriorMenu() {
     return PopupMenuButton<dynamic>(
       child: _buildToolBtn(

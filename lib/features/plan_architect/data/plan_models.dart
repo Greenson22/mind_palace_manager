@@ -4,20 +4,22 @@ import 'package:flutter/material.dart';
 // --- ENUM BENTUK ---
 enum PlanShapeType { rectangle, circle, star }
 
-// --- MODEL TEMBOK ---
+// --- MODEL TEMBOK (WALL) ---
 class Wall {
   final String id;
   final Offset start;
   final Offset end;
-  final double thickness;
+  final double thickness; // Ketebalan garis
   final String description;
+  final Color color;
 
   Wall({
     required this.id,
     required this.start,
     required this.end,
-    this.thickness = 10.0,
+    this.thickness = 6.0,
     this.description = 'Tembok standar',
+    this.color = Colors.black,
   });
 
   Map<String, dynamic> toJson() => {
@@ -26,16 +28,18 @@ class Wall {
     'sy': start.dy,
     'ex': end.dx,
     'ey': end.dy,
-    'thickness': thickness,
-    'description': description,
+    'thick': thickness,
+    'desc': description,
+    'col': color.value,
   };
 
   factory Wall.fromJson(Map<String, dynamic> json) => Wall(
     id: json['id'],
     start: Offset(json['sx'], json['sy']),
     end: Offset(json['ex'], json['ey']),
-    thickness: (json['thickness'] as num?)?.toDouble() ?? 10.0,
-    description: json['description'] ?? 'Tembok standar',
+    thickness: (json['thick'] as num?)?.toDouble() ?? 6.0,
+    description: json['desc'] ?? 'Tembok standar',
+    color: json['col'] != null ? Color(json['col']) : Colors.black,
   );
 
   Wall copyWith({
@@ -44,6 +48,7 @@ class Wall {
     double? thickness,
     Offset? start,
     Offset? end,
+    Color? color,
   }) {
     return Wall(
       id: id ?? this.id,
@@ -51,6 +56,7 @@ class Wall {
       end: end ?? this.end,
       thickness: thickness ?? this.thickness,
       description: description ?? this.description,
+      color: color ?? this.color,
     );
   }
 
@@ -59,14 +65,15 @@ class Wall {
   }
 }
 
-// --- MODEL INTERIOR (ICON) ---
+// --- MODEL INTERIOR (ICON OBJECT) ---
 class PlanObject {
   final String id;
   final Offset position;
   final String name;
   final String description;
   final int iconCodePoint;
-  final double rotation; // BARU: Rotasi dalam radian
+  final double rotation; // Rotasi dalam radian
+  final Color color;
 
   PlanObject({
     required this.id,
@@ -75,6 +82,7 @@ class PlanObject {
     required this.description,
     required this.iconCodePoint,
     this.rotation = 0.0,
+    this.color = Colors.black87,
   });
 
   Map<String, dynamic> toJson() => {
@@ -82,9 +90,10 @@ class PlanObject {
     'x': position.dx,
     'y': position.dy,
     'name': name,
-    'description': description,
+    'desc': description,
     'icon': iconCodePoint,
     'rot': rotation,
+    'col': color.value,
   };
 
   factory PlanObject.fromJson(Map<String, dynamic> json) => PlanObject(
@@ -94,6 +103,7 @@ class PlanObject {
     description: json['description'],
     iconCodePoint: json['icon'],
     rotation: (json['rot'] as num?)?.toDouble() ?? 0.0,
+    color: json['col'] != null ? Color(json['col']) : Colors.black87,
   );
 
   PlanObject copyWith({
@@ -102,6 +112,7 @@ class PlanObject {
     String? description,
     Offset? position,
     double? rotation,
+    Color? color,
   }) {
     return PlanObject(
       id: id ?? this.id,
@@ -110,6 +121,7 @@ class PlanObject {
       name: name ?? this.name,
       description: description ?? this.description,
       rotation: rotation ?? this.rotation,
+      color: color ?? this.color,
     );
   }
 
@@ -118,18 +130,20 @@ class PlanObject {
   }
 }
 
-// --- MODEL LABEL TEKS ---
+// --- MODEL LABEL TEKS (TEXT LABEL) ---
 class PlanLabel {
   final String id;
   final Offset position;
   final String text;
   final double fontSize;
+  final Color color;
 
   PlanLabel({
     required this.id,
     required this.position,
     required this.text,
     this.fontSize = 16.0,
+    this.color = Colors.black,
   });
 
   Map<String, dynamic> toJson() => {
@@ -138,6 +152,7 @@ class PlanLabel {
     'y': position.dy,
     'text': text,
     'size': fontSize,
+    'col': color.value,
   };
 
   factory PlanLabel.fromJson(Map<String, dynamic> json) => PlanLabel(
@@ -145,6 +160,7 @@ class PlanLabel {
     position: Offset(json['x'], json['y']),
     text: json['text'],
     fontSize: (json['size'] as num?)?.toDouble() ?? 16.0,
+    color: json['col'] != null ? Color(json['col']) : Colors.black,
   );
 
   PlanLabel copyWith({
@@ -152,12 +168,14 @@ class PlanLabel {
     String? text,
     double? fontSize,
     Offset? position,
+    Color? color,
   }) {
     return PlanLabel(
       id: id ?? this.id,
       position: position ?? this.position,
       text: text ?? this.text,
       fontSize: fontSize ?? this.fontSize,
+      color: color ?? this.color,
     );
   }
 
@@ -166,7 +184,7 @@ class PlanLabel {
   }
 }
 
-// --- MODEL GAMBAR BEBAS (PATH) ---
+// --- MODEL GAMBAR BEBAS (FREEHAND PATH) ---
 class PlanPath {
   final String id;
   final List<Offset> points;
@@ -216,12 +234,14 @@ class PlanPath {
     String? description,
     bool? isSavedAsset,
     List<Offset>? points,
+    Color? color,
+    double? strokeWidth,
   }) {
     return PlanPath(
       id: id ?? this.id,
       points: points ?? this.points,
-      color: color,
-      strokeWidth: strokeWidth,
+      color: color ?? this.color,
+      strokeWidth: strokeWidth ?? this.strokeWidth,
       name: name ?? this.name,
       description: description ?? this.description,
       isSavedAsset: isSavedAsset ?? this.isSavedAsset,
@@ -233,14 +253,14 @@ class PlanPath {
   }
 }
 
-// --- MODEL BENTUK GEOMETRIS (BARU) ---
+// --- MODEL BENTUK GEOMETRIS (SHAPES) ---
 class PlanShape {
   final String id;
-  final Rect rect; // Posisi dan Ukuran
+  final Rect rect;
   final PlanShapeType type;
   final Color color;
   final bool isFilled;
-  final double rotation; // Rotasi dalam radian
+  final double rotation;
   final String name;
   final String description;
 

@@ -7,21 +7,22 @@ import '../data/plan_models.dart';
 enum PlanTool { select, wall, object, text, eraser, freehand, shape }
 
 class PlanController extends ChangeNotifier {
-  // Data
   List<Wall> walls = [];
   List<PlanObject> objects = [];
   List<PlanPath> paths = [];
   List<PlanLabel> labels = [];
-  List<PlanShape> shapes = []; // BARU: Shapes
+  List<PlanShape> shapes = [];
   List<PlanPath> savedCustomInteriors = [];
 
-  // Config
   bool enableSnap = true;
   final double gridSize = 20.0;
-
   PlanTool activeTool = PlanTool.select;
 
-  // State Drawing / Drag
+  // --- BARU: State Warna & Tebal Aktif (Default) ---
+  Color activeColor = Colors.black;
+  double activeStrokeWidth = 4.0;
+
+  // State Drawing/Drag
   Offset? tempStart;
   Offset? tempEnd;
   List<Offset> currentPathPoints = [];
@@ -32,10 +33,10 @@ class PlanController extends ChangeNotifier {
   String? selectedId;
   bool isObjectSelected = false;
 
-  // State New Object/Shape
+  // State New Item
   IconData? selectedObjectIcon;
   String selectedObjectName = "Furniture";
-  PlanShapeType selectedShapeType = PlanShapeType.rectangle; // BARU
+  PlanShapeType selectedShapeType = PlanShapeType.rectangle;
 
   // History
   final List<String> _history = [];
@@ -45,20 +46,18 @@ class PlanController extends ChangeNotifier {
     _saveState();
   }
 
-  // ... (Undo/Redo SAMA, tambahkan 'shapes' ke json) ...
+  // ... (Undo/Redo, LoadState SAMA) ...
   bool get canUndo => _historyIndex > 0;
   bool get canRedo => _historyIndex < _history.length - 1;
-
   void _saveState() {
-    if (_historyIndex < _history.length - 1) {
+    if (_historyIndex < _history.length - 1)
       _history.removeRange(_historyIndex + 1, _history.length);
-    }
     final state = jsonEncode({
       'walls': walls.map((e) => e.toJson()).toList(),
       'objects': objects.map((e) => e.toJson()).toList(),
       'paths': paths.map((e) => e.toJson()).toList(),
       'labels': labels.map((e) => e.toJson()).toList(),
-      'shapes': shapes.map((e) => e.toJson()).toList(), // BARU
+      'shapes': shapes.map((e) => e.toJson()).toList(),
     });
     _history.add(state);
     _historyIndex++;
@@ -98,7 +97,17 @@ class PlanController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- TOOLS ---
+  // --- SETTINGS ---
+  void setActiveColor(Color color) {
+    activeColor = color;
+    notifyListeners();
+  }
+
+  void setActiveStrokeWidth(double width) {
+    activeStrokeWidth = width;
+    notifyListeners();
+  }
+
   void setTool(PlanTool tool) {
     activeTool = tool;
     selectedId = null;
@@ -112,7 +121,6 @@ class PlanController extends ChangeNotifier {
     setTool(PlanTool.object);
   }
 
-  // BARU: Pilih Bentuk
   void selectShape(PlanShapeType type) {
     selectedShapeType = type;
     setTool(PlanTool.shape);
@@ -123,25 +131,71 @@ class PlanController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- ACTIONS: DUPLICATE, ROTATE, LAYERS ---
+  // --- UPDATE SELECTED ITEM ATTRIBUTES (BARU) ---
+  void updateSelectedColor(Color color) {
+    if (selectedId == null) return;
+    final shpIdx = shapes.indexWhere((s) => s.id == selectedId);
+    if (shpIdx != -1) {
+      shapes[shpIdx] = shapes[shpIdx].copyWith(color: color);
+      _saveState();
+      return;
+    }
+    final lblIdx = labels.indexWhere((l) => l.id == selectedId);
+    if (lblIdx != -1) {
+      labels[lblIdx] = labels[lblIdx].copyWith(color: color);
+      _saveState();
+      return;
+    }
+    final objIdx = objects.indexWhere((o) => o.id == selectedId);
+    if (objIdx != -1) {
+      objects[objIdx] = objects[objIdx].copyWith(color: color);
+      _saveState();
+      return;
+    }
+    final pIdx = paths.indexWhere((p) => p.id == selectedId);
+    if (pIdx != -1) {
+      paths[pIdx] = paths[pIdx].copyWith(color: color);
+      _saveState();
+      return;
+    }
+    final wIdx = walls.indexWhere((w) => w.id == selectedId);
+    if (wIdx != -1) {
+      walls[wIdx] = walls[wIdx].copyWith(color: color);
+      _saveState();
+      return;
+    }
+  }
 
-  // 1. Duplikasi
+  void updateSelectedStrokeWidth(double width) {
+    if (selectedId == null) return;
+    // Hanya Wall dan Path yang punya stroke width eksplisit
+    final pIdx = paths.indexWhere((p) => p.id == selectedId);
+    if (pIdx != -1) {
+      paths[pIdx] = paths[pIdx].copyWith(strokeWidth: width);
+      _saveState();
+      return;
+    }
+    final wIdx = walls.indexWhere((w) => w.id == selectedId);
+    if (wIdx != -1) {
+      walls[wIdx] = walls[wIdx].copyWith(thickness: width);
+      _saveState();
+      return;
+    }
+  }
+
+  // ... (Duplicate, Rotate, Layers, Snap Logic SAMA) ...
   void duplicateSelected() {
     if (selectedId == null) return;
     final offset = const Offset(20, 20);
     final newId = DateTime.now().millisecondsSinceEpoch.toString();
-
-    // Cek di semua list
     try {
       final obj = objects.firstWhere((o) => o.id == selectedId);
       objects.add(obj.copyWith(id: newId, position: obj.position + offset));
     } catch (_) {}
-
     try {
       final shp = shapes.firstWhere((s) => s.id == selectedId);
       shapes.add(shp.copyWith(id: newId, rect: shp.rect.shift(offset)));
     } catch (_) {}
-
     try {
       final wall = walls.firstWhere((w) => w.id == selectedId);
       walls.add(
@@ -152,63 +206,49 @@ class PlanController extends ChangeNotifier {
         ),
       );
     } catch (_) {}
-
     try {
       final pth = paths.firstWhere((p) => p.id == selectedId);
-      paths.add(pth.moveBy(offset).copyWith(id: newId)); // Pakai moveBy helper
+      paths.add(pth.moveBy(offset).copyWith(id: newId));
     } catch (_) {}
-
     try {
       final lbl = labels.firstWhere((l) => l.id == selectedId);
       labels.add(lbl.moveBy(offset).copyWith(id: newId));
     } catch (_) {}
-
-    // Pindahkan seleksi ke item baru
     selectedId = newId;
     _saveState();
   }
 
-  // 2. Rotasi (90 derajat searah jarum jam)
   void rotateSelected() {
     if (selectedId == null) return;
-
-    // Rotasi Objek
     final objIdx = objects.indexWhere((o) => o.id == selectedId);
     if (objIdx != -1) {
-      final oldRot = objects[objIdx].rotation;
-      objects[objIdx] = objects[objIdx].copyWith(rotation: oldRot + (pi / 2));
+      objects[objIdx] = objects[objIdx].copyWith(
+        rotation: objects[objIdx].rotation + (pi / 2),
+      );
       _saveState();
       return;
     }
-
-    // Rotasi Shape
     final shpIdx = shapes.indexWhere((s) => s.id == selectedId);
     if (shpIdx != -1) {
-      final oldRot = shapes[shpIdx].rotation;
-      shapes[shpIdx] = shapes[shpIdx].copyWith(rotation: oldRot + (pi / 2));
+      shapes[shpIdx] = shapes[shpIdx].copyWith(
+        rotation: shapes[shpIdx].rotation + (pi / 2),
+      );
       _saveState();
       return;
     }
-
-    // Wall: Tukar sumbu relatif terhadap tengah (agak kompleks, skip utk simplisitas MVP, atau putar 90 deg around center)
-    // Untuk tembok, biasanya user menggambar ulang atau drag ujungnya.
   }
 
-  // 3. Layers (Bring to Front / Send to Back)
   void bringToFront() {
     if (selectedId == null) return;
-    // Pindah ke akhir list (render terakhir = paling atas)
     final shpIdx = shapes.indexWhere((s) => s.id == selectedId);
     if (shpIdx != -1) {
-      final item = shapes.removeAt(shpIdx);
-      shapes.add(item);
+      shapes.add(shapes.removeAt(shpIdx));
       _saveState();
       return;
     }
     final objIdx = objects.indexWhere((o) => o.id == selectedId);
     if (objIdx != -1) {
-      final item = objects.removeAt(objIdx);
-      objects.add(item);
+      objects.add(objects.removeAt(objIdx));
       _saveState();
       return;
     }
@@ -216,24 +256,19 @@ class PlanController extends ChangeNotifier {
 
   void sendToBack() {
     if (selectedId == null) return;
-    // Pindah ke awal list
     final shpIdx = shapes.indexWhere((s) => s.id == selectedId);
     if (shpIdx != -1) {
-      final item = shapes.removeAt(shpIdx);
-      shapes.insert(0, item);
+      shapes.insert(0, shapes.removeAt(shpIdx));
       _saveState();
       return;
     }
     final objIdx = objects.indexWhere((o) => o.id == selectedId);
     if (objIdx != -1) {
-      final item = objects.removeAt(objIdx);
-      objects.insert(0, item);
+      objects.insert(0, objects.removeAt(objIdx));
       _saveState();
       return;
     }
   }
-
-  // --- INPUT HANDLING ---
 
   Offset _getSmartSnapPoint(Offset rawPos) {
     for (var wall in walls) {
@@ -248,6 +283,7 @@ class PlanController extends ChangeNotifier {
     return rawPos;
   }
 
+  // --- INPUT HANDLING (UPDATE: GUNAKAN ACTIVE COLOR/STROKE) ---
   void onPanStart(Offset localPos) {
     if (activeTool == PlanTool.select) {
       _handleSelection(localPos);
@@ -272,34 +308,121 @@ class PlanController extends ChangeNotifier {
         isDragging &&
         selectedId != null &&
         lastDragPos != null) {
-      final delta = localPos - lastDragPos!;
-      _moveSelectedItem(delta);
+      _moveSelectedItem(localPos - lastDragPos!);
       lastDragPos = localPos;
     } else if (activeTool == PlanTool.wall && tempStart != null) {
       Offset pos = _getSmartSnapPoint(localPos);
-      // Auto-straighten
       if ((pos.dx - tempStart!.dx).abs() < 10)
         pos = Offset(tempStart!.dx, pos.dy);
       if ((pos.dy - tempStart!.dy).abs() < 10)
         pos = Offset(pos.dx, tempStart!.dy);
       tempEnd = pos;
     } else if (activeTool == PlanTool.shape && tempStart != null) {
-      tempEnd = localPos; // Shapes usually don't need snap during drag size
+      tempEnd = localPos;
     } else if (activeTool == PlanTool.freehand) {
       currentPathPoints.add(localPos);
     }
     notifyListeners();
   }
 
+  void onPanEnd() {
+    if (activeTool == PlanTool.select && isDragging) {
+      isDragging = false;
+      lastDragPos = null;
+      _saveState();
+    } else if (activeTool == PlanTool.wall &&
+        tempStart != null &&
+        tempEnd != null) {
+      if ((tempStart! - tempEnd!).distance > 5) {
+        // GUNAKAN ACTIVE COLOR & STROKE
+        walls.add(
+          Wall(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            start: tempStart!,
+            end: tempEnd!,
+            color: activeColor,
+            thickness: activeStrokeWidth,
+          ),
+        );
+        _saveState();
+      }
+      tempStart = null;
+      tempEnd = null;
+    } else if (activeTool == PlanTool.shape &&
+        tempStart != null &&
+        tempEnd != null) {
+      // GUNAKAN ACTIVE COLOR
+      shapes.add(
+        PlanShape(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          rect: Rect.fromPoints(tempStart!, tempEnd!),
+          type: selectedShapeType,
+          color: activeColor,
+        ),
+      );
+      _saveState();
+      tempStart = null;
+      tempEnd = null;
+    } else if (activeTool == PlanTool.freehand &&
+        currentPathPoints.isNotEmpty) {
+      // GUNAKAN ACTIVE COLOR & STROKE
+      paths.add(
+        PlanPath(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          points: List.from(currentPathPoints),
+          color: activeColor,
+          strokeWidth: activeStrokeWidth,
+        ),
+      );
+      currentPathPoints = [];
+      _saveState();
+    }
+    notifyListeners();
+  }
+
+  void onTapUp(Offset localPos) {
+    if (activeTool == PlanTool.object && selectedObjectIcon != null) {
+      Offset pos = _getSmartSnapPoint(localPos);
+      // GUNAKAN ACTIVE COLOR
+      objects.add(
+        PlanObject(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          position: pos,
+          name: selectedObjectName,
+          description: "...",
+          iconCodePoint: selectedObjectIcon!.codePoint,
+          color: activeColor,
+        ),
+      );
+      _saveState();
+    } else if (activeTool == PlanTool.select) {
+      if (!isDragging) _handleSelection(localPos);
+    } else if (activeTool == PlanTool.eraser) {
+      _handleEraser(localPos);
+    }
+  }
+
+  void addLabel(Offset pos, String text) {
+    // GUNAKAN ACTIVE COLOR
+    labels.add(
+      PlanLabel(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        position: pos,
+        text: text,
+        color: activeColor,
+      ),
+    );
+    _saveState();
+    notifyListeners();
+  }
+
+  // ... (Metode _moveSelectedItem, _handleSelection, _handleEraser, Helpers geometri SAMA) ...
   void _moveSelectedItem(Offset delta) {
-    // Cek Shapes
     final shpIdx = shapes.indexWhere((s) => s.id == selectedId);
     if (shpIdx != -1) {
       shapes[shpIdx] = shapes[shpIdx].moveBy(delta);
       return;
     }
-
-    // ... (Move Logic lain SAMA) ...
     final lblIdx = labels.indexWhere((l) => l.id == selectedId);
     if (lblIdx != -1) {
       labels[lblIdx] = labels[lblIdx].moveBy(delta);
@@ -322,97 +445,9 @@ class PlanController extends ChangeNotifier {
     }
   }
 
-  void onPanEnd() {
-    if (activeTool == PlanTool.select && isDragging) {
-      isDragging = false;
-      lastDragPos = null;
-      _saveState();
-    } else if (activeTool == PlanTool.wall &&
-        tempStart != null &&
-        tempEnd != null) {
-      if ((tempStart! - tempEnd!).distance > 5) {
-        walls.add(
-          Wall(
-            id: DateTime.now().millisecondsSinceEpoch.toString(),
-            start: tempStart!,
-            end: tempEnd!,
-            description: "Tembok Baru",
-          ),
-        );
-        _saveState();
-      }
-      tempStart = null;
-      tempEnd = null;
-    } else if (activeTool == PlanTool.shape &&
-        tempStart != null &&
-        tempEnd != null) {
-      // Simpan Shape
-      shapes.add(
-        PlanShape(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          rect: Rect.fromPoints(tempStart!, tempEnd!),
-          type: selectedShapeType,
-          name: selectedShapeType == PlanShapeType.rectangle
-              ? "Kotak"
-              : selectedShapeType == PlanShapeType.circle
-              ? "Lingkaran"
-              : "Bintang",
-        ),
-      );
-      _saveState();
-      tempStart = null;
-      tempEnd = null;
-    } else if (activeTool == PlanTool.freehand &&
-        currentPathPoints.isNotEmpty) {
-      paths.add(
-        PlanPath(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          points: List.from(currentPathPoints),
-        ),
-      );
-      currentPathPoints = [];
-      _saveState();
-    }
-    notifyListeners();
-  }
-
-  void onTapUp(Offset localPos) {
-    if (activeTool == PlanTool.object && selectedObjectIcon != null) {
-      Offset pos = _getSmartSnapPoint(localPos);
-      objects.add(
-        PlanObject(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          position: pos,
-          name: selectedObjectName,
-          description: "Deskripsi...",
-          iconCodePoint: selectedObjectIcon!.codePoint,
-        ),
-      );
-      _saveState();
-    } else if (activeTool == PlanTool.select) {
-      if (!isDragging) _handleSelection(localPos);
-    } else if (activeTool == PlanTool.eraser) {
-      _handleEraser(localPos);
-    }
-  }
-
-  void addLabel(Offset pos, String text) {
-    labels.add(
-      PlanLabel(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        position: pos,
-        text: text,
-      ),
-    );
-    _saveState();
-    notifyListeners();
-  }
-
   void _handleSelection(Offset pos) {
     selectedId = null;
     isObjectSelected = false;
-
-    // 1. Labels & Objects & Shapes (Hit Test)
     for (var lbl in labels.reversed) {
       if ((lbl.position - pos).distance < 20.0) {
         selectedId = lbl.id;
@@ -436,9 +471,7 @@ class PlanController extends ChangeNotifier {
         notifyListeners();
         return;
       }
-    } // Simple rect hit test
-
-    // 2. Path & Wall
+    }
     for (var path in paths.reversed) {
       if (_isPointNearPath(pos, path)) {
         selectedId = path.id;
@@ -458,7 +491,6 @@ class PlanController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ... (Helpers geometri SAMA) ...
   bool _isPointNearLine(Offset p, Offset a, Offset b, double threshold) {
     double dx = b.dx - a.dx;
     double dy = b.dy - a.dy;
@@ -522,7 +554,7 @@ class PlanController extends ChangeNotifier {
     if (deleted) _saveState();
   }
 
-  // --- GET DATA UTK EDIT DIALOG ---
+  // ... (Get Data, Update Desc, Delete, Clear, Library SAMA) ...
   Map<String, dynamic>? getSelectedItemData() {
     if (selectedId == null) return null;
     try {
@@ -578,7 +610,6 @@ class PlanController extends ChangeNotifier {
     return null;
   }
 
-  // Update (Deskripsi/Nama/Warna bisa ditambah)
   void updateDescription(String newDesc, {String? newName}) {
     if (selectedId == null) return;
     final shpIdx = shapes.indexWhere((s) => s.id == selectedId);
@@ -590,8 +621,6 @@ class PlanController extends ChangeNotifier {
       _saveState();
       return;
     }
-
-    // ... (Update label, object, path, wall SAMA) ...
     final lblIdx = labels.indexWhere((l) => l.id == selectedId);
     if (lblIdx != -1 && newName != null) {
       labels[lblIdx] = labels[lblIdx].copyWith(text: newName);
@@ -644,7 +673,6 @@ class PlanController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ... (Library logic SAMA) ...
   void saveCurrentSelectionToLibrary() {
     if (selectedId == null) return;
     final pathIdx = paths.indexWhere((p) => p.id == selectedId);
