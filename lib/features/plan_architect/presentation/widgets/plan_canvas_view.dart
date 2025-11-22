@@ -1,3 +1,4 @@
+// lib/features/plan_architect/presentation/widgets/plan_canvas_view.dart
 import 'package:flutter/material.dart';
 import 'package:mind_palace_manager/features/plan_architect/logic/plan_controller.dart';
 import 'package:mind_palace_manager/features/plan_architect/presentation/plan_painter.dart';
@@ -49,18 +50,22 @@ class PlanCanvasView extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool isHand = controller.activeTool == PlanTool.hand;
     final bool isView = controller.isViewMode;
-
-    // Mode pan/scale hanya aktif di mode Hand atau View
     final bool allowPan = isHand || isView;
 
     return Stack(
       children: [
-        // BACKGROUND FILLER
-        Positioned.fill(child: Container(color: controller.canvasColor)),
+        // 1. BACKGROUND LUAR: HITAM (VOID)
+        // Sesuai permintaan: "diluar grid itu bgnya hitam"
+        Positioned.fill(
+          child: Container(
+            color: const Color(0xFF121212),
+          ), // Hampir hitam pekat
+        ),
 
+        // 2. INTERACTIVE VIEWER (PAN/ZOOM)
         InteractiveViewer(
           transformationController: controller.transformController,
-          // Infinite Margin agar user bisa scroll ke mana saja
+          // Boundary besar agar canvas 500x500 bisa digeser bebas
           boundaryMargin: const EdgeInsets.all(double.infinity),
 
           panEnabled: allowPan,
@@ -68,31 +73,43 @@ class PlanCanvasView extends StatelessWidget {
           minScale: 0.1,
           maxScale: 5.0,
 
-          child: GestureDetector(
-            // Jika allowPan aktif, matikan gesture detector agar touch event
-            // diteruskan ke InteractiveViewer (untuk panning).
-            onPanStart: allowPan
-                ? null
-                : (d) => controller.onPanStart(d.localPosition),
-            onPanUpdate: allowPan
-                ? null
-                : (d) => controller.onPanUpdate(d.localPosition),
-            onPanEnd: allowPan ? null : (d) => controller.onPanEnd(),
-            onTapUp: (d) => _handleTapUp(context, d.localPosition),
+          child: Center(
+            child: GestureDetector(
+              onPanStart: allowPan
+                  ? null
+                  : (d) => controller.onPanStart(d.localPosition),
+              onPanUpdate: allowPan
+                  ? null
+                  : (d) => controller.onPanUpdate(d.localPosition),
+              onPanEnd: allowPan ? null : (d) => controller.onPanEnd(),
+              onTapUp: (d) => _handleTapUp(context, d.localPosition),
 
-            child: Container(
-              width: controller.canvasWidth,
-              height: controller.canvasHeight,
-              color: controller.canvasColor,
-              child: CustomPaint(
-                painter: PlanPainter(controller: controller),
-                size: Size(controller.canvasWidth, controller.canvasHeight),
+              // 3. KANVAS (KERTAS)
+              child: Container(
+                width: controller.canvasWidth,
+                height: controller.canvasHeight,
+                decoration: BoxDecoration(
+                  color:
+                      controller.canvasColor, // Warna kertas (biasanya putih)
+                  // Tambahkan shadow agar batas antara Kertas dan Void Hitam terlihat jelas
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.5),
+                      blurRadius: 20,
+                      spreadRadius: 5,
+                    ),
+                  ],
+                ),
+                child: CustomPaint(
+                  painter: PlanPainter(controller: controller),
+                  size: Size(controller.canvasWidth, controller.canvasHeight),
+                ),
               ),
             ),
           ),
         ),
 
-        // TOMBOL ZOOM (KANAN ATAS)
+        // 4. TOMBOL ZOOM (KANAN ATAS)
         Positioned(
           right: 16,
           top: 16,

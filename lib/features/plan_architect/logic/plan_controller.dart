@@ -1,3 +1,4 @@
+// lib/features/plan_architect/logic/plan_controller.dart
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -25,10 +26,10 @@ class PlanController extends ChangeNotifier {
   Color canvasColor = Colors.white;
   bool showGrid = true;
 
-  // --- CANVAS SIZE CONFIG (FIXED 5000x5000) ---
-  // Area kerja ditetapkan ke 5000x5000 pixel
-  final double canvasWidth = 5000.0;
-  final double canvasHeight = 5000.0;
+  // --- CANVAS SIZE CONFIG (FIXED 500x500) ---
+  // Diubah sesuai permintaan menjadi 500x500 pixel
+  final double canvasWidth = 500.0;
+  final double canvasHeight = 500.0;
 
   // Layer Visibility
   bool layerWalls = true;
@@ -120,7 +121,6 @@ class PlanController extends ChangeNotifier {
     );
   }
 
-  // --- UNDO/REDO ---
   bool get canUndo => _historyIndex > 0;
   bool get canRedo => _historyIndex < _history.length - 1;
 
