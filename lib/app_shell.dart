@@ -9,6 +9,8 @@ import 'dart:ui';
 import 'package:path/path.dart' as p;
 import 'package:mind_palace_manager/features/settings/helpers/wallpaper_image_loader.dart';
 import 'package:mind_palace_manager/features/building/presentation/management/building_management_page.dart';
+// --- Import untuk Pixel Studio ---
+import 'package:mind_palace_manager/features/pixel_studio/presentation/pixel_studio_page.dart';
 
 class MainApp extends StatelessWidget {
   const MainApp({super.key});
@@ -342,7 +344,6 @@ class _DashboardPageState extends State<DashboardPage> {
         children: [
           Positioned.fill(child: backgroundWidget),
 
-          // --- PERUBAHAN DI SINI: Menambahkan .value pada backgroundOverlayOpacity ---
           Positioned.fill(
             child: Container(
               color:
@@ -375,6 +376,27 @@ class _DashboardPageState extends State<DashboardPage> {
                   },
                   label: const Text('Kelola Distrik & Bangunan'),
                 ),
+
+                // --- TOMBOL PIXEL STUDIO (BARU) ---
+                const SizedBox(height: 12),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepPurple.shade50,
+                    foregroundColor: Colors.deepPurple,
+                  ),
+                  icon: const Icon(Icons.brush),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const PixelStudioPage(),
+                      ),
+                    );
+                  },
+                  label: const Text('Pixel Studio (PixlFlow)'),
+                ),
+
+                // -----------------------------------
                 const SizedBox(height: 20),
                 ElevatedButton.icon(
                   icon: const Icon(Icons.settings),
