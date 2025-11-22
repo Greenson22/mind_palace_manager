@@ -1,6 +1,11 @@
 // lib/features/plan_architect/presentation/plan_editor_page.dart
 import 'package:flutter/material.dart';
+import 'dart:io';
+import 'dart:ui' as ui;
+import 'package:path/path.dart' as p;
+import 'package:mind_palace_manager/app_settings.dart';
 import '../logic/plan_controller.dart';
+import '../data/plan_models.dart';
 import 'plan_painter.dart';
 
 class PlanEditorPage extends StatefulWidget {
@@ -19,13 +24,113 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
     super.dispose();
   }
 
-  // ... (Metode _showEditDialog SAMA SEPERTI SEBELUMNYA, tidak diubah) ...
+  // --- LOGIKA EXPORT GAMBAR ---
+  Future<void> _exportImage() async {
+    if (AppSettings.exportPath == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Atur folder export di Pengaturan dulu.")),
+      );
+      return;
+    }
+
+    try {
+      // 1. Capture Canvas
+      final recorder = ui.PictureRecorder();
+      // Ukuran kanvas statis untuk export, bisa dibuat dinamis menyesuaikan konten
+      const exportSize = Size(1000, 1000);
+      final canvas = Canvas(
+        recorder,
+        Rect.fromLTWH(0, 0, exportSize.width, exportSize.height),
+      );
+
+      // Isi background putih
+      canvas.drawRect(
+        Rect.fromLTWH(0, 0, exportSize.width, exportSize.height),
+        Paint()..color = Colors.white,
+      );
+
+      // Paint konten
+      final painter = PlanPainter(controller: _controller);
+      painter.paint(canvas, exportSize);
+
+      final picture = recorder.endRecording();
+      final img = await picture.toImage(
+        exportSize.width.toInt(),
+        exportSize.height.toInt(),
+      );
+      final pngBytes = await img.toByteData(format: ui.ImageByteFormat.png);
+
+      if (pngBytes != null) {
+        final now = DateTime.now();
+        final fileName =
+            'plan_${now.year}${now.month}${now.day}_${now.hour}${now.minute}.png';
+        final file = File(p.join(AppSettings.exportPath!, fileName));
+        await file.writeAsBytes(pngBytes.buffer.asUint8List());
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Tersimpan: ${file.path}"),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Gagal export: $e"),
+            backgroundColor: Colors.red,
+          ),
+        );
+    }
+  }
+
+  // --- LOGIKA INPUT TEKS ---
+  void _handleTapUp(Offset localPos) {
+    if (_controller.activeTool == PlanTool.text) {
+      // Munculkan Dialog Input Teks
+      final textCtrl = TextEditingController();
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text("Tambah Label"),
+          content: TextField(
+            controller: textCtrl,
+            decoration: const InputDecoration(hintText: "Nama Ruangan"),
+            autofocus: true,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("Batal"),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (textCtrl.text.isNotEmpty) {
+                  _controller.addLabel(localPos, textCtrl.text);
+                }
+                Navigator.pop(ctx);
+              },
+              child: const Text("Tambah"),
+            ),
+          ],
+        ),
+      );
+    } else {
+      _controller.onTapUp(localPos);
+    }
+  }
+
   void _showEditDialog() {
     final data = _controller.getSelectedItemData();
     if (data == null) return;
 
     final titleCtrl = TextEditingController(text: data['title']);
     final descCtrl = TextEditingController(text: data['desc']);
+    final bool isPath = data['isPath'] ?? false;
+    final bool isLabel = data['type'] == 'Label';
 
     showDialog(
       context: context,
@@ -34,20 +139,45 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (_controller.isObjectSelected)
-              TextField(
-                controller: titleCtrl,
-                decoration: const InputDecoration(labelText: 'Nama Interior'),
-              ),
-            const SizedBox(height: 8),
             TextField(
-              controller: descCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Deskripsi / Keterangan',
-                border: OutlineInputBorder(),
+              controller: titleCtrl,
+              decoration: InputDecoration(
+                labelText: isLabel ? 'Isi Teks' : 'Nama',
               ),
-              maxLines: 3,
+              enabled: isPath || isLabel || data['type'] != 'Struktur',
             ),
+            const SizedBox(height: 8),
+            if (!isLabel) // Label tidak butuh deskripsi
+              TextField(
+                controller: descCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Deskripsi',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+              ),
+            if (isPath) ...[
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.bookmark_add),
+                label: const Text("Simpan ke Pustaka Saya"),
+                onPressed: () {
+                  _controller.updateDescription(
+                    descCtrl.text,
+                    newName: titleCtrl.text,
+                  );
+                  _controller.saveCurrentSelectionToLibrary();
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        "Item '${titleCtrl.text}' disimpan ke Pustaka!",
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
           ],
         ),
         actions: [
@@ -63,7 +193,7 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
             onPressed: () {
               _controller.updateDescription(
                 descCtrl.text,
-                newName: _controller.isObjectSelected ? titleCtrl.text : null,
+                newName: titleCtrl.text,
               );
               Navigator.pop(context);
             },
@@ -80,29 +210,25 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
       appBar: AppBar(
         title: const Text("Arsitek Denah"),
         actions: [
-          // Tombol UNDO
-          ListenableBuilder(
-            listenable: _controller,
-            builder: (context, _) {
-              return IconButton(
-                icon: const Icon(Icons.undo),
-                onPressed: _controller.canUndo ? _controller.undo : null,
-                tooltip: "Undo",
-              );
-            },
+          IconButton(
+            icon: const Icon(Icons.save_alt),
+            tooltip: "Export Image",
+            onPressed: _exportImage,
           ),
-          // Tombol REDO
-          ListenableBuilder(
-            listenable: _controller,
-            builder: (context, _) {
-              return IconButton(
-                icon: const Icon(Icons.redo),
-                onPressed: _controller.canRedo ? _controller.redo : null,
-                tooltip: "Redo",
-              );
+          PopupMenuButton<String>(
+            onSelected: (v) {
+              if (v == 'clear') _controller.clearAll();
             },
+            itemBuilder: (ctx) => [
+              const PopupMenuItem(
+                value: 'clear',
+                child: Text(
+                  'Hapus Semua (Reset)',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
         ],
       ),
       body: Column(
@@ -112,16 +238,40 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
             color: Colors.grey.shade100,
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
             child: SingleChildScrollView(
-              // Tambah scroll jika layar sempit
               scrollDirection: Axis.horizontal,
               child: ListenableBuilder(
                 listenable: _controller,
                 builder: (context, _) {
                   return Row(
                     children: [
+                      // Snap & Undo/Redo shortcuts
+                      IconButton(
+                        icon: Icon(
+                          _controller.enableSnap
+                              ? Icons.grid_on
+                              : Icons.grid_off,
+                          color: Colors.grey,
+                        ),
+                        onPressed: _controller.toggleSnap,
+                        tooltip: "Snap",
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.undo, color: Colors.grey),
+                        onPressed: _controller.canUndo
+                            ? _controller.undo
+                            : null,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.redo, color: Colors.grey),
+                        onPressed: _controller.canRedo
+                            ? _controller.redo
+                            : null,
+                      ),
+                      const VerticalDivider(width: 20, thickness: 1),
+
                       _buildToolBtn(
                         icon: Icons.pan_tool,
-                        label: "Pilih",
+                        label: "Pilih/Move",
                         isActive: _controller.activeTool == PlanTool.select,
                         onTap: () => _controller.setTool(PlanTool.select),
                       ),
@@ -133,7 +283,13 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
                         onTap: () => _controller.setTool(PlanTool.wall),
                       ),
                       const SizedBox(width: 8),
-                      // Tombol Custom Interior (Freehand)
+                      _buildToolBtn(
+                        icon: Icons.text_fields,
+                        label: "Label",
+                        isActive: _controller.activeTool == PlanTool.text,
+                        onTap: () => _controller.setTool(PlanTool.text),
+                      ),
+                      const SizedBox(width: 8),
                       _buildToolBtn(
                         icon: Icons.brush,
                         label: "Gambar",
@@ -141,33 +297,8 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
                         onTap: () => _controller.setTool(PlanTool.freehand),
                       ),
                       const SizedBox(width: 8),
-                      // Object Menu
-                      PopupMenuButton<Map<String, dynamic>>(
-                        child: _buildToolBtn(
-                          icon: _controller.selectedObjectIcon ?? Icons.chair,
-                          label: "Furnitur",
-                          isActive: _controller.activeTool == PlanTool.object,
-                          onTap: null,
-                        ),
-                        onSelected: (val) {
-                          _controller.selectObjectIcon(
-                            val['icon'],
-                            val['name'],
-                          );
-                        },
-                        itemBuilder: (ctx) => [
-                          _buildPopupItem(Icons.chair, "Kursi"),
-                          _buildPopupItem(Icons.table_bar, "Meja"),
-                          _buildPopupItem(Icons.bed, "Kasur"),
-                          _buildPopupItem(Icons.door_front_door, "Pintu"),
-                          _buildPopupItem(Icons.kitchen, "Kulkas"),
-                          _buildPopupItem(Icons.tv, "TV"),
-                          _buildPopupItem(Icons.wc, "Toilet"),
-                          _buildPopupItem(Icons.local_florist, "Tanaman"),
-                        ],
-                      ),
+                      _buildInteriorMenu(),
                       const SizedBox(width: 8),
-                      // Tombol Penghapus (Toggle Delete)
                       _buildToolBtn(
                         icon: Icons.delete_forever,
                         label: "Hapus",
@@ -182,7 +313,7 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
             ),
           ),
 
-          // --- INFO BAR (Edit Panel) ---
+          // --- INFO BAR ---
           ListenableBuilder(
             listenable: _controller,
             builder: (context, _) {
@@ -206,12 +337,14 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            Text(
-                              data?['desc'] ?? '',
-                              style: const TextStyle(fontSize: 12),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                            if (data?['desc'] != null &&
+                                data?['desc'].isNotEmpty)
+                              Text(
+                                data?['desc'] ?? '',
+                                style: const TextStyle(fontSize: 12),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                           ],
                         ),
                       ),
@@ -227,19 +360,27 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
                   ),
                 );
               }
-              // Info saat mode Penghapus aktif
               if (_controller.activeTool == PlanTool.eraser) {
                 return Container(
                   color: Colors.red.shade50,
                   width: double.infinity,
                   padding: const EdgeInsets.all(8),
                   child: const Text(
-                    "Mode Penghapus: Ketuk objek/tembok untuk menghapus.",
-                    style: TextStyle(
-                      color: Colors.red,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    "Mode Penghapus Aktif",
                     textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.red),
+                  ),
+                );
+              }
+              if (_controller.activeTool == PlanTool.text) {
+                return Container(
+                  color: Colors.orange.shade50,
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(8),
+                  child: const Text(
+                    "Ketuk di layar untuk menambah teks",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.deepOrange),
                   ),
                 );
               }
@@ -247,13 +388,12 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
             },
           ),
 
-          // --- CANVAS ---
           Expanded(
             child: GestureDetector(
               onPanStart: (d) => _controller.onPanStart(d.localPosition),
               onPanUpdate: (d) => _controller.onPanUpdate(d.localPosition),
               onPanEnd: (d) => _controller.onPanEnd(),
-              onTapUp: (d) => _controller.onTapUp(d.localPosition),
+              onTapUp: (d) => _handleTapUp(d.localPosition),
               child: Container(
                 color: Colors.white,
                 width: double.infinity,
@@ -266,6 +406,80 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildInteriorMenu() {
+    return PopupMenuButton<dynamic>(
+      child: _buildToolBtn(
+        icon: _controller.selectedObjectIcon ?? Icons.chair,
+        label: "Interior",
+        isActive: _controller.activeTool == PlanTool.object,
+        onTap: null,
+      ),
+      onSelected: (val) {
+        if (val is Map) {
+          _controller.selectObjectIcon(val['icon'], val['name']);
+        } else if (val is PlanPath) {
+          final center = Offset(
+            MediaQuery.of(context).size.width / 2,
+            MediaQuery.of(context).size.height / 3,
+          );
+          _controller.placeSavedPath(val, center);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Interior kustom diletakkan.")),
+          );
+        }
+      },
+      itemBuilder: (ctx) {
+        List<PopupMenuEntry<dynamic>> items = [];
+        items.add(
+          const PopupMenuItem(
+            enabled: false,
+            child: Text(
+              "STANDAR",
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+            ),
+          ),
+        );
+        items.addAll([
+          _buildPopupItem(Icons.chair, "Kursi"),
+          _buildPopupItem(Icons.table_bar, "Meja"),
+          _buildPopupItem(Icons.bed, "Kasur"),
+          _buildPopupItem(Icons.door_front_door, "Pintu"),
+          _buildPopupItem(Icons.kitchen, "Kulkas"),
+          _buildPopupItem(Icons.tv, "TV"),
+          _buildPopupItem(Icons.wc, "Toilet"),
+          _buildPopupItem(Icons.local_florist, "Tanaman"),
+        ]);
+        if (_controller.savedCustomInteriors.isNotEmpty) {
+          items.add(const PopupMenuDivider());
+          items.add(
+            const PopupMenuItem(
+              enabled: false,
+              child: Text(
+                "PUSTAKA SAYA",
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+              ),
+            ),
+          );
+          for (var savedPath in _controller.savedCustomInteriors) {
+            items.add(
+              PopupMenuItem(
+                value: savedPath,
+                child: Row(
+                  children: [
+                    const Icon(Icons.draw, color: Colors.brown),
+                    const SizedBox(width: 8),
+                    Text(savedPath.name),
+                  ],
+                ),
+              ),
+            );
+          }
+        }
+        return items;
+      },
     );
   }
 

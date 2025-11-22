@@ -50,7 +50,6 @@ class Wall {
     );
   }
 
-  // --- BARU: Fungsi Geser ---
   Wall moveBy(Offset delta) {
     return Wall(
       id: id,
@@ -105,7 +104,6 @@ class PlanObject {
     );
   }
 
-  // --- BARU: Fungsi Geser ---
   PlanObject moveBy(Offset delta) {
     return copyWith(position: position + delta);
   }
@@ -172,8 +170,50 @@ class PlanPath {
     );
   }
 
-  // --- BARU: Fungsi Geser ---
   PlanPath moveBy(Offset delta) {
     return copyWith(points: points.map((p) => p + delta).toList());
+  }
+}
+
+// --- MODEL LABEL TEKS (BARU) ---
+class PlanLabel {
+  final String id;
+  final Offset position;
+  final String text;
+  final double fontSize;
+
+  PlanLabel({
+    required this.id,
+    required this.position,
+    required this.text,
+    this.fontSize = 16.0,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'x': position.dx,
+    'y': position.dy,
+    'text': text,
+    'size': fontSize,
+  };
+
+  factory PlanLabel.fromJson(Map<String, dynamic> json) => PlanLabel(
+    id: json['id'],
+    position: Offset(json['x'], json['y']),
+    text: json['text'],
+    fontSize: (json['size'] as num?)?.toDouble() ?? 16.0,
+  );
+
+  PlanLabel copyWith({String? text, double? fontSize, Offset? position}) {
+    return PlanLabel(
+      id: id,
+      position: position ?? this.position,
+      text: text ?? this.text,
+      fontSize: fontSize ?? this.fontSize,
+    );
+  }
+
+  PlanLabel moveBy(Offset delta) {
+    return copyWith(position: position + delta);
   }
 }

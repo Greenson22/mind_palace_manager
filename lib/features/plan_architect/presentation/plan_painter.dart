@@ -15,7 +15,45 @@ class PlanPainter extends CustomPainter {
     _drawGrid(canvas, size);
     if (controller.enableSnap) _drawSnapPoints(canvas, size);
 
-    // 2. Custom Paths (Gambar Bebas)
+    // 2. Labels (Teks)
+    TextPainter tp = TextPainter(textDirection: TextDirection.ltr);
+    for (var label in controller.labels) {
+      bool isSel = (controller.selectedId == label.id);
+      tp.text = TextSpan(
+        text: label.text,
+        style: TextStyle(
+          color: isSel ? Colors.blue : Colors.black87,
+          fontSize: label.fontSize,
+          fontWeight: FontWeight.bold,
+          backgroundColor: Colors.white.withOpacity(0.5),
+        ),
+      );
+      tp.layout();
+      tp.paint(canvas, label.position - Offset(tp.width / 2, tp.height / 2));
+
+      if (isSel) {
+        final rect = Rect.fromCenter(
+          center: label.position,
+          width: tp.width + 10,
+          height: tp.height + 10,
+        );
+        canvas.drawRect(
+          rect,
+          Paint()
+            ..color = Colors.blue.withOpacity(0.1)
+            ..style = PaintingStyle.fill,
+        );
+        canvas.drawRect(
+          rect,
+          Paint()
+            ..color = Colors.blue
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1,
+        );
+      }
+    }
+
+    // 3. Custom Paths
     final Paint pathPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
@@ -57,7 +95,7 @@ class PlanPainter extends CustomPainter {
       canvas.drawPath(p, pathPaint);
     }
 
-    // 3. Tembok
+    // 4. Tembok
     final Paint wallPaint = Paint()
       ..color = Colors.black
       ..strokeWidth = 6.0
@@ -74,7 +112,6 @@ class PlanPainter extends CustomPainter {
       _drawWallLabel(canvas, wall);
     }
 
-    // Preview Tembok
     if (controller.activeTool == PlanTool.wall &&
         controller.tempStart != null &&
         controller.tempEnd != null) {
@@ -91,7 +128,6 @@ class PlanPainter extends CustomPainter {
         ),
       );
 
-      // Visualisasi Magnet (Lingkaran kecil di ujung jika menempel)
       canvas.drawCircle(
         controller.tempStart!,
         4,
@@ -104,8 +140,7 @@ class PlanPainter extends CustomPainter {
       );
     }
 
-    // 4. Objek Icon
-    TextPainter textPainter = TextPainter(textDirection: TextDirection.ltr);
+    // 5. Objek Icon
     for (var obj in controller.objects) {
       bool isSel =
           (controller.isObjectSelected && controller.selectedId == obj.id);
@@ -117,7 +152,7 @@ class PlanPainter extends CustomPainter {
         );
       }
       final icon = IconData(obj.iconCodePoint, fontFamily: 'MaterialIcons');
-      textPainter.text = TextSpan(
+      tp.text = TextSpan(
         text: String.fromCharCode(icon.codePoint),
         style: TextStyle(
           fontSize: 32,
@@ -125,8 +160,8 @@ class PlanPainter extends CustomPainter {
           color: isSel ? Colors.blue : Colors.black87,
         ),
       );
-      textPainter.layout();
-      textPainter.paint(canvas, obj.position - Offset(16, 16));
+      tp.layout();
+      tp.paint(canvas, obj.position - Offset(16, 16));
     }
   }
 
