@@ -15,8 +15,6 @@ class _PixelStudioPageState extends State<PixelStudioPage> {
   final DrawingController _controller = DrawingController();
   final TransformationController _transformController =
       TransformationController();
-
-  // Nilai zoom saat ini untuk grid dinamis
   double _currentScale = 1.0;
 
   @override
@@ -45,19 +43,19 @@ class _PixelStudioPageState extends State<PixelStudioPage> {
       backgroundColor: voidBlack,
       body: Stack(
         children: [
-          // --- LAYER 1: WORKSPACE (CANVAS) ---
+          // LAYER 1: WORKSPACE (CANVAS)
           Center(
             child: InteractiveViewer(
               transformationController: _transformController,
-              minScale: 0.5,
-              maxScale: 20.0,
+              minScale: 0.1,
+              maxScale: 30.0,
               boundaryMargin: const EdgeInsets.all(double.infinity),
-              // Jika tool adalah Hand, aktifkan pan. Jika Pencil/Eraser, matikan pan (1 jari draw).
+              // Pan enabled jika mode Hand, atau jika zoom sangat jauh (opsional)
               panEnabled: _controller.activeTool == DrawingTool.hand,
               scaleEnabled: true,
               child: Container(
-                width: 300, // Ukuran fisik kanvas di layar (base size)
-                height: 300,
+                width: 320, // Ukuran Render Box
+                height: 320,
                 decoration: BoxDecoration(
                   boxShadow: [
                     BoxShadow(
@@ -66,29 +64,32 @@ class _PixelStudioPageState extends State<PixelStudioPage> {
                     ),
                   ],
                 ),
-                // GestureDetector untuk menangkap input gambar
                 child: ListenableBuilder(
                   listenable: _controller,
                   builder: (context, child) {
                     return GestureDetector(
-                      onPanStart: (details) => _controller.drawPixel(
-                        details.localPosition,
-                        const Size(300, 300),
+                      onPanStart: (d) => _controller.startStroke(
+                        d.localPosition,
+                        const Size(320, 320),
                       ),
-                      onPanUpdate: (details) => _controller.drawPixel(
-                        details.localPosition,
-                        const Size(300, 300),
+                      onPanUpdate: (d) => _controller.updateStroke(
+                        d.localPosition,
+                        const Size(320, 320),
                       ),
-                      onTapDown: (details) => _controller.drawPixel(
-                        details.localPosition,
-                        const Size(300, 300),
-                      ),
+                      onPanEnd: (d) => _controller.endStroke(),
+                      onTapDown: (d) {
+                        _controller.startStroke(
+                          d.localPosition,
+                          const Size(320, 320),
+                        );
+                        _controller.endStroke(); // Tap dianggap stroke instan
+                      },
                       child: CustomPaint(
                         painter: PixelCanvasPainter(
                           controller: _controller,
                           zoomScale: _currentScale,
                         ),
-                        size: const Size(300, 300),
+                        size: const Size(320, 320),
                       ),
                     );
                   },
@@ -97,7 +98,7 @@ class _PixelStudioPageState extends State<PixelStudioPage> {
             ),
           ),
 
-          // --- LAYER 2: UTILITY CORNERS (ATAS) ---
+          // LAYER 2: TOP BAR
           Positioned(
             top: 40,
             left: 16,
@@ -116,7 +117,7 @@ class _PixelStudioPageState extends State<PixelStudioPage> {
                   onTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Fitur simpan akan segera hadir!'),
+                        content: Text('Fitur simpan sedang dikembangkan.'),
                       ),
                     );
                   },
@@ -125,11 +126,11 @@ class _PixelStudioPageState extends State<PixelStudioPage> {
             ),
           ),
 
-          // --- LAYER 3: CONTROL HUB (BAWAH) ---
+          // LAYER 3: CONTROL HUB (CAPSULE)
           Positioned(
             bottom: 30,
-            left: 20,
-            right: 20,
+            left: 16,
+            right: 16, // Lebar penuh dengan padding
             child: Center(child: _buildControlCapsule()),
           ),
         ],
@@ -137,7 +138,6 @@ class _PixelStudioPageState extends State<PixelStudioPage> {
     );
   }
 
-  // Widget: Tombol Kaca (Glass Button) Kecil
   Widget _buildGlassButton({
     required IconData icon,
     required VoidCallback onTap,
@@ -158,7 +158,6 @@ class _PixelStudioPageState extends State<PixelStudioPage> {
     );
   }
 
-  // Widget: The Dynamic Capsule (Pusat Kontrol)
   Widget _buildControlCapsule() {
     return ClipRRect(
       borderRadius: BorderRadius.circular(50),
@@ -166,60 +165,103 @@ class _PixelStudioPageState extends State<PixelStudioPage> {
         filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
         child: Container(
           height: 70,
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          color: Colors.grey.shade900.withOpacity(0.6),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          color: Colors.grey.shade900.withOpacity(0.85),
           child: ListenableBuilder(
             listenable: _controller,
             builder: (context, _) {
               return Row(
                 mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // 1. Hand Tool (Pan/Zoom Mode)
+                  // CLUSTER 1: UNDO / REDO
+                  IconButton(
+                    icon: Icon(
+                      Icons.undo,
+                      color: _controller.canUndo
+                          ? Colors.white
+                          : Colors.white24,
+                    ),
+                    onPressed: _controller.undo,
+                    tooltip: "Undo",
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.redo,
+                      color: _controller.canRedo
+                          ? Colors.white
+                          : Colors.white24,
+                    ),
+                    onPressed: _controller.redo,
+                    tooltip: "Redo",
+                  ),
+
+                  _buildVerticalDivider(),
+
+                  // CLUSTER 2: TOOLS
                   _buildToolIcon(
                     icon: Icons.pan_tool,
                     isActive: _controller.activeTool == DrawingTool.hand,
                     onTap: () => _controller.setTool(DrawingTool.hand),
                   ),
-                  const SizedBox(width: 20),
-
-                  // 2. Pencil Tool
+                  const SizedBox(width: 8),
                   _buildToolIcon(
                     icon: Icons.edit,
                     isActive: _controller.activeTool == DrawingTool.pencil,
                     onTap: () => _controller.setTool(DrawingTool.pencil),
                   ),
-                  const SizedBox(width: 20),
-
-                  // 3. Eraser Tool
+                  const SizedBox(width: 8),
                   _buildToolIcon(
-                    icon: Icons
-                        .backspace_outlined, // Ikon penghapus yang lebih umum
+                    icon: Icons.backspace_outlined,
                     isActive: _controller.activeTool == DrawingTool.eraser,
                     onTap: () => _controller.setTool(DrawingTool.eraser),
                   ),
+                  const SizedBox(width: 8),
 
-                  // Divider Vertikal Kecil
-                  Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 20),
-                    width: 1,
-                    height: 30,
-                    color: Colors.white24,
+                  // Shape Tools (Menu)
+                  PopupMenuButton<DrawingTool>(
+                    tooltip: "Bentuk (Garis, Kotak, Lingkaran)",
+                    offset: const Offset(0, -120),
+                    color: Colors.grey.shade800,
+                    icon: Icon(
+                      _getShapeIcon(_controller.activeTool),
+                      color: _isShape(_controller.activeTool)
+                          ? Colors.blueAccent
+                          : Colors.white,
+                    ),
+                    onSelected: (DrawingTool tool) {
+                      _controller.setTool(tool);
+                    },
+                    itemBuilder: (context) => [
+                      _buildMenuItem(
+                        DrawingTool.line,
+                        Icons.show_chart,
+                        "Garis",
+                      ),
+                      _buildMenuItem(
+                        DrawingTool.rectangle,
+                        Icons.crop_square,
+                        "Kotak",
+                      ),
+                      _buildMenuItem(
+                        DrawingTool.circle,
+                        Icons.circle_outlined,
+                        "Lingkaran",
+                      ),
+                    ],
                   ),
 
-                  // 4. Color Dot (Indikator Warna)
+                  _buildVerticalDivider(),
+
+                  // CLUSTER 3: COLOR
                   GestureDetector(
-                    onTap: () => _showColorPicker(),
+                    onTap: _showColorPicker,
                     child: Container(
-                      width: 36,
-                      height: 36,
+                      width: 32,
+                      height: 32,
                       decoration: BoxDecoration(
                         color: _controller.activeColor,
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white, width: 2),
-                        boxShadow: const [
-                          BoxShadow(color: Colors.black26, blurRadius: 4),
-                        ],
                       ),
                     ),
                   ),
@@ -232,7 +274,15 @@ class _PixelStudioPageState extends State<PixelStudioPage> {
     );
   }
 
-  // Helper untuk Ikon Tool
+  Widget _buildVerticalDivider() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      width: 1,
+      height: 30,
+      color: Colors.white24,
+    );
+  }
+
   Widget _buildToolIcon({
     required IconData icon,
     required bool isActive,
@@ -242,7 +292,7 @@ class _PixelStudioPageState extends State<PixelStudioPage> {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: isActive ? Colors.white : Colors.transparent,
           shape: BoxShape.circle,
@@ -250,21 +300,59 @@ class _PixelStudioPageState extends State<PixelStudioPage> {
         child: Icon(
           icon,
           color: isActive ? Colors.black : Colors.white,
-          size: 24,
+          size: 20,
         ),
       ),
     );
   }
 
-  // Dialog Pemilih Warna Sederhana
+  bool _isShape(DrawingTool tool) {
+    return tool == DrawingTool.line ||
+        tool == DrawingTool.rectangle ||
+        tool == DrawingTool.circle;
+  }
+
+  IconData _getShapeIcon(DrawingTool tool) {
+    switch (tool) {
+      case DrawingTool.line:
+        return Icons.show_chart;
+      case DrawingTool.rectangle:
+        return Icons.crop_square;
+      case DrawingTool.circle:
+        return Icons.circle_outlined;
+      // PERBAIKAN: Mengganti Icons.shapes dengan Icons.category
+      default:
+        return Icons.category;
+    }
+  }
+
+  PopupMenuItem<DrawingTool> _buildMenuItem(
+    DrawingTool tool,
+    IconData icon,
+    String label,
+  ) {
+    return PopupMenuItem(
+      value: tool,
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.white),
+          const SizedBox(width: 12),
+          Text(label, style: const TextStyle(color: Colors.white)),
+        ],
+      ),
+    );
+  }
+
   void _showColorPicker() {
     final List<Color> palette = [
       Colors.black,
       Colors.white,
       Colors.red,
+      Colors.pink,
       Colors.orange,
       Colors.yellow,
       Colors.green,
+      Colors.teal,
       Colors.blue,
       Colors.indigo,
       Colors.purple,
