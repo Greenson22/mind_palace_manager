@@ -26,9 +26,10 @@ class PlanController extends ChangeNotifier {
   Color canvasColor = Colors.white;
   bool showGrid = true;
 
-  // --- CANVAS SIZE CONFIG (DIPERBARUI) ---
-  double canvasWidth = 2500.0;
-  double canvasHeight = 2500.0;
+  // --- CANVAS SIZE CONFIG (INFINITE SETTING) ---
+  // Diubah menjadi 20.000 agar area gambar sangat luas (seperti tak terbatas)
+  double canvasWidth = 20000.0;
+  double canvasHeight = 20000.0;
 
   // Layer Visibility
   bool layerWalls = true;
@@ -120,7 +121,6 @@ class PlanController extends ChangeNotifier {
     );
   }
 
-  // --- UNDO/REDO (DIPERBARUI UNTUK MENYIMPAN UKURAN CANVAS) ---
   bool get canUndo => _historyIndex > 0;
   bool get canRedo => _historyIndex < _history.length - 1;
 
@@ -131,9 +131,9 @@ class PlanController extends ChangeNotifier {
     final state = jsonEncode({
       'floors': floors.map((f) => f.toJson()).toList(),
       'activeIdx': activeFloorIndex,
-      'cw': canvasWidth, // Simpan Lebar
-      'ch': canvasHeight, // Simpan Tinggi
-      'cc': canvasColor.value, // Simpan Warna Canvas
+      'cw': canvasWidth,
+      'ch': canvasHeight,
+      'cc': canvasColor.value,
     });
 
     _history.add(state);
@@ -164,7 +164,6 @@ class PlanController extends ChangeNotifier {
         .toList();
     activeFloorIndex = data['activeIdx'] ?? 0;
 
-    // Load Ukuran Canvas & Warna
     if (data['cw'] != null) canvasWidth = (data['cw'] as num).toDouble();
     if (data['ch'] != null) canvasHeight = (data['ch'] as num).toDouble();
     if (data['cc'] != null) canvasColor = Color(data['cc']);
@@ -189,15 +188,14 @@ class PlanController extends ChangeNotifier {
 
   void setCanvasColor(Color color) {
     canvasColor = color;
-    _saveState(); // Simpan perubahan warna
+    _saveState();
   }
 
-  // --- UPDATE CANVAS SIZE (DIPERBARUI) ---
   void updateCanvasSize(double width, double height) {
     canvasWidth = width;
     canvasHeight = height;
     notifyListeners();
-    _saveState(); // PENTING: Simpan ke history agar bisa di-undo
+    _saveState();
   }
 
   void toggleGridVisibility() {
@@ -281,7 +279,7 @@ class PlanController extends ChangeNotifier {
   }
 
   // ===============================================================
-  // 3. INPUT HANDLING (SAMA SEPERTI SEBELUMNYA)
+  // 3. INPUT HANDLING
   // ===============================================================
 
   Offset _snapToGrid(Offset pos) {
@@ -450,7 +448,7 @@ class PlanController extends ChangeNotifier {
   }
 
   // ===============================================================
-  // 4. MODIFIERS & HIT TEST (SAMA SEPERTI SEBELUMNYA)
+  // 4. MODIFIERS & HIT TEST
   // ===============================================================
 
   void _moveSelectedItem(Offset delta) {

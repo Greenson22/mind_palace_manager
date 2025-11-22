@@ -53,10 +53,13 @@ class PlanCanvasView extends StatelessWidget {
 
     return Stack(
       children: [
+        // BACKGROUND FILLER (Agar area di luar kanvas warnanya sama)
+        Positioned.fill(child: Container(color: controller.canvasColor)),
+
         InteractiveViewer(
           transformationController: controller.transformController,
-          // Boundary margin besar agar canvas bisa digeser bebas
-          boundaryMargin: const EdgeInsets.all(2000),
+          // Infinite Boundary: User bisa scroll bebas kemana saja
+          boundaryMargin: const EdgeInsets.all(double.infinity),
           panEnabled: isHand || isView,
           scaleEnabled: isHand || isView,
           minScale: 0.1,
@@ -66,19 +69,13 @@ class PlanCanvasView extends StatelessWidget {
             onPanUpdate: (d) => controller.onPanUpdate(d.localPosition),
             onPanEnd: (d) => controller.onPanEnd(),
             onTapUp: (d) => _handleTapUp(context, d.localPosition),
+
+            // CONTAINER KANVAS UTAMA
             child: Container(
               width: controller.canvasWidth,
               height: controller.canvasHeight,
-              decoration: BoxDecoration(
-                color: controller.canvasColor,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
-                    blurRadius: 10,
-                    spreadRadius: 2,
-                  ),
-                ],
-              ),
+              // Hapus shadow agar terlihat flat & infinite
+              color: controller.canvasColor,
               child: CustomPaint(
                 painter: PlanPainter(controller: controller),
                 size: Size(controller.canvasWidth, controller.canvasHeight),
@@ -87,8 +84,7 @@ class PlanCanvasView extends StatelessWidget {
           ),
         ),
 
-        // Tombol Zoom dipindah ke KANAN ATAS (Top Right)
-        // Agar tidak menghalangi toolbar di bawah
+        // Tombol Zoom (Floating Button) di Kanan Atas
         Positioned(
           right: 16,
           top: 16,
