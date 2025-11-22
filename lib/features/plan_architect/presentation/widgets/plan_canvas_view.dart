@@ -51,30 +51,46 @@ class PlanCanvasView extends StatelessWidget {
     final bool isHand = controller.activeTool == PlanTool.hand;
     final bool isView = controller.isViewMode;
 
+    // Jika mode Hand/View aktif, kita matikan gesture detector gambar
+    // agar InteractiveViewer bisa mengambil alih sentuhan untuk menggeser (panning).
+    final bool allowPan = isHand || isView;
+
     return Stack(
       children: [
-        // BACKGROUND FILLER (Agar area di luar kanvas warnanya sama)
+        // Background Filler (Warna dasar yang sama dengan canvas agar terlihat menyatu)
         Positioned.fill(child: Container(color: controller.canvasColor)),
 
         InteractiveViewer(
           transformationController: controller.transformController,
-          // Infinite Boundary: User bisa scroll bebas kemana saja
+          // Boundary margin besar (Infinite feeling)
           boundaryMargin: const EdgeInsets.all(double.infinity),
-          panEnabled: isHand || isView,
-          scaleEnabled: isHand || isView,
+
+          // PENTING: Pan/Scale hanya aktif jika mode Hand atau View
+          panEnabled: allowPan,
+          scaleEnabled: allowPan,
+
           minScale: 0.1,
           maxScale: 5.0,
+
           child: GestureDetector(
-            onPanStart: (d) => controller.onPanStart(d.localPosition),
-            onPanUpdate: (d) => controller.onPanUpdate(d.localPosition),
-            onPanEnd: (d) => controller.onPanEnd(),
+            // PERBAIKAN UTAMA DI SINI:
+            // Jika allowPan (Mode Geser) aktif, set callback ke null.
+            // Ini membuat GestureDetector "mengalah", sehingga sentuhan diambil oleh InteractiveViewer.
+            onPanStart: allowPan
+                ? null
+                : (d) => controller.onPanStart(d.localPosition),
+            onPanUpdate: allowPan
+                ? null
+                : (d) => controller.onPanUpdate(d.localPosition),
+            onPanEnd: allowPan ? null : (d) => controller.onPanEnd(),
+
+            // Tap tetap aktif untuk seleksi objek meskipun di mode Hand
             onTapUp: (d) => _handleTapUp(context, d.localPosition),
 
-            // CONTAINER KANVAS UTAMA
             child: Container(
               width: controller.canvasWidth,
               height: controller.canvasHeight,
-              // Hapus shadow agar terlihat flat & infinite
+              // Tidak perlu shadow agar terlihat flat/infinite
               color: controller.canvasColor,
               child: CustomPaint(
                 painter: PlanPainter(controller: controller),
@@ -84,7 +100,7 @@ class PlanCanvasView extends StatelessWidget {
           ),
         ),
 
-        // Tombol Zoom (Floating Button) di Kanan Atas
+        // Tombol Zoom di Kanan Atas
         Positioned(
           right: 16,
           top: 16,
