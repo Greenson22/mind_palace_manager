@@ -36,7 +36,6 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
     }
     try {
       final recorder = ui.PictureRecorder();
-      // Gunakan ukuran canvas dari controller (Resizeable Canvas)
       final exportSize = Size(
         _controller.canvasWidth,
         _controller.canvasHeight,
@@ -45,12 +44,10 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
         recorder,
         Rect.fromLTWH(0, 0, exportSize.width, exportSize.height),
       );
-      // Gambar background
       canvas.drawRect(
         Rect.fromLTWH(0, 0, exportSize.width, exportSize.height),
         Paint()..color = _controller.canvasColor,
       );
-      // Gambar konten
       final painter = PlanPainter(controller: _controller);
       painter.paint(canvas, exportSize);
 
@@ -94,9 +91,6 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
         final bool isView = _controller.isViewMode;
 
         return Scaffold(
-          // AppBar dibuat transparan di atas canvas atau solid tergantung selera
-          // Di sini kita gunakan style minimalis
-          extendBodyBehindAppBar: false,
           appBar: AppBar(
             title: Column(
               children: [
@@ -130,7 +124,6 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
                 tooltip: isView ? "Kembali ke Edit" : "Mode Presentasi",
                 onPressed: _controller.toggleViewMode,
               ),
-              // Menu overflow
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert),
                 onSelected: (v) {
@@ -185,10 +178,21 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
               // 1. CANVAS (LAYER PALING BAWAH)
               Positioned.fill(child: PlanCanvasView(controller: _controller)),
 
-              // 2. TOOLBAR (LAYER ATAS, FLOATING)
+              // 2. SELECTION BAR (MUNCUL DI ATAS TOOLBAR UTAMA)
+              // Kita taruh di urutan bawah stack agar dirender duluan (di belakang toolbar)
+              // atau diatur posisinya agar tidak tertutup.
+              if (!isView && _controller.selectedId != null)
+                Positioned(
+                  bottom: 100, // Di atas toolbar utama (32 + 60 + padding)
+                  left: 16,
+                  right: 16,
+                  child: PlanSelectionBar(controller: _controller),
+                ),
+
+              // 3. TOOLBAR UTAMA (LAYER ATAS, DI BAWAH LAYAR)
               if (!isView)
                 Positioned(
-                  top: 16,
+                  bottom: 32, // PINDAH KE BAWAH
                   left: 16,
                   right: 16,
                   child: Center(
@@ -196,19 +200,11 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
                   ),
                 ),
 
-              // 3. SELECTION BAR (LAYER BAWAH, FLOATING)
-              if (!isView && _controller.selectedId != null)
-                Positioned(
-                  bottom: 24,
-                  left: 16,
-                  right: 16,
-                  child: PlanSelectionBar(controller: _controller),
-                ),
-
               // 4. STATUS INDIKATOR (MISAL: ERASER AKTIF)
               if (!isView && _controller.activeTool == PlanTool.eraser)
                 Positioned(
-                  bottom: _controller.selectedId != null ? 100 : 24,
+                  top:
+                      16, // Pindah ke atas agar tidak bentrok dengan toolbar bawah
                   left: 0,
                   right: 0,
                   child: Center(
@@ -249,7 +245,7 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
               // 5. TEXT HINT
               if (!isView && _controller.activeTool == PlanTool.text)
                 Positioned(
-                  top: 100, // Di bawah toolbar
+                  top: 16,
                   left: 0,
                   right: 0,
                   child: Center(

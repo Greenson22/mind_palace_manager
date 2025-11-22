@@ -1,3 +1,4 @@
+// lib/features/plan_architect/presentation/widgets/plan_canvas_view.dart
 import 'package:flutter/material.dart';
 import 'package:mind_palace_manager/features/plan_architect/logic/plan_controller.dart';
 import 'package:mind_palace_manager/features/plan_architect/presentation/plan_painter.dart';
@@ -54,6 +55,8 @@ class PlanCanvasView extends StatelessWidget {
       children: [
         InteractiveViewer(
           transformationController: controller.transformController,
+          // Boundary margin besar agar canvas bisa digeser bebas
+          boundaryMargin: const EdgeInsets.all(2000),
           panEnabled: isHand || isView,
           scaleEnabled: isHand || isView,
           minScale: 0.1,
@@ -66,32 +69,54 @@ class PlanCanvasView extends StatelessWidget {
             child: Container(
               width: controller.canvasWidth,
               height: controller.canvasHeight,
-              color: Colors.grey.shade200,
-              child: CustomPaint(painter: PlanPainter(controller: controller)),
+              decoration: BoxDecoration(
+                color: controller.canvasColor,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 10,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: CustomPaint(
+                painter: PlanPainter(controller: controller),
+                size: Size(controller.canvasWidth, controller.canvasHeight),
+              ),
             ),
           ),
         ),
+
+        // Tombol Zoom dipindah ke KANAN ATAS (Top Right)
+        // Agar tidak menghalangi toolbar di bawah
         Positioned(
           right: 16,
-          bottom: 16,
+          top: 16,
           child: Column(
             children: [
               FloatingActionButton.small(
                 heroTag: "zi",
                 onPressed: controller.zoomIn,
-                child: const Icon(Icons.add),
+                backgroundColor: Colors.white,
+                child: const Icon(Icons.add, color: Colors.black87),
               ),
               const SizedBox(height: 8),
               FloatingActionButton.small(
                 heroTag: "zo",
                 onPressed: controller.zoomOut,
-                child: const Icon(Icons.remove),
+                backgroundColor: Colors.white,
+                child: const Icon(Icons.remove, color: Colors.black87),
               ),
               const SizedBox(height: 8),
               FloatingActionButton.small(
                 heroTag: "zr",
                 onPressed: controller.resetZoom,
-                child: const Icon(Icons.center_focus_strong),
+                backgroundColor: Colors.white,
+                tooltip: "Reset Zoom",
+                child: const Icon(
+                  Icons.center_focus_strong,
+                  color: Colors.black87,
+                ),
               ),
             ],
           ),
