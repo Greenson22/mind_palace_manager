@@ -1,3 +1,4 @@
+// lib/features/plan_architect/presentation/widgets/plan_selection_bar.dart
 import 'package:flutter/material.dart';
 import 'package:mind_palace_manager/features/plan_architect/logic/plan_controller.dart';
 import 'package:mind_palace_manager/features/plan_architect/presentation/dialogs/plan_editor_dialogs.dart';
@@ -13,84 +14,226 @@ class PlanSelectionBar extends StatelessWidget {
     if (data == null) return const SizedBox.shrink();
 
     return Container(
-      color: Colors.blue.shade50,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      constraints: const BoxConstraints(maxWidth: 600),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 15,
+            offset: Offset(0, 5),
+          ),
+        ],
+        border: Border.all(color: Colors.blue.shade100),
+      ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
+          // Header: Info Objek & Tombol Edit
           Row(
             children: [
-              Expanded(
-                child: Text(
-                  "${data['title']} (${data['type']})",
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                  overflow: TextOverflow.ellipsis,
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.touch_app,
+                  size: 16,
+                  color: Colors.blue,
                 ),
               ),
-              InkWell(
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      data['title'] ?? "Objek",
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      data['type'] ?? "Item",
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.edit, size: 14),
+                label: const Text("Detail"),
+                onPressed: () =>
+                    PlanEditorDialogs.showEditDialog(context, controller),
+                style: OutlinedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  side: BorderSide(color: Colors.blue.shade200),
+                ),
+              ),
+            ],
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Divider(height: 1),
+          ),
+
+          // Baris Aksi Cepat
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildQuickAction(
+                icon: Icons.color_lens,
+                label: "Warna",
                 onTap: () => PlanEditorDialogs.showColorPicker(
                   context,
                   (c) => controller.updateSelectedAttribute(color: c),
                 ),
-                child: const Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Icon(Icons.color_lens, color: Colors.blue),
-                ),
               ),
+
+              // Slider Ketebalan (Hanya untuk Struktur/Gambar)
               if (data['type'] == 'Struktur' || data['type'] == 'Gambar')
-                SizedBox(
-                  width: 80,
-                  child: Slider(
-                    value: (data['type'] == 'Struktur')
-                        ? (controller.walls
-                              .firstWhere((w) => w.id == controller.selectedId)
-                              .thickness)
-                        : (controller.paths
-                              .firstWhere((p) => p.id == controller.selectedId)
-                              .strokeWidth),
-                    min: 1.0,
-                    max: 20.0,
-                    divisions: 19,
-                    onChanged: (v) => controller.updateSelectedStrokeWidth(v),
+                Expanded(
+                  child: Column(
+                    children: [
+                      const Text(
+                        "Tebal",
+                        style: TextStyle(fontSize: 9, color: Colors.grey),
+                      ),
+                      SizedBox(
+                        height: 20,
+                        child: SliderTheme(
+                          data: SliderTheme.of(context).copyWith(
+                            thumbShape: const RoundSliderThumbShape(
+                              enabledThumbRadius: 5,
+                            ),
+                            overlayShape: const RoundSliderOverlayShape(
+                              overlayRadius: 10,
+                            ),
+                          ),
+                          child: Slider(
+                            value: (data['type'] == 'Struktur')
+                                ? (controller.walls
+                                      .firstWhere(
+                                        (w) => w.id == controller.selectedId,
+                                      )
+                                      .thickness)
+                                : (controller.paths
+                                      .firstWhere(
+                                        (p) => p.id == controller.selectedId,
+                                      )
+                                      .strokeWidth),
+                            min: 1.0,
+                            max: 20.0,
+                            divisions: 19,
+                            onChanged: (v) =>
+                                controller.updateSelectedStrokeWidth(v),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.edit, size: 14),
-                label: const Text("Info"),
-                onPressed: () =>
-                    PlanEditorDialogs.showEditDialog(context, controller),
-                style: ElevatedButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                ),
+
+              _buildQuickAction(
+                icon: Icons.copy,
+                label: "Salin",
+                onTap: controller.duplicateSelected,
               ),
-            ],
-          ),
-          const Divider(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.copy, size: 20),
-                onPressed: controller.duplicateSelected,
-                tooltip: "Duplikat",
+              _buildQuickAction(
+                icon: Icons.rotate_right,
+                label: "Putar",
+                onTap: controller.rotateSelected,
               ),
-              IconButton(
-                icon: const Icon(Icons.rotate_right, size: 20),
-                onPressed: controller.rotateSelected,
-                tooltip: "Putar",
+              _buildQuickAction(
+                icon: Icons.layers,
+                label: "Urutan",
+                onTap: () => _showOrderMenu(context, controller),
               ),
-              IconButton(
-                icon: const Icon(Icons.flip_to_front, size: 20),
-                onPressed: controller.bringToFront,
-                tooltip: "Ke Depan",
-              ),
-              IconButton(
-                icon: const Icon(Icons.flip_to_back, size: 20),
-                onPressed: controller.sendToBack,
-                tooltip: "Ke Belakang",
+              _buildQuickAction(
+                icon: Icons.delete_outline,
+                label: "Hapus",
+                color: Colors.red,
+                onTap: controller.deleteSelected,
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  void _showOrderMenu(BuildContext context, PlanController controller) {
+    final RenderBox button = context.findRenderObject() as RenderBox;
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+    final RelativeRect position = RelativeRect.fromRect(
+      Rect.fromPoints(
+        button.localToGlobal(Offset.zero, ancestor: overlay),
+        button.localToGlobal(
+          button.size.bottomRight(Offset.zero),
+          ancestor: overlay,
+        ),
+      ),
+      Offset.zero & overlay.size,
+    );
+
+    showMenu(
+      context: context,
+      position: position,
+      items: [
+        PopupMenuItem(
+          onTap: controller.bringToFront,
+          child: const Row(
+            children: [
+              Icon(Icons.flip_to_front),
+              SizedBox(width: 8),
+              Text("Ke Paling Depan"),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          onTap: controller.sendToBack,
+          child: const Row(
+            children: [
+              Icon(Icons.flip_to_back),
+              SizedBox(width: 8),
+              Text("Ke Paling Belakang"),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuickAction({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    Color color = Colors.black87,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 20, color: color),
+            const SizedBox(height: 2),
+            Text(label, style: TextStyle(fontSize: 9, color: color)),
+          ],
+        ),
       ),
     );
   }

@@ -1,6 +1,6 @@
 // lib/features/plan_architect/logic/plan_controller.dart
 import 'dart:convert';
-import 'dart:math'; // Penting untuk fungsi matematika
+import 'dart:math';
 import 'package:flutter/material.dart';
 import '../data/plan_models.dart';
 
@@ -14,7 +14,6 @@ class PlanController extends ChangeNotifier {
   // Library Custom Interior
   List<PlanPath> savedCustomInteriors = [];
 
-  // Getters untuk akses cepat ke data lantai aktif
   PlanFloor get activeFloor => floors[activeFloorIndex];
   List<Wall> get walls => activeFloor.walls;
   List<PlanObject> get objects => activeFloor.objects;
@@ -27,7 +26,7 @@ class PlanController extends ChangeNotifier {
   Color canvasColor = Colors.white;
   bool showGrid = true;
 
-  // --- CANVAS SIZE CONFIG (BARU) ---
+  // --- CANVAS SIZE CONFIG (DIPERBARUI) ---
   double canvasWidth = 2500.0;
   double canvasHeight = 2500.0;
 
@@ -42,7 +41,6 @@ class PlanController extends ChangeNotifier {
   final double gridSize = 20.0;
   PlanTool activeTool = PlanTool.select;
 
-  // Attributes (Warna/Tebal Aktif)
   Color activeColor = Colors.black;
   double activeStrokeWidth = 4.0;
 
@@ -55,12 +53,10 @@ class PlanController extends ChangeNotifier {
   String? selectedId;
   bool isObjectSelected = false;
 
-  // New Item Config
   IconData? selectedObjectIcon;
   String selectedObjectName = "Furniture";
   PlanShapeType selectedShapeType = PlanShapeType.rectangle;
 
-  // Zoom Controller
   final TransformationController transformController =
       TransformationController();
 
@@ -69,7 +65,6 @@ class PlanController extends ChangeNotifier {
   int _historyIndex = -1;
 
   PlanController() {
-    // Inisialisasi Lantai Pertama jika kosong
     if (floors.isEmpty) {
       floors.add(PlanFloor(id: 'floor_1', name: 'Lantai 1'));
     }
@@ -109,7 +104,6 @@ class PlanController extends ChangeNotifier {
     _saveState();
   }
 
-  // Helper Penting: Update data di lantai aktif
   void _updateActiveFloor({
     List<Wall>? walls,
     List<PlanObject>? objects,
@@ -126,17 +120,22 @@ class PlanController extends ChangeNotifier {
     );
   }
 
-  // --- UNDO/REDO ---
+  // --- UNDO/REDO (DIPERBARUI UNTUK MENYIMPAN UKURAN CANVAS) ---
   bool get canUndo => _historyIndex > 0;
   bool get canRedo => _historyIndex < _history.length - 1;
 
   void _saveState() {
     if (_historyIndex < _history.length - 1)
       _history.removeRange(_historyIndex + 1, _history.length);
+
     final state = jsonEncode({
       'floors': floors.map((f) => f.toJson()).toList(),
       'activeIdx': activeFloorIndex,
+      'cw': canvasWidth, // Simpan Lebar
+      'ch': canvasHeight, // Simpan Tinggi
+      'cc': canvasColor.value, // Simpan Warna Canvas
     });
+
     _history.add(state);
     _historyIndex++;
     if (_history.length > 30) {
@@ -164,6 +163,12 @@ class PlanController extends ChangeNotifier {
         .map((e) => PlanFloor.fromJson(e))
         .toList();
     activeFloorIndex = data['activeIdx'] ?? 0;
+
+    // Load Ukuran Canvas & Warna
+    if (data['cw'] != null) canvasWidth = (data['cw'] as num).toDouble();
+    if (data['ch'] != null) canvasHeight = (data['ch'] as num).toDouble();
+    if (data['cc'] != null) canvasColor = Color(data['cc']);
+
     if (activeFloorIndex >= floors.length) activeFloorIndex = 0;
     selectedId = null;
     notifyListeners();
@@ -173,7 +178,6 @@ class PlanController extends ChangeNotifier {
   // 2. ACTION & SETTINGS
   // ===============================================================
 
-  // --- View & Layer ---
   void toggleViewMode() {
     isViewMode = !isViewMode;
     if (isViewMode) {
@@ -185,14 +189,15 @@ class PlanController extends ChangeNotifier {
 
   void setCanvasColor(Color color) {
     canvasColor = color;
-    notifyListeners();
+    _saveState(); // Simpan perubahan warna
   }
 
-  // --- CANVAS SIZE ACTION (BARU) ---
+  // --- UPDATE CANVAS SIZE (DIPERBARUI) ---
   void updateCanvasSize(double width, double height) {
     canvasWidth = width;
     canvasHeight = height;
     notifyListeners();
+    _saveState(); // PENTING: Simpan ke history agar bisa di-undo
   }
 
   void toggleGridVisibility() {
@@ -218,7 +223,6 @@ class PlanController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- Editor Tools ---
   void setTool(PlanTool tool) {
     activeTool = tool;
     selectedId = null;
@@ -264,7 +268,6 @@ class PlanController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- RESET / CLEAR ALL (FIXED) ---
   void clearAll() {
     _updateActiveFloor(
       walls: [],
@@ -278,7 +281,7 @@ class PlanController extends ChangeNotifier {
   }
 
   // ===============================================================
-  // 3. INPUT HANDLING
+  // 3. INPUT HANDLING (SAMA SEPERTI SEBELUMNYA)
   // ===============================================================
 
   Offset _snapToGrid(Offset pos) {
@@ -447,7 +450,7 @@ class PlanController extends ChangeNotifier {
   }
 
   // ===============================================================
-  // 4. MODIFIERS & HIT TEST
+  // 4. MODIFIERS & HIT TEST (SAMA SEPERTI SEBELUMNYA)
   // ===============================================================
 
   void _moveSelectedItem(Offset delta) {
@@ -639,7 +642,6 @@ class PlanController extends ChangeNotifier {
     if (selectedId != null) deleteSelected();
   }
 
-  // Extra Actions Helpers
   void updateSelectedColor(Color color) {
     updateSelectedAttribute(color: color);
   }
