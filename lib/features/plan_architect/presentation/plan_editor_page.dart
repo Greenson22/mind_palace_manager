@@ -51,6 +51,70 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
   // ===============================================================
   // 1. DIALOG PENGATURAN TAMPILAN & LAYER
   // ===============================================================
+
+  // --- BARU: DIALOG UBAH UKURAN CANVAS ---
+  void _showCanvasResizer(BuildContext context) {
+    final widthCtrl = TextEditingController(
+      text: _controller.canvasWidth.toInt().toString(),
+    );
+    final heightCtrl = TextEditingController(
+      text: _controller.canvasHeight.toInt().toString(),
+    );
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Ubah Ukuran Canvas"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text("Masukkan ukuran dalam pixel (px)."),
+            const SizedBox(height: 16),
+            TextField(
+              controller: widthCtrl,
+              decoration: const InputDecoration(labelText: "Lebar (Width)"),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: heightCtrl,
+              decoration: const InputDecoration(labelText: "Tinggi (Height)"),
+              keyboardType: TextInputType.number,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Batal"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final w = double.tryParse(widthCtrl.text) ?? 2500.0;
+              final h = double.tryParse(heightCtrl.text) ?? 2500.0;
+
+              // Batasi minimal agar tidak error/terlalu kecil
+              final finalW = (w < 500) ? 500.0 : w;
+              final finalH = (h < 500) ? 500.0 : h;
+
+              _controller.updateCanvasSize(finalW, finalH);
+              Navigator.pop(ctx);
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    "Ukuran diubah menjadi ${finalW.toInt()} x ${finalH.toInt()}",
+                  ),
+                ),
+              );
+            },
+            child: const Text("Terapkan"),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showLayerSettings(BuildContext context) {
     showDialog(
       context: context,
@@ -108,6 +172,23 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
                   },
                 ),
                 const Divider(),
+
+                // --- BARU: OPSI UKURAN CANVAS ---
+                ListTile(
+                  leading: const Icon(Icons.aspect_ratio),
+                  title: const Text("Ukuran Area Gambar"),
+                  subtitle: Text(
+                    "${_controller.canvasWidth.toInt()} x ${_controller.canvasHeight.toInt()} px",
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx); // Tutup dialog setting dulu
+                    _showCanvasResizer(context); // Buka dialog resize
+                  },
+                  trailing: const Icon(Icons.edit, size: 16),
+                ),
+                const Divider(),
+
+                // ------------------------------------
                 const Text(
                   "Warna Latar Kanvas",
                   style: TextStyle(fontWeight: FontWeight.bold),
@@ -671,7 +752,11 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
     }
     try {
       final recorder = ui.PictureRecorder();
-      const exportSize = Size(2000, 2000);
+      // --- MODIFIED: Gunakan ukuran canvas dinamis untuk export ---
+      final exportSize = Size(
+        _controller.canvasWidth,
+        _controller.canvasHeight,
+      );
       final canvas = Canvas(
         recorder,
         Rect.fromLTWH(0, 0, exportSize.width, exportSize.height),
@@ -1158,9 +1243,11 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
                             _controller.onPanUpdate(d.localPosition),
                         onPanEnd: (d) => _controller.onPanEnd(),
                         onTapUp: (d) => _handleTapUp(d.localPosition),
+
+                        // --- MODIFIED: Ukuran dinamis dari controller ---
                         child: Container(
-                          width: 2500,
-                          height: 2500, // Ukuran Canvas Virtual Besar
+                          width: _controller.canvasWidth,
+                          height: _controller.canvasHeight,
                           color: Colors.grey.shade200, // Placeholder color
                           child: CustomPaint(
                             painter: PlanPainter(controller: _controller),

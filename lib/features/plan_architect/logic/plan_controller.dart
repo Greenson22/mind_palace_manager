@@ -27,6 +27,10 @@ class PlanController extends ChangeNotifier {
   Color canvasColor = Colors.white;
   bool showGrid = true;
 
+  // --- CANVAS SIZE CONFIG (BARU) ---
+  double canvasWidth = 2500.0;
+  double canvasHeight = 2500.0;
+
   // Layer Visibility
   bool layerWalls = true;
   bool layerObjects = true;
@@ -181,6 +185,13 @@ class PlanController extends ChangeNotifier {
 
   void setCanvasColor(Color color) {
     canvasColor = color;
+    notifyListeners();
+  }
+
+  // --- CANVAS SIZE ACTION (BARU) ---
+  void updateCanvasSize(double width, double height) {
+    canvasWidth = width;
+    canvasHeight = height;
     notifyListeners();
   }
 
