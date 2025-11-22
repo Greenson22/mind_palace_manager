@@ -24,7 +24,7 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
     super.dispose();
   }
 
-  // --- LOGIKA EXPORT GAMBAR ---
+  // ... (Metode Export dan Handle TapUp SAMA) ...
   Future<void> _exportImage() async {
     if (AppSettings.exportPath == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -32,49 +32,38 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
       );
       return;
     }
-
     try {
-      // 1. Capture Canvas
       final recorder = ui.PictureRecorder();
-      // Ukuran kanvas statis untuk export, bisa dibuat dinamis menyesuaikan konten
       const exportSize = Size(1000, 1000);
       final canvas = Canvas(
         recorder,
         Rect.fromLTWH(0, 0, exportSize.width, exportSize.height),
       );
-
-      // Isi background putih
       canvas.drawRect(
         Rect.fromLTWH(0, 0, exportSize.width, exportSize.height),
         Paint()..color = Colors.white,
       );
-
-      // Paint konten
       final painter = PlanPainter(controller: _controller);
       painter.paint(canvas, exportSize);
-
       final picture = recorder.endRecording();
       final img = await picture.toImage(
         exportSize.width.toInt(),
         exportSize.height.toInt(),
       );
       final pngBytes = await img.toByteData(format: ui.ImageByteFormat.png);
-
       if (pngBytes != null) {
         final now = DateTime.now();
         final fileName =
             'plan_${now.year}${now.month}${now.day}_${now.hour}${now.minute}.png';
         final file = File(p.join(AppSettings.exportPath!, fileName));
         await file.writeAsBytes(pngBytes.buffer.asUint8List());
-
-        if (mounted) {
+        if (mounted)
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text("Tersimpan: ${file.path}"),
               backgroundColor: Colors.green,
             ),
           );
-        }
       }
     } catch (e) {
       if (mounted)
@@ -87,10 +76,8 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
     }
   }
 
-  // --- LOGIKA INPUT TEKS ---
   void _handleTapUp(Offset localPos) {
     if (_controller.activeTool == PlanTool.text) {
-      // Munculkan Dialog Input Teks
       final textCtrl = TextEditingController();
       showDialog(
         context: context,
@@ -124,14 +111,13 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
   }
 
   void _showEditDialog() {
+    /* ... SAMA SEPERTI SEBELUMNYA ... */
     final data = _controller.getSelectedItemData();
     if (data == null) return;
-
     final titleCtrl = TextEditingController(text: data['title']);
     final descCtrl = TextEditingController(text: data['desc']);
     final bool isPath = data['isPath'] ?? false;
     final bool isLabel = data['type'] == 'Label';
-
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -147,7 +133,7 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
               enabled: isPath || isLabel || data['type'] != 'Struktur',
             ),
             const SizedBox(height: 8),
-            if (!isLabel) // Label tidak butuh deskripsi
+            if (!isLabel)
               TextField(
                 controller: descCtrl,
                 decoration: const InputDecoration(
@@ -233,7 +219,7 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
       ),
       body: Column(
         children: [
-          // --- TOOLBAR ---
+          // TOOLBAR ATAS
           Container(
             color: Colors.grey.shade100,
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
@@ -244,7 +230,6 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
                 builder: (context, _) {
                   return Row(
                     children: [
-                      // Snap & Undo/Redo shortcuts
                       IconButton(
                         icon: Icon(
                           _controller.enableSnap
@@ -271,7 +256,7 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
 
                       _buildToolBtn(
                         icon: Icons.pan_tool,
-                        label: "Pilih/Move",
+                        label: "Pilih",
                         isActive: _controller.activeTool == PlanTool.select,
                         onTap: () => _controller.setTool(PlanTool.select),
                       ),
@@ -297,6 +282,51 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
                         onTap: () => _controller.setTool(PlanTool.freehand),
                       ),
                       const SizedBox(width: 8),
+
+                      // Shape Menu
+                      PopupMenuButton<PlanShapeType>(
+                        child: _buildToolBtn(
+                          icon: Icons.category,
+                          label: "Bentuk",
+                          isActive: _controller.activeTool == PlanTool.shape,
+                          onTap: null,
+                        ),
+                        onSelected: (type) => _controller.selectShape(type),
+                        itemBuilder: (ctx) => [
+                          const PopupMenuItem(
+                            value: PlanShapeType.rectangle,
+                            child: Row(
+                              children: [
+                                Icon(Icons.crop_square),
+                                SizedBox(width: 8),
+                                Text("Kotak"),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: PlanShapeType.circle,
+                            child: Row(
+                              children: [
+                                Icon(Icons.circle_outlined),
+                                SizedBox(width: 8),
+                                Text("Bulat"),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem(
+                            value: PlanShapeType.star,
+                            child: Row(
+                              children: [
+                                Icon(Icons.star_border),
+                                SizedBox(width: 8),
+                                Text("Bintang"),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 8),
+
                       _buildInteriorMenu(),
                       const SizedBox(width: 8),
                       _buildToolBtn(
@@ -313,7 +343,7 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
             ),
           ),
 
-          // --- INFO BAR ---
+          // BAR SELEKSI & EDIT (BAWAH TOOLBAR)
           ListenableBuilder(
             listenable: _controller,
             builder: (context, _) {
@@ -323,44 +353,62 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
                   color: Colors.blue.shade50,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
-                    vertical: 8,
+                    vertical: 4,
                   ),
-                  child: Row(
+                  child: Column(
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              data?['title'] ?? '',
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              "${data?['title']} (${data?['type']})",
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            if (data?['desc'] != null &&
-                                data?['desc'].isNotEmpty)
-                              Text(
-                                data?['desc'] ?? '',
-                                style: const TextStyle(fontSize: 12),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                          ],
-                        ),
+                          ),
+                          ElevatedButton.icon(
+                            icon: const Icon(Icons.edit, size: 14),
+                            label: const Text("Info"),
+                            onPressed: _showEditDialog,
+                            style: ElevatedButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ),
+                        ],
                       ),
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.edit, size: 16),
-                        label: const Text("Detail"),
-                        onPressed: _showEditDialog,
-                        style: ElevatedButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                        ),
+                      // ACTION BAR (Copy, Rotate, Layer)
+                      const Divider(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.copy, size: 20),
+                            onPressed: _controller.duplicateSelected,
+                            tooltip: "Duplikat",
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.rotate_right, size: 20),
+                            onPressed: _controller.rotateSelected,
+                            tooltip: "Putar",
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.flip_to_front, size: 20),
+                            onPressed: _controller.bringToFront,
+                            tooltip: "Ke Depan",
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.flip_to_back, size: 20),
+                            onPressed: _controller.sendToBack,
+                            tooltip: "Ke Belakang",
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 );
               }
-              if (_controller.activeTool == PlanTool.eraser) {
+              if (_controller.activeTool == PlanTool.eraser)
                 return Container(
                   color: Colors.red.shade50,
                   width: double.infinity,
@@ -371,8 +419,7 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
                     style: TextStyle(color: Colors.red),
                   ),
                 );
-              }
-              if (_controller.activeTool == PlanTool.text) {
+              if (_controller.activeTool == PlanTool.text)
                 return Container(
                   color: Colors.orange.shade50,
                   width: double.infinity,
@@ -383,11 +430,11 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
                     style: TextStyle(color: Colors.deepOrange),
                   ),
                 );
-              }
               return const SizedBox.shrink();
             },
           ),
 
+          // CANVAS
           Expanded(
             child: GestureDetector(
               onPanStart: (d) => _controller.onPanStart(d.localPosition),
@@ -409,6 +456,7 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
     );
   }
 
+  // ... (Helper Widgets SAMA: _buildInteriorMenu, _buildToolBtn) ...
   Widget _buildInteriorMenu() {
     return PopupMenuButton<dynamic>(
       child: _buildToolBtn(

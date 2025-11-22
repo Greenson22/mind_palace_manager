@@ -1,6 +1,9 @@
 // lib/features/plan_architect/data/plan_models.dart
 import 'package:flutter/material.dart';
 
+// --- ENUM BENTUK ---
+enum PlanShapeType { rectangle, circle, star }
+
 // --- MODEL TEMBOK ---
 class Wall {
   final String id;
@@ -36,13 +39,14 @@ class Wall {
   );
 
   Wall copyWith({
+    String? id,
     String? description,
     double? thickness,
     Offset? start,
     Offset? end,
   }) {
     return Wall(
-      id: id,
+      id: id ?? this.id,
       start: start ?? this.start,
       end: end ?? this.end,
       thickness: thickness ?? this.thickness,
@@ -51,13 +55,7 @@ class Wall {
   }
 
   Wall moveBy(Offset delta) {
-    return Wall(
-      id: id,
-      start: start + delta,
-      end: end + delta,
-      thickness: thickness,
-      description: description,
-    );
+    return copyWith(start: start + delta, end: end + delta);
   }
 }
 
@@ -68,6 +66,7 @@ class PlanObject {
   final String name;
   final String description;
   final int iconCodePoint;
+  final double rotation; // BARU: Rotasi dalam radian
 
   PlanObject({
     required this.id,
@@ -75,6 +74,7 @@ class PlanObject {
     required this.name,
     required this.description,
     required this.iconCodePoint,
+    this.rotation = 0.0,
   });
 
   Map<String, dynamic> toJson() => {
@@ -84,6 +84,7 @@ class PlanObject {
     'name': name,
     'description': description,
     'icon': iconCodePoint,
+    'rot': rotation,
   };
 
   factory PlanObject.fromJson(Map<String, dynamic> json) => PlanObject(
@@ -92,19 +93,75 @@ class PlanObject {
     name: json['name'],
     description: json['description'],
     iconCodePoint: json['icon'],
+    rotation: (json['rot'] as num?)?.toDouble() ?? 0.0,
   );
 
-  PlanObject copyWith({String? name, String? description, Offset? position}) {
+  PlanObject copyWith({
+    String? id,
+    String? name,
+    String? description,
+    Offset? position,
+    double? rotation,
+  }) {
     return PlanObject(
-      id: id,
+      id: id ?? this.id,
       position: position ?? this.position,
       iconCodePoint: iconCodePoint,
       name: name ?? this.name,
       description: description ?? this.description,
+      rotation: rotation ?? this.rotation,
     );
   }
 
   PlanObject moveBy(Offset delta) {
+    return copyWith(position: position + delta);
+  }
+}
+
+// --- MODEL LABEL TEKS ---
+class PlanLabel {
+  final String id;
+  final Offset position;
+  final String text;
+  final double fontSize;
+
+  PlanLabel({
+    required this.id,
+    required this.position,
+    required this.text,
+    this.fontSize = 16.0,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'x': position.dx,
+    'y': position.dy,
+    'text': text,
+    'size': fontSize,
+  };
+
+  factory PlanLabel.fromJson(Map<String, dynamic> json) => PlanLabel(
+    id: json['id'],
+    position: Offset(json['x'], json['y']),
+    text: json['text'],
+    fontSize: (json['size'] as num?)?.toDouble() ?? 16.0,
+  );
+
+  PlanLabel copyWith({
+    String? id,
+    String? text,
+    double? fontSize,
+    Offset? position,
+  }) {
+    return PlanLabel(
+      id: id ?? this.id,
+      position: position ?? this.position,
+      text: text ?? this.text,
+      fontSize: fontSize ?? this.fontSize,
+    );
+  }
+
+  PlanLabel moveBy(Offset delta) {
     return copyWith(position: position + delta);
   }
 }
@@ -154,13 +211,14 @@ class PlanPath {
   }
 
   PlanPath copyWith({
+    String? id,
     String? name,
     String? description,
     bool? isSavedAsset,
     List<Offset>? points,
   }) {
     return PlanPath(
-      id: id,
+      id: id ?? this.id,
       points: points ?? this.points,
       color: color,
       strokeWidth: strokeWidth,
@@ -175,45 +233,75 @@ class PlanPath {
   }
 }
 
-// --- MODEL LABEL TEKS (BARU) ---
-class PlanLabel {
+// --- MODEL BENTUK GEOMETRIS (BARU) ---
+class PlanShape {
   final String id;
-  final Offset position;
-  final String text;
-  final double fontSize;
+  final Rect rect; // Posisi dan Ukuran
+  final PlanShapeType type;
+  final Color color;
+  final bool isFilled;
+  final double rotation; // Rotasi dalam radian
+  final String name;
+  final String description;
 
-  PlanLabel({
+  PlanShape({
     required this.id,
-    required this.position,
-    required this.text,
-    this.fontSize = 16.0,
+    required this.rect,
+    required this.type,
+    this.color = Colors.blue,
+    this.isFilled = true,
+    this.rotation = 0.0,
+    this.name = "Bentuk",
+    this.description = "",
   });
 
   Map<String, dynamic> toJson() => {
     'id': id,
-    'x': position.dx,
-    'y': position.dy,
-    'text': text,
-    'size': fontSize,
+    'l': rect.left,
+    't': rect.top,
+    'w': rect.width,
+    'h': rect.height,
+    'type': type.index,
+    'color': color.value,
+    'filled': isFilled,
+    'rot': rotation,
+    'name': name,
+    'desc': description,
   };
 
-  factory PlanLabel.fromJson(Map<String, dynamic> json) => PlanLabel(
+  factory PlanShape.fromJson(Map<String, dynamic> json) => PlanShape(
     id: json['id'],
-    position: Offset(json['x'], json['y']),
-    text: json['text'],
-    fontSize: (json['size'] as num?)?.toDouble() ?? 16.0,
+    rect: Rect.fromLTWH(json['l'], json['t'], json['w'], json['h']),
+    type: PlanShapeType.values[json['type']],
+    color: Color(json['color']),
+    isFilled: json['filled'] ?? true,
+    rotation: (json['rot'] as num?)?.toDouble() ?? 0.0,
+    name: json['name'] ?? 'Bentuk',
+    description: json['desc'] ?? '',
   );
 
-  PlanLabel copyWith({String? text, double? fontSize, Offset? position}) {
-    return PlanLabel(
-      id: id,
-      position: position ?? this.position,
-      text: text ?? this.text,
-      fontSize: fontSize ?? this.fontSize,
+  PlanShape copyWith({
+    String? id,
+    Rect? rect,
+    Color? color,
+    bool? isFilled,
+    double? rotation,
+    String? name,
+    String? description,
+  }) {
+    return PlanShape(
+      id: id ?? this.id,
+      rect: rect ?? this.rect,
+      type: type,
+      color: color ?? this.color,
+      isFilled: isFilled ?? this.isFilled,
+      rotation: rotation ?? this.rotation,
+      name: name ?? this.name,
+      description: description ?? this.description,
     );
   }
 
-  PlanLabel moveBy(Offset delta) {
-    return copyWith(position: position + delta);
+  PlanShape moveBy(Offset delta) {
+    return copyWith(rect: rect.shift(delta));
   }
 }
