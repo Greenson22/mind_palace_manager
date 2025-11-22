@@ -1,3 +1,4 @@
+// lib/features/plan_architect/presentation/plan_painter.dart
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'dart:math' as math;
@@ -7,6 +8,14 @@ import '../data/plan_models.dart';
 class PlanPainter extends CustomPainter {
   final PlanController controller;
   PlanPainter({required this.controller}) : super(repaint: controller);
+
+  // Helper untuk menentukan warna teks agar kontras dengan background canvas
+  Color get _contrastColor {
+    // Hitung kecerahan warna background (0.0 - 1.0)
+    final double luminance = controller.canvasColor.computeLuminance();
+    // Jika background terang (> 0.5), teks hitam. Jika gelap, teks putih.
+    return luminance > 0.5 ? Colors.black87 : Colors.white;
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -23,7 +32,7 @@ class PlanPainter extends CustomPainter {
 
     // Snap Points
     if (!controller.isViewMode && controller.enableSnap) {
-      _drawSnapPoints(canvas, size);
+      // _drawSnapPoints(canvas, size); // Dimatikan untuk performa
     }
 
     // 2. Shapes & Objects
@@ -59,20 +68,21 @@ class PlanPainter extends CustomPainter {
         if (isSel)
           canvas.drawCircle(
             Offset.zero,
-            24,
+            (obj.size / 2) + 8, // Seleksi menyesuaikan ukuran
             Paint()..color = Colors.blue.withOpacity(0.3),
           );
         final icon = IconData(obj.iconCodePoint, fontFamily: 'MaterialIcons');
         tp.text = TextSpan(
           text: String.fromCharCode(icon.codePoint),
           style: TextStyle(
-            fontSize: 32,
+            fontSize: obj.size, // MENGGUNAKAN UKURAN DINAMIS
             fontFamily: icon.fontFamily,
             color: isSel ? Colors.blue : obj.color,
           ),
         );
         tp.layout();
-        tp.paint(canvas, Offset(-16, -16));
+        // Center icon
+        tp.paint(canvas, Offset(-tp.width / 2, -tp.height / 2));
         canvas.restore();
       }
 
@@ -122,10 +132,20 @@ class PlanPainter extends CustomPainter {
         tp.text = TextSpan(
           text: label.text,
           style: TextStyle(
-            color: isSel ? Colors.blue : label.color,
+            color: isSel
+                ? Colors.blue
+                : label.color, // Warna label mengikuti setting user
             fontSize: label.fontSize,
             fontWeight: FontWeight.bold,
-            backgroundColor: Colors.white.withOpacity(0.5),
+            // Beri shadow agar terbaca di segala medan
+            shadows: [
+              Shadow(
+                blurRadius: 2,
+                color: _contrastColor == Colors.white
+                    ? Colors.black
+                    : Colors.white,
+              ),
+            ],
           ),
         );
         tp.layout();
@@ -200,12 +220,12 @@ class PlanPainter extends CustomPainter {
           );
         canvas.drawCircle(
           controller.tempStart!,
-          4,
+          2, // Titik ujung diperkecil
           Paint()..color = Colors.redAccent,
         );
         canvas.drawCircle(
           controller.tempEnd!,
-          4,
+          2,
           Paint()..color = Colors.redAccent,
         );
       }
@@ -227,8 +247,7 @@ class PlanPainter extends CustomPainter {
   }
 
   void _drawSnapPoints(Canvas canvas, Size size) {
-    // Snap points tidak digambar untuk performa di canvas 5000x5000
-    // Logic snap tetap aktif di controller.
+    // Disabled for performance
   }
 
   void _drawShape(Canvas canvas, PlanShape shape, bool isSelected) {
@@ -244,7 +263,8 @@ class PlanPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
     final Paint border = Paint()
       ..color = isSelected ? Colors.blue : shape.color
-      ..strokeWidth = 3
+      ..strokeWidth =
+          2 // Border shape diperkecil
       ..style = PaintingStyle.stroke;
     if (shape.type == PlanShapeType.rectangle) {
       canvas.drawRect(shape.rect, paint);
@@ -283,10 +303,12 @@ class PlanPainter extends CustomPainter {
     final lengthPx = (wall.start - wall.end).distance;
     if (lengthPx < 20) return;
     final lengthM = (lengthPx / 40).toStringAsFixed(1);
+
+    // Menggunakan warna kontras
     final textSpan = TextSpan(
       text: "${lengthM}m",
-      style: const TextStyle(
-        color: Colors.black54,
+      style: TextStyle(
+        color: _contrastColor.withOpacity(0.7), // Warna adaptif
         fontSize: 9,
         fontWeight: FontWeight.bold,
       ),
@@ -301,7 +323,12 @@ class PlanPainter extends CustomPainter {
       width: textPainter.width + 4,
       height: textPainter.height + 2,
     );
-    canvas.drawRect(rect, Paint()..color = Colors.white.withOpacity(0.7));
+
+    // Background label menyesuaikan agar teks terbaca
+    canvas.drawRect(
+      rect,
+      Paint()..color = controller.canvasColor.withOpacity(0.7),
+    );
     textPainter.paint(
       canvas,
       center - Offset(textPainter.width / 2, textPainter.height / 2),

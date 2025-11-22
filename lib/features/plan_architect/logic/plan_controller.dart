@@ -7,11 +7,8 @@ import '../data/plan_models.dart';
 enum PlanTool { select, wall, object, text, eraser, freehand, shape, hand }
 
 class PlanController extends ChangeNotifier {
-  // --- DATA MULTI-LANTAI ---
   List<PlanFloor> floors = [];
   int activeFloorIndex = 0;
-
-  // Library Custom Interior
   List<PlanPath> savedCustomInteriors = [];
 
   PlanFloor get activeFloor => floors[activeFloorIndex];
@@ -21,31 +18,26 @@ class PlanController extends ChangeNotifier {
   List<PlanLabel> get labels => activeFloor.labels;
   List<PlanShape> get shapes => activeFloor.shapes;
 
-  // --- VIEW CONFIG ---
   bool isViewMode = false;
   Color canvasColor = Colors.white;
   bool showGrid = true;
 
-  // --- CANVAS SIZE CONFIG (FIXED 500x500) ---
-  // Diubah sesuai permintaan menjadi 500x500 pixel
+  // CANVAS SIZE FIXED 500x500
   final double canvasWidth = 500.0;
   final double canvasHeight = 500.0;
 
-  // Layer Visibility
   bool layerWalls = true;
   bool layerObjects = true;
   bool layerLabels = true;
   bool layerDims = true;
 
-  // --- EDITOR CONFIG ---
   bool enableSnap = true;
   final double gridSize = 20.0;
   PlanTool activeTool = PlanTool.select;
 
   Color activeColor = Colors.black;
-  double activeStrokeWidth = 4.0;
+  double activeStrokeWidth = 2.0; // DEFAULT: 2.0 (Tipis)
 
-  // State Interaction
   Offset? tempStart;
   Offset? tempEnd;
   List<Offset> currentPathPoints = [];
@@ -60,8 +52,6 @@ class PlanController extends ChangeNotifier {
 
   final TransformationController transformController =
       TransformationController();
-
-  // History (Undo/Redo)
   final List<String> _history = [];
   int _historyIndex = -1;
 
@@ -72,10 +62,7 @@ class PlanController extends ChangeNotifier {
     _saveState();
   }
 
-  // ===============================================================
-  // 1. MANAJEMEN LANTAI & STATE
-  // ===============================================================
-
+  // ... (Bagian Manajemen Lantai & Undo/Redo SAMA) ...
   void addFloor() {
     final newId = 'floor_${floors.length + 1}';
     floors.add(PlanFloor(id: newId, name: 'Lantai ${floors.length + 1}'));
@@ -127,13 +114,11 @@ class PlanController extends ChangeNotifier {
   void _saveState() {
     if (_historyIndex < _history.length - 1)
       _history.removeRange(_historyIndex + 1, _history.length);
-
     final state = jsonEncode({
       'floors': floors.map((f) => f.toJson()).toList(),
       'activeIdx': activeFloorIndex,
       'cc': canvasColor.value,
     });
-
     _history.add(state);
     _historyIndex++;
     if (_history.length > 30) {
@@ -161,18 +146,13 @@ class PlanController extends ChangeNotifier {
         .map((e) => PlanFloor.fromJson(e))
         .toList();
     activeFloorIndex = data['activeIdx'] ?? 0;
-
     if (data['cc'] != null) canvasColor = Color(data['cc']);
-
     if (activeFloorIndex >= floors.length) activeFloorIndex = 0;
     selectedId = null;
     notifyListeners();
   }
 
-  // ===============================================================
-  // 2. ACTION & SETTINGS
-  // ===============================================================
-
+  // ... (Bagian View/Layer Settings SAMA) ...
   void toggleViewMode() {
     isViewMode = !isViewMode;
     if (isViewMode) {
@@ -267,10 +247,7 @@ class PlanController extends ChangeNotifier {
     _saveState();
   }
 
-  // ===============================================================
-  // 3. INPUT HANDLING
-  // ===============================================================
-
+  // ... (Bagian Input Handling SAMA) ...
   Offset _snapToGrid(Offset pos) {
     double x = (pos.dx / gridSize).round() * gridSize;
     double y = (pos.dy / gridSize).round() * gridSize;
@@ -415,6 +392,7 @@ class PlanController extends ChangeNotifier {
         description: "...",
         iconCodePoint: selectedObjectIcon!.codePoint,
         color: activeColor,
+        size: 14.0, // DEFAULT: Kecil (14.0)
       );
       _updateActiveFloor(objects: [...objects, newObj]);
       _saveState();
@@ -431,15 +409,13 @@ class PlanController extends ChangeNotifier {
       position: pos,
       text: text,
       color: activeColor,
+      fontSize: 12.0, // DEFAULT: Kecil
     );
     _updateActiveFloor(labels: [...labels, newLbl]);
     _saveState();
   }
 
-  // ===============================================================
-  // 4. MODIFIERS & HIT TEST
-  // ===============================================================
-
+  // ... (Bagian Modifiers & Hit Test SAMA, kecuali updateSelectedAttribute & duplicate) ...
   void _moveSelectedItem(Offset delta) {
     List<PlanShape> newShapes = List.from(shapes);
     final shpIdx = newShapes.indexWhere((s) => s.id == selectedId);
@@ -491,14 +467,17 @@ class PlanController extends ChangeNotifier {
     _saveState();
   }
 
+  // --- PERBAIKAN UTAMA: HANDLE RESIZING UNTUK SEMUA TIPE ---
   void updateSelectedAttribute({
     Color? color,
-    double? stroke,
+    double? stroke, // Ini sekarang dipakai sebagai "Size/Dimension"
     String? desc,
     String? name,
     String? navTarget,
   }) {
     if (selectedId == null) return;
+
+    // 1. Objects
     List<PlanObject> newObjects = List.from(objects);
     final objIdx = newObjects.indexWhere((o) => o.id == selectedId);
     if (objIdx != -1) {
@@ -507,29 +486,34 @@ class PlanController extends ChangeNotifier {
         description: desc,
         name: name,
         navTargetFloorId: navTarget,
+        size: stroke, // Update size
       );
       _updateActiveFloor(objects: newObjects);
       _saveState();
       return;
     }
+
+    // 2. Walls
     List<Wall> newWalls = List.from(walls);
     final wIdx = newWalls.indexWhere((w) => w.id == selectedId);
     if (wIdx != -1) {
       newWalls[wIdx] = newWalls[wIdx].copyWith(
         color: color,
-        thickness: stroke,
+        thickness: stroke, // Update thickness
         description: desc,
       );
       _updateActiveFloor(walls: newWalls);
       _saveState();
       return;
     }
+
+    // 3. Paths (Images/Freehand)
     List<PlanPath> newPaths = List.from(paths);
     final pIdx = newPaths.indexWhere((p) => p.id == selectedId);
     if (pIdx != -1) {
       newPaths[pIdx] = newPaths[pIdx].copyWith(
         color: color,
-        strokeWidth: stroke,
+        strokeWidth: stroke, // Update stroke
         description: desc,
         name: name,
       );
@@ -537,21 +521,46 @@ class PlanController extends ChangeNotifier {
       _saveState();
       return;
     }
+
+    // 4. Labels
     List<PlanLabel> newLabels = List.from(labels);
     final lIdx = newLabels.indexWhere((l) => l.id == selectedId);
     if (lIdx != -1) {
-      newLabels[lIdx] = newLabels[lIdx].copyWith(color: color, text: name);
+      newLabels[lIdx] = newLabels[lIdx].copyWith(
+        color: color,
+        text: name,
+        fontSize: stroke, // Update font size
+      );
       _updateActiveFloor(labels: newLabels);
       _saveState();
       return;
     }
+
+    // 5. Shapes
     List<PlanShape> newShapes = List.from(shapes);
     final sIdx = newShapes.indexWhere((s) => s.id == selectedId);
     if (sIdx != -1) {
-      newShapes[sIdx] = newShapes[sIdx].copyWith(
+      PlanShape oldShape = newShapes[sIdx];
+      // Logic Resize Shape: Pertahankan aspect ratio
+      Rect newRect = oldShape.rect;
+      if (stroke != null) {
+        final center = oldShape.rect.center;
+        final aspectRatio = oldShape.rect.height / oldShape.rect.width;
+        final newWidth =
+            stroke * 10; // Skala diperbesar agar slider 1-20 terasa pas
+        final newHeight = newWidth * aspectRatio;
+        newRect = Rect.fromCenter(
+          center: center,
+          width: newWidth,
+          height: newHeight,
+        );
+      }
+
+      newShapes[sIdx] = oldShape.copyWith(
         color: color,
         description: desc,
         name: name,
+        rect: stroke != null ? newRect : null,
       );
       _updateActiveFloor(shapes: newShapes);
       _saveState();
@@ -637,6 +646,7 @@ class PlanController extends ChangeNotifier {
     updateSelectedAttribute(stroke: width);
   }
 
+  // ... (Bagian Duplicate, Rotate, BringToFront, SendToBack SAMA) ...
   void duplicateSelected() {
     if (selectedId == null) return;
     final offset = const Offset(20, 20);

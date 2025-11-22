@@ -13,6 +13,30 @@ class PlanSelectionBar extends StatelessWidget {
     final data = controller.getSelectedItemData();
     if (data == null) return const SizedBox.shrink();
 
+    // Helper untuk mendapatkan nilai ukuran saat ini
+    double currentSize = 2.0;
+    if (data['type'] == 'Struktur') {
+      currentSize = controller.walls
+          .firstWhere((w) => w.id == controller.selectedId)
+          .thickness;
+    } else if (data['type'] == 'Gambar') {
+      currentSize = controller.paths
+          .firstWhere((p) => p.id == controller.selectedId)
+          .strokeWidth;
+    } else if (data['type'] == 'Interior') {
+      currentSize = controller.objects
+          .firstWhere((o) => o.id == controller.selectedId)
+          .size;
+    } else if (data['type'] == 'Label') {
+      currentSize = controller.labels
+          .firstWhere((l) => l.id == controller.selectedId)
+          .fontSize;
+    } else if (data['type'] == 'Bentuk') {
+      // Untuk bentuk, kita pakai ukuran relatif dari slider
+      // (Di controller sudah di-handle logika konversi ke Rect)
+      currentSize = 5.0; // Nilai tengah default untuk slider
+    }
+
     return Container(
       constraints: const BoxConstraints(maxWidth: 600),
       padding: const EdgeInsets.all(12),
@@ -31,7 +55,7 @@ class PlanSelectionBar extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Header: Info Objek & Tombol Edit
+          // Header
           Row(
             children: [
               Container(
@@ -87,7 +111,7 @@ class PlanSelectionBar extends StatelessWidget {
             child: Divider(height: 1),
           ),
 
-          // Baris Aksi Cepat
+          // Controls
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -100,49 +124,38 @@ class PlanSelectionBar extends StatelessWidget {
                 ),
               ),
 
-              // Slider Ketebalan (Hanya untuk Struktur/Gambar)
-              if (data['type'] == 'Struktur' || data['type'] == 'Gambar')
-                Expanded(
-                  child: Column(
-                    children: [
-                      const Text(
-                        "Tebal",
-                        style: TextStyle(fontSize: 9, color: Colors.grey),
-                      ),
-                      SizedBox(
-                        height: 20,
-                        child: SliderTheme(
-                          data: SliderTheme.of(context).copyWith(
-                            thumbShape: const RoundSliderThumbShape(
-                              enabledThumbRadius: 5,
-                            ),
-                            overlayShape: const RoundSliderOverlayShape(
-                              overlayRadius: 10,
-                            ),
+              // SLIDER UKURAN UNTUK SEMUA TIPE
+              Expanded(
+                child: Column(
+                  children: [
+                    const Text(
+                      "Ukuran",
+                      style: TextStyle(fontSize: 9, color: Colors.grey),
+                    ),
+                    SizedBox(
+                      height: 20,
+                      child: SliderTheme(
+                        data: SliderTheme.of(context).copyWith(
+                          thumbShape: const RoundSliderThumbShape(
+                            enabledThumbRadius: 5,
                           ),
-                          child: Slider(
-                            value: (data['type'] == 'Struktur')
-                                ? (controller.walls
-                                      .firstWhere(
-                                        (w) => w.id == controller.selectedId,
-                                      )
-                                      .thickness)
-                                : (controller.paths
-                                      .firstWhere(
-                                        (p) => p.id == controller.selectedId,
-                                      )
-                                      .strokeWidth),
-                            min: 1.0,
-                            max: 20.0,
-                            divisions: 19,
-                            onChanged: (v) =>
-                                controller.updateSelectedStrokeWidth(v),
+                          overlayShape: const RoundSliderOverlayShape(
+                            overlayRadius: 10,
                           ),
                         ),
+                        child: Slider(
+                          value: currentSize.clamp(1.0, 50.0), // Batas aman
+                          min: 1.0,
+                          max: 50.0,
+                          divisions: 49,
+                          onChanged: (v) =>
+                              controller.updateSelectedStrokeWidth(v),
+                        ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
+              ),
 
               _buildQuickAction(
                 icon: Icons.copy,

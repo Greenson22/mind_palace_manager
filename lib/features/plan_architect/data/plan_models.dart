@@ -55,7 +55,7 @@ class PlanFloor {
   );
 
   PlanFloor copyWith({
-    String? id, // <-- DITAMBAHKAN
+    String? id,
     String? name,
     List<Wall>? walls,
     List<PlanObject>? objects,
@@ -88,7 +88,7 @@ class Wall {
     required this.id,
     required this.start,
     required this.end,
-    this.thickness = 6.0,
+    this.thickness = 2.0, // Default diubah jadi 2.0
     this.description = 'Tembok',
     this.color = Colors.black,
   });
@@ -108,13 +108,13 @@ class Wall {
     id: json['id'],
     start: Offset(json['sx'], json['sy']),
     end: Offset(json['ex'], json['ey']),
-    thickness: (json['thick'] as num?)?.toDouble() ?? 6.0,
+    thickness: (json['thick'] as num?)?.toDouble() ?? 2.0,
     description: json['desc'] ?? 'Tembok',
     color: json['col'] != null ? Color(json['col']) : Colors.black,
   );
 
   Wall copyWith({
-    String? id, // <-- DITAMBAHKAN
+    String? id,
     String? description,
     double? thickness,
     Offset? start,
@@ -134,7 +134,7 @@ class Wall {
   Wall moveBy(Offset delta) => copyWith(start: start + delta, end: end + delta);
 }
 
-// --- MODEL INTERIOR ---
+// --- MODEL INTERIOR (Ditambah Property Size) ---
 class PlanObject {
   final String id;
   final Offset position;
@@ -144,6 +144,7 @@ class PlanObject {
   final double rotation;
   final Color color;
   final String? navTargetFloorId;
+  final double size; // Properti baru
 
   PlanObject({
     required this.id,
@@ -154,6 +155,7 @@ class PlanObject {
     this.rotation = 0.0,
     this.color = Colors.black87,
     this.navTargetFloorId,
+    this.size = 14.0, // Default kecil
   });
 
   Map<String, dynamic> toJson() => {
@@ -166,6 +168,7 @@ class PlanObject {
     'rot': rotation,
     'col': color.value,
     'navFloor': navTargetFloorId,
+    'size': size,
   };
 
   factory PlanObject.fromJson(Map<String, dynamic> json) => PlanObject(
@@ -177,16 +180,18 @@ class PlanObject {
     rotation: (json['rot'] as num?)?.toDouble() ?? 0.0,
     color: json['col'] != null ? Color(json['col']) : Colors.black87,
     navTargetFloorId: json['navFloor'],
+    size: (json['size'] as num?)?.toDouble() ?? 14.0,
   );
 
   PlanObject copyWith({
-    String? id, // <-- DITAMBAHKAN
+    String? id,
     String? name,
     String? description,
     Offset? position,
     double? rotation,
     Color? color,
     String? navTargetFloorId,
+    double? size,
   }) {
     return PlanObject(
       id: id ?? this.id,
@@ -197,6 +202,7 @@ class PlanObject {
       rotation: rotation ?? this.rotation,
       color: color ?? this.color,
       navTargetFloorId: navTargetFloorId ?? this.navTargetFloorId,
+      size: size ?? this.size,
     );
   }
 
@@ -215,7 +221,7 @@ class PlanLabel {
     required this.id,
     required this.position,
     required this.text,
-    this.fontSize = 16.0,
+    this.fontSize = 12.0, // Default diperkecil
     this.color = Colors.black,
   });
 
@@ -232,12 +238,12 @@ class PlanLabel {
     id: json['id'],
     position: Offset(json['x'], json['y']),
     text: json['text'],
-    fontSize: (json['size'] as num?)?.toDouble() ?? 16.0,
+    fontSize: (json['size'] as num?)?.toDouble() ?? 12.0,
     color: json['col'] != null ? Color(json['col']) : Colors.black,
   );
 
   PlanLabel copyWith({
-    String? id, // <-- DITAMBAHKAN
+    String? id,
     String? text,
     double? fontSize,
     Offset? position,
@@ -269,7 +275,7 @@ class PlanPath {
     required this.id,
     required this.points,
     this.color = Colors.brown,
-    this.strokeWidth = 2.0,
+    this.strokeWidth = 2.0, // Default diperkecil
     this.name = "Gambar",
     this.description = "",
     this.isSavedAsset = false,
@@ -298,7 +304,7 @@ class PlanPath {
   );
 
   PlanPath copyWith({
-    String? id, // <-- DITAMBAHKAN
+    String? id,
     String? name,
     String? description,
     bool? isSavedAsset,
@@ -369,7 +375,7 @@ class PlanShape {
   );
 
   PlanShape copyWith({
-    String? id, // <-- DITAMBAHKAN
+    String? id,
     Rect? rect,
     Color? color,
     bool? isFilled,
