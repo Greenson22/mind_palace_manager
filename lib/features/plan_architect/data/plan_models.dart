@@ -7,7 +7,7 @@ class Wall {
   final Offset start;
   final Offset end;
   final double thickness;
-  final String description; // Deskripsi tembok (misal: Beton, Bata)
+  final String description;
 
   Wall({
     required this.id,
@@ -35,7 +35,6 @@ class Wall {
     description: json['description'] ?? 'Tembok standar',
   );
 
-  // Helper: Copy with untuk update data parsial
   Wall copyWith({String? description, double? thickness}) {
     return Wall(
       id: id,
@@ -47,13 +46,13 @@ class Wall {
   }
 }
 
-// --- MODEL INTERIOR (OBJECT) ---
+// --- MODEL INTERIOR (ICON OBJECT) ---
 class PlanObject {
   final String id;
   final Offset position;
   final String name;
-  final String description; // Deskripsi interior (misal: Meja Makan Kayu Jati)
-  final int iconCodePoint; // Simpan kode icon agar bisa di-save ke JSON
+  final String description;
+  final int iconCodePoint;
 
   PlanObject({
     required this.id,
@@ -92,18 +91,25 @@ class PlanObject {
 }
 
 // --- MODEL GAMBAR BEBAS (FREEHAND PATH) ---
-// Digunakan untuk menggambar interior custom secara manual
 class PlanPath {
   final String id;
   final List<Offset> points;
   final Color color;
   final double strokeWidth;
 
+  // Metadata
+  final String name;
+  final String description;
+  final bool isSavedAsset;
+
   PlanPath({
     required this.id,
     required this.points,
     this.color = Colors.brown,
     this.strokeWidth = 2.0,
+    this.name = "Interior Custom",
+    this.description = "Deskripsi belum diatur.",
+    this.isSavedAsset = false,
   });
 
   Map<String, dynamic> toJson() => {
@@ -111,6 +117,9 @@ class PlanPath {
     'points': points.map((p) => {'dx': p.dx, 'dy': p.dy}).toList(),
     'color': color.value,
     'width': strokeWidth,
+    'name': name,
+    'desc': description,
+    'isSaved': isSavedAsset,
   };
 
   factory PlanPath.fromJson(Map<String, dynamic> json) {
@@ -121,6 +130,26 @@ class PlanPath {
           .toList(),
       color: Color(json['color']),
       strokeWidth: (json['width'] as num).toDouble(),
+      name: json['name'] ?? "Interior Custom",
+      description: json['desc'] ?? "Deskripsi belum diatur.",
+      isSavedAsset: json['isSaved'] ?? false,
+    );
+  }
+
+  PlanPath copyWith({
+    String? name,
+    String? description,
+    bool? isSavedAsset,
+    List<Offset>? points,
+  }) {
+    return PlanPath(
+      id: id,
+      points: points ?? this.points,
+      color: color,
+      strokeWidth: strokeWidth,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      isSavedAsset: isSavedAsset ?? this.isSavedAsset,
     );
   }
 }
