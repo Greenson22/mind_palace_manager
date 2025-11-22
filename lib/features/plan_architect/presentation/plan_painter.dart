@@ -11,179 +11,215 @@ class PlanPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    _drawGrid(canvas, size);
-    if (controller.enableSnap) _drawSnapPoints(canvas, size);
+    // 0. Background Color
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      Paint()..color = controller.canvasColor,
+    );
 
-    // 1. Shapes (Gunakan warna shape)
-    for (var shape in controller.shapes) {
-      _drawShape(canvas, shape, controller.selectedId == shape.id);
-    }
-    if (controller.activeTool == PlanTool.shape &&
-        controller.tempStart != null &&
-        controller.tempEnd != null) {
-      final previewRect = Rect.fromPoints(
-        controller.tempStart!,
-        controller.tempEnd!,
-      );
-      _drawShape(
-        canvas,
-        PlanShape(
-          id: 'temp',
-          rect: previewRect,
-          type: controller.selectedShapeType,
-          color: controller.activeColor.withOpacity(0.5),
-        ),
-        false,
-      );
+    // 1. Grid (Hanya jika aktif dan bukan view mode penuh, atau jika user mau grid di view mode)
+    if (controller.showGrid) {
+      _drawGrid(canvas, size);
     }
 
-    // 2. Labels (Gunakan warna label)
-    TextPainter tp = TextPainter(textDirection: TextDirection.ltr);
-    for (var label in controller.labels) {
-      bool isSel = (controller.selectedId == label.id);
-      tp.text = TextSpan(
-        text: label.text,
-        style: TextStyle(
-          color: isSel ? Colors.blue : label.color,
-          fontSize: label.fontSize,
-          fontWeight: FontWeight.bold,
-          backgroundColor: Colors.white.withOpacity(0.5),
-        ),
-      );
-      tp.layout();
-      tp.paint(canvas, label.position - Offset(tp.width / 2, tp.height / 2));
-      if (isSel) {
-        canvas.drawRect(
-          Rect.fromCenter(
-            center: label.position,
-            width: tp.width + 10,
-            height: tp.height + 10,
-          ),
-          Paint()
-            ..color = Colors.blue.withOpacity(0.1)
-            ..style = PaintingStyle.fill,
+    // Snap Points (Hanya di mode edit dan jika snap aktif)
+    if (!controller.isViewMode && controller.enableSnap) {
+      _drawSnapPoints(canvas, size);
+    }
+
+    // 2. Shapes & Objects (Jika Layer Objects ON)
+    if (controller.layerObjects) {
+      // Shapes
+      for (var shape in controller.shapes) {
+        _drawShape(canvas, shape, controller.selectedId == shape.id);
+      }
+      // Preview Shape
+      if (controller.activeTool == PlanTool.shape &&
+          controller.tempStart != null &&
+          controller.tempEnd != null) {
+        final previewRect = Rect.fromPoints(
+          controller.tempStart!,
+          controller.tempEnd!,
         );
-        canvas.drawRect(
-          Rect.fromCenter(
-            center: label.position,
-            width: tp.width + 10,
-            height: tp.height + 10,
+        _drawShape(
+          canvas,
+          PlanShape(
+            id: 'temp',
+            rect: previewRect,
+            type: controller.selectedShapeType,
+            color: controller.activeColor.withOpacity(0.5),
           ),
-          Paint()
-            ..color = Colors.blue
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1,
+          false,
         );
       }
-    }
 
-    // 3. Paths (Gunakan warna dan strokeWidth path)
-    final Paint pathPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    for (var path in controller.paths) {
-      bool isSel = (controller.selectedId == path.id);
-      pathPaint.color = isSel ? Colors.blue : path.color;
-      pathPaint.strokeWidth = isSel ? path.strokeWidth + 2.0 : path.strokeWidth;
-      if (path.points.length > 1) {
+      // Objects (Icons)
+      TextPainter tp = TextPainter(textDirection: TextDirection.ltr);
+      for (var obj in controller.objects) {
+        bool isSel = (controller.selectedId == obj.id);
+        canvas.save();
+        canvas.translate(obj.position.dx, obj.position.dy);
+        canvas.rotate(obj.rotation);
+        if (isSel)
+          canvas.drawCircle(
+            Offset.zero,
+            24,
+            Paint()..color = Colors.blue.withOpacity(0.3),
+          );
+        final icon = IconData(obj.iconCodePoint, fontFamily: 'MaterialIcons');
+        tp.text = TextSpan(
+          text: String.fromCharCode(icon.codePoint),
+          style: TextStyle(
+            fontSize: 32,
+            fontFamily: icon.fontFamily,
+            color: isSel ? Colors.blue : obj.color,
+          ),
+        );
+        tp.layout();
+        tp.paint(canvas, Offset(-16, -16));
+        canvas.restore();
+      }
+
+      // Custom Paths
+      final Paint pathPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
+      for (var path in controller.paths) {
+        bool isSel = (controller.selectedId == path.id);
+        pathPaint.color = isSel ? Colors.blue : path.color;
+        pathPaint.strokeWidth = isSel
+            ? path.strokeWidth + 2.0
+            : path.strokeWidth;
+        if (path.points.length > 1) {
+          Path p = Path();
+          p.moveTo(path.points.first.dx, path.points.first.dy);
+          for (int i = 1; i < path.points.length; i++)
+            p.lineTo(path.points[i].dx, path.points[i].dy);
+          canvas.drawPath(p, pathPaint);
+        } else if (path.points.isNotEmpty) {
+          canvas.drawPoints(PointMode.points, path.points, pathPaint);
+        }
+      }
+      // Preview Freehand
+      if (controller.activeTool == PlanTool.freehand &&
+          controller.currentPathPoints.isNotEmpty) {
+        pathPaint.color = controller.activeColor.withOpacity(0.7);
+        pathPaint.strokeWidth = controller.activeStrokeWidth;
         Path p = Path();
-        p.moveTo(path.points.first.dx, path.points.first.dy);
-        for (int i = 1; i < path.points.length; i++)
-          p.lineTo(path.points[i].dx, path.points[i].dy);
+        p.moveTo(
+          controller.currentPathPoints.first.dx,
+          controller.currentPathPoints.first.dy,
+        );
+        for (int i = 1; i < controller.currentPathPoints.length; i++)
+          p.lineTo(
+            controller.currentPathPoints[i].dx,
+            controller.currentPathPoints[i].dy,
+          );
         canvas.drawPath(p, pathPaint);
-      } else if (path.points.isNotEmpty) {
-        canvas.drawPoints(PointMode.points, path.points, pathPaint);
       }
     }
-    if (controller.activeTool == PlanTool.freehand &&
-        controller.currentPathPoints.isNotEmpty) {
-      pathPaint.color = controller.activeColor.withOpacity(0.7);
-      pathPaint.strokeWidth =
-          controller.activeStrokeWidth; // Preview pakai active settings
-      Path p = Path();
-      p.moveTo(
-        controller.currentPathPoints.first.dx,
-        controller.currentPathPoints.first.dy,
-      );
-      for (int i = 1; i < controller.currentPathPoints.length; i++)
-        p.lineTo(
-          controller.currentPathPoints[i].dx,
-          controller.currentPathPoints[i].dy,
+
+    // 3. Labels (Jika Layer Labels ON)
+    if (controller.layerLabels) {
+      TextPainter tp = TextPainter(textDirection: TextDirection.ltr);
+      for (var label in controller.labels) {
+        bool isSel = (controller.selectedId == label.id);
+        tp.text = TextSpan(
+          text: label.text,
+          style: TextStyle(
+            color: isSel ? Colors.blue : label.color,
+            fontSize: label.fontSize,
+            fontWeight: FontWeight.bold,
+            backgroundColor: Colors.white.withOpacity(0.5),
+          ),
         );
-      canvas.drawPath(p, pathPaint);
+        tp.layout();
+        tp.paint(canvas, label.position - Offset(tp.width / 2, tp.height / 2));
+        if (isSel) {
+          canvas.drawRect(
+            Rect.fromCenter(
+              center: label.position,
+              width: tp.width + 10,
+              height: tp.height + 10,
+            ),
+            Paint()
+              ..color = Colors.blue.withOpacity(0.1)
+              ..style = PaintingStyle.fill,
+          );
+          canvas.drawRect(
+            Rect.fromCenter(
+              center: label.position,
+              width: tp.width + 10,
+              height: tp.height + 10,
+            ),
+            Paint()
+              ..color = Colors.blue
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1,
+          );
+        }
+      }
     }
 
-    // 4. Walls (Gunakan warna dan thickness wall)
-    final Paint wallPaint = Paint()..strokeCap = StrokeCap.square;
-    final Paint selectedPaint = Paint()
-      ..color = Colors.blueAccent
-      ..strokeCap = StrokeCap.square;
-    for (var wall in controller.walls) {
-      bool isSel =
-          (!controller.isObjectSelected && controller.selectedId == wall.id);
-      wallPaint.color = wall.color;
-      wallPaint.strokeWidth = wall.thickness;
-      selectedPaint.strokeWidth = wall.thickness + 2.0;
-      canvas.drawLine(wall.start, wall.end, isSel ? selectedPaint : wallPaint);
-      _drawWallLabel(canvas, wall);
-    }
-    if (controller.activeTool == PlanTool.wall &&
-        controller.tempStart != null &&
-        controller.tempEnd != null) {
-      Paint previewPaint = Paint()
-        ..color = controller.activeColor.withOpacity(0.5)
-        ..strokeWidth =
-            controller.activeStrokeWidth; // Preview pakai active settings
-      canvas.drawLine(controller.tempStart!, controller.tempEnd!, previewPaint);
-      _drawWallLabel(
-        canvas,
-        Wall(
-          id: 'temp',
-          start: controller.tempStart!,
-          end: controller.tempEnd!,
-        ),
-      );
-      canvas.drawCircle(
-        controller.tempStart!,
-        4,
-        Paint()..color = Colors.redAccent,
-      );
-      canvas.drawCircle(
-        controller.tempEnd!,
-        4,
-        Paint()..color = Colors.redAccent,
-      );
-    }
+    // 4. Walls (Jika Layer Walls ON)
+    if (controller.layerWalls) {
+      final Paint wallPaint = Paint()..strokeCap = StrokeCap.square;
+      final Paint selectedPaint = Paint()
+        ..color = Colors.blueAccent
+        ..strokeCap = StrokeCap.square;
+      for (var wall in controller.walls) {
+        bool isSel =
+            (!controller.isObjectSelected && controller.selectedId == wall.id);
+        wallPaint.color = wall.color;
+        wallPaint.strokeWidth = wall.thickness;
+        selectedPaint.strokeWidth = wall.thickness + 2.0;
+        canvas.drawLine(
+          wall.start,
+          wall.end,
+          isSel ? selectedPaint : wallPaint,
+        );
 
-    // 5. Objects (Gunakan warna object)
-    for (var obj in controller.objects) {
-      bool isSel =
-          (controller.isObjectSelected && controller.selectedId == obj.id);
-      canvas.save();
-      canvas.translate(obj.position.dx, obj.position.dy);
-      canvas.rotate(obj.rotation);
-      if (isSel)
+        if (controller.layerDims) {
+          _drawWallLabel(canvas, wall); // Gambar ukuran jika Layer Dims ON
+        }
+      }
+      // Preview Wall
+      if (controller.activeTool == PlanTool.wall &&
+          controller.tempStart != null &&
+          controller.tempEnd != null) {
+        Paint previewPaint = Paint()
+          ..color = controller.activeColor.withOpacity(0.5)
+          ..strokeWidth = controller.activeStrokeWidth;
+        canvas.drawLine(
+          controller.tempStart!,
+          controller.tempEnd!,
+          previewPaint,
+        );
+        if (controller.layerDims)
+          _drawWallLabel(
+            canvas,
+            Wall(
+              id: 'temp',
+              start: controller.tempStart!,
+              end: controller.tempEnd!,
+            ),
+          );
         canvas.drawCircle(
-          Offset.zero,
-          24,
-          Paint()..color = Colors.blue.withOpacity(0.3),
+          controller.tempStart!,
+          4,
+          Paint()..color = Colors.redAccent,
         );
-      final icon = IconData(obj.iconCodePoint, fontFamily: 'MaterialIcons');
-      tp.text = TextSpan(
-        text: String.fromCharCode(icon.codePoint),
-        style: TextStyle(
-          fontSize: 32,
-          fontFamily: icon.fontFamily,
-          color: isSel ? Colors.blue : obj.color,
-        ),
-      );
-      tp.layout();
-      tp.paint(canvas, Offset(-16, -16));
-      canvas.restore();
+        canvas.drawCircle(
+          controller.tempEnd!,
+          4,
+          Paint()..color = Colors.redAccent,
+        );
+      }
     }
   }
 
+  // --- HELPERS ---
   void _drawShape(Canvas canvas, PlanShape shape, bool isSelected) {
     canvas.save();
     final center = shape.rect.center;
@@ -231,10 +267,9 @@ class PlanPainter extends CustomPainter {
     canvas.drawPath(path, border);
   }
 
-  // ... (Helpers SAMA) ...
   void _drawGrid(Canvas canvas, Size size) {
     Paint gridPaint = Paint()
-      ..color = Colors.grey.shade200
+      ..color = Colors.grey.withOpacity(0.3)
       ..strokeWidth = 1;
     double step = 40.0;
     for (double x = 0; x < size.width; x += step)

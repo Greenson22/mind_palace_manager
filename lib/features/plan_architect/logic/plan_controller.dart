@@ -7,7 +7,7 @@ import '../data/plan_models.dart';
 enum PlanTool { select, wall, object, text, eraser, freehand, shape }
 
 class PlanController extends ChangeNotifier {
-  // Data
+  // --- DATA ---
   List<Wall> walls = [];
   List<PlanObject> objects = [];
   List<PlanPath> paths = [];
@@ -15,27 +15,38 @@ class PlanController extends ChangeNotifier {
   List<PlanShape> shapes = [];
   List<PlanPath> savedCustomInteriors = [];
 
-  // Config
+  // --- VIEW STATE (BARU) ---
+  bool isViewMode = false; // Mode Lihat vs Edit
+  Color canvasColor = Colors.white;
+  bool showGrid = true;
+
+  // Layer Visibility
+  bool layerWalls = true;
+  bool layerObjects = true;
+  bool layerLabels = true;
+  bool layerDims = true; // Dimensi/Ukuran Tembok
+
+  // --- EDITOR CONFIG ---
   bool enableSnap = true;
   final double gridSize = 20.0;
   PlanTool activeTool = PlanTool.select;
 
-  // State Attributes
+  // Attributes (Warna/Tebal Aktif)
   Color activeColor = Colors.black;
   double activeStrokeWidth = 4.0;
 
-  // State Drawing/Drag
+  // State Drawing/Interaction
   Offset? tempStart;
   Offset? tempEnd;
   List<Offset> currentPathPoints = [];
   bool isDragging = false;
   Offset? lastDragPos;
 
-  // State Selection
+  // Selection
   String? selectedId;
   bool isObjectSelected = false;
 
-  // State New Item
+  // New Item Config
   IconData? selectedObjectIcon;
   String selectedObjectName = "Furniture";
   PlanShapeType selectedShapeType = PlanShapeType.rectangle;
@@ -48,7 +59,47 @@ class PlanController extends ChangeNotifier {
     _saveState();
   }
 
-  // ... (Undo/Redo & LoadState - TIDAK BERUBAH) ...
+  // --- VIEW MODE ACTIONS ---
+  void toggleViewMode() {
+    isViewMode = !isViewMode;
+    if (isViewMode) {
+      // Saat masuk view mode, bersihkan seleksi & reset tool
+      selectedId = null;
+      activeTool = PlanTool.select;
+    }
+    notifyListeners();
+  }
+
+  void setCanvasColor(Color color) {
+    canvasColor = color;
+    notifyListeners();
+  }
+
+  void toggleGridVisibility() {
+    showGrid = !showGrid;
+    notifyListeners();
+  }
+
+  void toggleLayer(String layer) {
+    switch (layer) {
+      case 'walls':
+        layerWalls = !layerWalls;
+        break;
+      case 'objects':
+        layerObjects = !layerObjects;
+        break;
+      case 'labels':
+        layerLabels = !layerLabels;
+        break;
+      case 'dims':
+        layerDims = !layerDims;
+        break;
+    }
+    notifyListeners();
+  }
+
+  // --- EDITOR ACTIONS ---
+  // ... (Undo/Redo SAMA) ...
   bool get canUndo => _historyIndex > 0;
   bool get canRedo => _historyIndex < _history.length - 1;
   void _saveState() {
@@ -99,7 +150,7 @@ class PlanController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- SETTINGS & TOOLS ---
+  // ... (Tools & Settings SAMA) ...
   void setActiveColor(Color color) {
     activeColor = color;
     notifyListeners();
@@ -133,7 +184,7 @@ class PlanController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- INPUT HANDLING (PERBAIKAN GRID DI SINI) ---
+  // --- INPUT HANDLING (Cek View Mode) ---
 
   Offset _snapToGrid(Offset pos) {
     double x = (pos.dx / gridSize).round() * gridSize;
@@ -141,7 +192,6 @@ class PlanController extends ChangeNotifier {
     return Offset(x, y);
   }
 
-  // Helper Smart Snap untuk Wall (Grid + Magnet ke Wall lain)
   Offset _getSmartSnapPoint(Offset rawPos) {
     for (var wall in walls) {
       if ((rawPos - wall.start).distance < 15.0) return wall.start;
@@ -152,11 +202,12 @@ class PlanController extends ChangeNotifier {
   }
 
   void onPanStart(Offset localPos) {
+    if (isViewMode) return; // Disable di View Mode
+
     if (activeTool == PlanTool.select) {
       _handleSelection(localPos);
       if (selectedId != null) {
         isDragging = true;
-        // PERBAIKAN: Snap posisi awal drag jika grid aktif
         lastDragPos = enableSnap ? _snapToGrid(localPos) : localPos;
       }
     } else if (activeTool == PlanTool.wall || activeTool == PlanTool.shape) {
@@ -172,23 +223,20 @@ class PlanController extends ChangeNotifier {
   }
 
   void onPanUpdate(Offset localPos) {
+    if (isViewMode) return;
+
     if (activeTool == PlanTool.select &&
         isDragging &&
         selectedId != null &&
         lastDragPos != null) {
-      // PERBAIKAN: Hitung target posisi dengan snap
       Offset targetPos = enableSnap ? _snapToGrid(localPos) : localPos;
-
-      // Hanya gerak jika ada perubahan posisi (untuk performa & snap feel)
       final delta = targetPos - lastDragPos!;
       if (delta.distanceSquared > 0) {
         _moveSelectedItem(delta);
-        lastDragPos =
-            targetPos; // Update lastDragPos ke posisi yang sudah di-snap
+        lastDragPos = targetPos;
       }
     } else if (activeTool == PlanTool.wall && tempStart != null) {
       Offset pos = _getSmartSnapPoint(localPos);
-      // Auto-straighten
       if ((pos.dx - tempStart!.dx).abs() < 10)
         pos = Offset(tempStart!.dx, pos.dy);
       if ((pos.dy - tempStart!.dy).abs() < 10)
@@ -203,6 +251,8 @@ class PlanController extends ChangeNotifier {
   }
 
   void onPanEnd() {
+    if (isViewMode) return;
+
     if (activeTool == PlanTool.select && isDragging) {
       isDragging = false;
       lastDragPos = null;
@@ -255,8 +305,13 @@ class PlanController extends ChangeNotifier {
   }
 
   void onTapUp(Offset localPos) {
+    // Di View Mode, Tap hanya untuk select (Info), tidak ada aksi lain
+    if (isViewMode) {
+      _handleSelection(localPos);
+      return;
+    }
+
     if (activeTool == PlanTool.object && selectedObjectIcon != null) {
-      // Snap posisi objek saat diletakkan
       Offset pos = enableSnap ? _snapToGrid(localPos) : localPos;
       objects.add(
         PlanObject(
@@ -276,7 +331,7 @@ class PlanController extends ChangeNotifier {
     }
   }
 
-  // ... (Sisa method: Update, Delete, Library, HitTest TIDAK BERUBAH dari versi sebelumnya) ...
+  // ... (Helper methods SAMA: Move, HitTest, Update, Delete, Library) ...
   void updateSelectedColor(Color color) {
     if (selectedId == null) return;
     final shpIdx = shapes.indexWhere((s) => s.id == selectedId);
