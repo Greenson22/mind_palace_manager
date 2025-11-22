@@ -7,6 +7,7 @@ import '../data/plan_models.dart';
 enum PlanTool { select, wall, object, text, eraser, freehand, shape }
 
 class PlanController extends ChangeNotifier {
+  // Data
   List<Wall> walls = [];
   List<PlanObject> objects = [];
   List<PlanPath> paths = [];
@@ -14,11 +15,12 @@ class PlanController extends ChangeNotifier {
   List<PlanShape> shapes = [];
   List<PlanPath> savedCustomInteriors = [];
 
+  // Config
   bool enableSnap = true;
   final double gridSize = 20.0;
   PlanTool activeTool = PlanTool.select;
 
-  // --- BARU: State Warna & Tebal Aktif (Default) ---
+  // State Attributes
   Color activeColor = Colors.black;
   double activeStrokeWidth = 4.0;
 
@@ -46,7 +48,7 @@ class PlanController extends ChangeNotifier {
     _saveState();
   }
 
-  // ... (Undo/Redo, LoadState SAMA) ...
+  // ... (Undo/Redo & LoadState - TIDAK BERUBAH) ...
   bool get canUndo => _historyIndex > 0;
   bool get canRedo => _historyIndex < _history.length - 1;
   void _saveState() {
@@ -97,7 +99,7 @@ class PlanController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- SETTINGS ---
+  // --- SETTINGS & TOOLS ---
   void setActiveColor(Color color) {
     activeColor = color;
     notifyListeners();
@@ -131,7 +133,150 @@ class PlanController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- UPDATE SELECTED ITEM ATTRIBUTES (BARU) ---
+  // --- INPUT HANDLING (PERBAIKAN GRID DI SINI) ---
+
+  Offset _snapToGrid(Offset pos) {
+    double x = (pos.dx / gridSize).round() * gridSize;
+    double y = (pos.dy / gridSize).round() * gridSize;
+    return Offset(x, y);
+  }
+
+  // Helper Smart Snap untuk Wall (Grid + Magnet ke Wall lain)
+  Offset _getSmartSnapPoint(Offset rawPos) {
+    for (var wall in walls) {
+      if ((rawPos - wall.start).distance < 15.0) return wall.start;
+      if ((rawPos - wall.end).distance < 15.0) return wall.end;
+    }
+    if (enableSnap) return _snapToGrid(rawPos);
+    return rawPos;
+  }
+
+  void onPanStart(Offset localPos) {
+    if (activeTool == PlanTool.select) {
+      _handleSelection(localPos);
+      if (selectedId != null) {
+        isDragging = true;
+        // PERBAIKAN: Snap posisi awal drag jika grid aktif
+        lastDragPos = enableSnap ? _snapToGrid(localPos) : localPos;
+      }
+    } else if (activeTool == PlanTool.wall || activeTool == PlanTool.shape) {
+      Offset pos = (activeTool == PlanTool.wall)
+          ? _getSmartSnapPoint(localPos)
+          : localPos;
+      tempStart = pos;
+      tempEnd = pos;
+    } else if (activeTool == PlanTool.freehand) {
+      currentPathPoints = [localPos];
+    }
+    notifyListeners();
+  }
+
+  void onPanUpdate(Offset localPos) {
+    if (activeTool == PlanTool.select &&
+        isDragging &&
+        selectedId != null &&
+        lastDragPos != null) {
+      // PERBAIKAN: Hitung target posisi dengan snap
+      Offset targetPos = enableSnap ? _snapToGrid(localPos) : localPos;
+
+      // Hanya gerak jika ada perubahan posisi (untuk performa & snap feel)
+      final delta = targetPos - lastDragPos!;
+      if (delta.distanceSquared > 0) {
+        _moveSelectedItem(delta);
+        lastDragPos =
+            targetPos; // Update lastDragPos ke posisi yang sudah di-snap
+      }
+    } else if (activeTool == PlanTool.wall && tempStart != null) {
+      Offset pos = _getSmartSnapPoint(localPos);
+      // Auto-straighten
+      if ((pos.dx - tempStart!.dx).abs() < 10)
+        pos = Offset(tempStart!.dx, pos.dy);
+      if ((pos.dy - tempStart!.dy).abs() < 10)
+        pos = Offset(pos.dx, tempStart!.dy);
+      tempEnd = pos;
+    } else if (activeTool == PlanTool.shape && tempStart != null) {
+      tempEnd = localPos;
+    } else if (activeTool == PlanTool.freehand) {
+      currentPathPoints.add(localPos);
+    }
+    notifyListeners();
+  }
+
+  void onPanEnd() {
+    if (activeTool == PlanTool.select && isDragging) {
+      isDragging = false;
+      lastDragPos = null;
+      _saveState();
+    } else if (activeTool == PlanTool.wall &&
+        tempStart != null &&
+        tempEnd != null) {
+      if ((tempStart! - tempEnd!).distance > 5) {
+        walls.add(
+          Wall(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            start: tempStart!,
+            end: tempEnd!,
+            color: activeColor,
+            thickness: activeStrokeWidth,
+          ),
+        );
+        _saveState();
+      }
+      tempStart = null;
+      tempEnd = null;
+    } else if (activeTool == PlanTool.shape &&
+        tempStart != null &&
+        tempEnd != null) {
+      shapes.add(
+        PlanShape(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          rect: Rect.fromPoints(tempStart!, tempEnd!),
+          type: selectedShapeType,
+          color: activeColor,
+        ),
+      );
+      _saveState();
+      tempStart = null;
+      tempEnd = null;
+    } else if (activeTool == PlanTool.freehand &&
+        currentPathPoints.isNotEmpty) {
+      paths.add(
+        PlanPath(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          points: List.from(currentPathPoints),
+          color: activeColor,
+          strokeWidth: activeStrokeWidth,
+        ),
+      );
+      currentPathPoints = [];
+      _saveState();
+    }
+    notifyListeners();
+  }
+
+  void onTapUp(Offset localPos) {
+    if (activeTool == PlanTool.object && selectedObjectIcon != null) {
+      // Snap posisi objek saat diletakkan
+      Offset pos = enableSnap ? _snapToGrid(localPos) : localPos;
+      objects.add(
+        PlanObject(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          position: pos,
+          name: selectedObjectName,
+          description: "...",
+          iconCodePoint: selectedObjectIcon!.codePoint,
+          color: activeColor,
+        ),
+      );
+      _saveState();
+    } else if (activeTool == PlanTool.select) {
+      if (!isDragging) _handleSelection(localPos);
+    } else if (activeTool == PlanTool.eraser) {
+      _handleEraser(localPos);
+    }
+  }
+
+  // ... (Sisa method: Update, Delete, Library, HitTest TIDAK BERUBAH dari versi sebelumnya) ...
   void updateSelectedColor(Color color) {
     if (selectedId == null) return;
     final shpIdx = shapes.indexWhere((s) => s.id == selectedId);
@@ -168,7 +313,6 @@ class PlanController extends ChangeNotifier {
 
   void updateSelectedStrokeWidth(double width) {
     if (selectedId == null) return;
-    // Hanya Wall dan Path yang punya stroke width eksplisit
     final pIdx = paths.indexWhere((p) => p.id == selectedId);
     if (pIdx != -1) {
       paths[pIdx] = paths[pIdx].copyWith(strokeWidth: width);
@@ -183,7 +327,6 @@ class PlanController extends ChangeNotifier {
     }
   }
 
-  // ... (Duplicate, Rotate, Layers, Snap Logic SAMA) ...
   void duplicateSelected() {
     if (selectedId == null) return;
     final offset = const Offset(20, 20);
@@ -270,153 +413,6 @@ class PlanController extends ChangeNotifier {
     }
   }
 
-  Offset _getSmartSnapPoint(Offset rawPos) {
-    for (var wall in walls) {
-      if ((rawPos - wall.start).distance < 15.0) return wall.start;
-      if ((rawPos - wall.end).distance < 15.0) return wall.end;
-    }
-    if (enableSnap) {
-      double x = (rawPos.dx / gridSize).round() * gridSize;
-      double y = (rawPos.dy / gridSize).round() * gridSize;
-      return Offset(x, y);
-    }
-    return rawPos;
-  }
-
-  // --- INPUT HANDLING (UPDATE: GUNAKAN ACTIVE COLOR/STROKE) ---
-  void onPanStart(Offset localPos) {
-    if (activeTool == PlanTool.select) {
-      _handleSelection(localPos);
-      if (selectedId != null) {
-        isDragging = true;
-        lastDragPos = localPos;
-      }
-    } else if (activeTool == PlanTool.wall || activeTool == PlanTool.shape) {
-      Offset pos = (activeTool == PlanTool.wall)
-          ? _getSmartSnapPoint(localPos)
-          : localPos;
-      tempStart = pos;
-      tempEnd = pos;
-    } else if (activeTool == PlanTool.freehand) {
-      currentPathPoints = [localPos];
-    }
-    notifyListeners();
-  }
-
-  void onPanUpdate(Offset localPos) {
-    if (activeTool == PlanTool.select &&
-        isDragging &&
-        selectedId != null &&
-        lastDragPos != null) {
-      _moveSelectedItem(localPos - lastDragPos!);
-      lastDragPos = localPos;
-    } else if (activeTool == PlanTool.wall && tempStart != null) {
-      Offset pos = _getSmartSnapPoint(localPos);
-      if ((pos.dx - tempStart!.dx).abs() < 10)
-        pos = Offset(tempStart!.dx, pos.dy);
-      if ((pos.dy - tempStart!.dy).abs() < 10)
-        pos = Offset(pos.dx, tempStart!.dy);
-      tempEnd = pos;
-    } else if (activeTool == PlanTool.shape && tempStart != null) {
-      tempEnd = localPos;
-    } else if (activeTool == PlanTool.freehand) {
-      currentPathPoints.add(localPos);
-    }
-    notifyListeners();
-  }
-
-  void onPanEnd() {
-    if (activeTool == PlanTool.select && isDragging) {
-      isDragging = false;
-      lastDragPos = null;
-      _saveState();
-    } else if (activeTool == PlanTool.wall &&
-        tempStart != null &&
-        tempEnd != null) {
-      if ((tempStart! - tempEnd!).distance > 5) {
-        // GUNAKAN ACTIVE COLOR & STROKE
-        walls.add(
-          Wall(
-            id: DateTime.now().millisecondsSinceEpoch.toString(),
-            start: tempStart!,
-            end: tempEnd!,
-            color: activeColor,
-            thickness: activeStrokeWidth,
-          ),
-        );
-        _saveState();
-      }
-      tempStart = null;
-      tempEnd = null;
-    } else if (activeTool == PlanTool.shape &&
-        tempStart != null &&
-        tempEnd != null) {
-      // GUNAKAN ACTIVE COLOR
-      shapes.add(
-        PlanShape(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          rect: Rect.fromPoints(tempStart!, tempEnd!),
-          type: selectedShapeType,
-          color: activeColor,
-        ),
-      );
-      _saveState();
-      tempStart = null;
-      tempEnd = null;
-    } else if (activeTool == PlanTool.freehand &&
-        currentPathPoints.isNotEmpty) {
-      // GUNAKAN ACTIVE COLOR & STROKE
-      paths.add(
-        PlanPath(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          points: List.from(currentPathPoints),
-          color: activeColor,
-          strokeWidth: activeStrokeWidth,
-        ),
-      );
-      currentPathPoints = [];
-      _saveState();
-    }
-    notifyListeners();
-  }
-
-  void onTapUp(Offset localPos) {
-    if (activeTool == PlanTool.object && selectedObjectIcon != null) {
-      Offset pos = _getSmartSnapPoint(localPos);
-      // GUNAKAN ACTIVE COLOR
-      objects.add(
-        PlanObject(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          position: pos,
-          name: selectedObjectName,
-          description: "...",
-          iconCodePoint: selectedObjectIcon!.codePoint,
-          color: activeColor,
-        ),
-      );
-      _saveState();
-    } else if (activeTool == PlanTool.select) {
-      if (!isDragging) _handleSelection(localPos);
-    } else if (activeTool == PlanTool.eraser) {
-      _handleEraser(localPos);
-    }
-  }
-
-  void addLabel(Offset pos, String text) {
-    // GUNAKAN ACTIVE COLOR
-    labels.add(
-      PlanLabel(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        position: pos,
-        text: text,
-        color: activeColor,
-      ),
-    );
-    _saveState();
-    notifyListeners();
-  }
-
-  // ... (Metode _moveSelectedItem, _handleSelection, _handleEraser, Helpers geometri SAMA) ...
   void _moveSelectedItem(Offset delta) {
     final shpIdx = shapes.indexWhere((s) => s.id == selectedId);
     if (shpIdx != -1) {
@@ -554,7 +550,6 @@ class PlanController extends ChangeNotifier {
     if (deleted) _saveState();
   }
 
-  // ... (Get Data, Update Desc, Delete, Clear, Library SAMA) ...
   Map<String, dynamic>? getSelectedItemData() {
     if (selectedId == null) return null;
     try {
@@ -669,6 +664,19 @@ class PlanController extends ChangeNotifier {
     paths.clear();
     walls.clear();
     selectedId = null;
+    _saveState();
+    notifyListeners();
+  }
+
+  void addLabel(Offset pos, String text) {
+    labels.add(
+      PlanLabel(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        position: pos,
+        text: text,
+        color: activeColor,
+      ),
+    );
     _saveState();
     notifyListeners();
   }

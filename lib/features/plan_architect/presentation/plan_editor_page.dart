@@ -18,17 +18,26 @@ class PlanEditorPage extends StatefulWidget {
 class _PlanEditorPageState extends State<PlanEditorPage> {
   final PlanController _controller = PlanController();
 
-  // Palet Warna Sederhana
   final List<Color> _colors = [
     Colors.black,
     Colors.grey,
+    Colors.blueGrey,
     Colors.red,
-    Colors.orange,
-    Colors.yellow,
-    Colors.green,
-    Colors.blue,
-    Colors.indigo,
+    Colors.pink,
     Colors.purple,
+    Colors.deepPurple,
+    Colors.indigo,
+    Colors.blue,
+    Colors.lightBlue,
+    Colors.cyan,
+    Colors.teal,
+    Colors.green,
+    Colors.lightGreen,
+    Colors.lime,
+    Colors.yellow,
+    Colors.amber,
+    Colors.orange,
+    Colors.deepOrange,
     Colors.brown,
   ];
 
@@ -38,7 +47,247 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
     super.dispose();
   }
 
-  // ... (Metode Export & Handle TapUp SAMA) ...
+  // --- WIDGET DIALOG WARNA ---
+  void _showColorPicker(BuildContext context, Function(Color) onColorSelected) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Pilih Warna"),
+        content: SingleChildScrollView(
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _colors
+                .map(
+                  (color) => InkWell(
+                    onTap: () {
+                      onColorSelected(color);
+                      Navigator.pop(ctx);
+                    },
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // --- FUNGSI UNTUK MEMILIH INTERIOR (BOTTOM SHEET) ---
+  void _showInteriorPicker(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.6,
+          minChildSize: 0.4,
+          maxChildSize: 0.9,
+          builder: (context, scrollController) {
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: DefaultTabController(
+                length: 6,
+                child: Column(
+                  children: [
+                    const SizedBox(height: 8),
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const TabBar(
+                      isScrollable: true,
+                      labelColor: Colors.black,
+                      tabs: [
+                        Tab(text: "Furnitur"),
+                        Tab(text: "Elektronik"),
+                        Tab(text: "Sanitasi"),
+                        Tab(text: "Struktur"),
+                        Tab(text: "Dekorasi"),
+                        Tab(text: "Pustaka Saya"),
+                      ],
+                    ),
+                    Expanded(
+                      child: TabBarView(
+                        children: [
+                          _buildIconGrid([
+                            {'icon': Icons.chair, 'name': 'Kursi'},
+                            {'icon': Icons.chair_alt, 'name': 'Kursi 2'},
+                            {'icon': Icons.table_bar, 'name': 'Meja Bulat'},
+                            {
+                              'icon': Icons.table_restaurant,
+                              'name': 'Meja Makan',
+                            },
+                            {'icon': Icons.bed, 'name': 'Kasur King'},
+                            {'icon': Icons.single_bed, 'name': 'Kasur Single'},
+                            {'icon': Icons.weekend, 'name': 'Sofa'},
+                            {'icon': Icons.event_seat, 'name': 'Bangku'},
+                            {'icon': Icons.desk, 'name': 'Meja Kerja'},
+                            {'icon': Icons.shelves, 'name': 'Rak Buku'},
+                            {'icon': Icons.kitchen, 'name': 'Lemari Es'},
+                            {'icon': Icons.inventory_2, 'name': 'Lemari'},
+                          ]),
+                          _buildIconGrid([
+                            {'icon': Icons.tv, 'name': 'TV'},
+                            {'icon': Icons.computer, 'name': 'Komputer'},
+                            {'icon': Icons.laptop, 'name': 'Laptop'},
+                            {'icon': Icons.microwave, 'name': 'Microwave'},
+                            {'icon': Icons.print, 'name': 'Printer'},
+                            {'icon': Icons.speaker, 'name': 'Speaker'},
+                            {'icon': Icons.router, 'name': 'Router'},
+                            {'icon': Icons.videogame_asset, 'name': 'Konsol'},
+                          ]),
+                          _buildIconGrid([
+                            {'icon': Icons.bathtub, 'name': 'Bathtub'},
+                            {'icon': Icons.shower, 'name': 'Shower'},
+                            {'icon': Icons.wc, 'name': 'Toilet'},
+                            {'icon': Icons.wash, 'name': 'Wastafel'},
+                            {'icon': Icons.water_drop, 'name': 'Keran'},
+                            {'icon': Icons.soap, 'name': 'Sabun'},
+                          ]),
+                          _buildIconGrid([
+                            {
+                              'icon': Icons.door_front_door,
+                              'name': 'Pintu Depan',
+                            },
+                            {'icon': Icons.door_sliding, 'name': 'Pintu Geser'},
+                            {'icon': Icons.window, 'name': 'Jendela'},
+                            {'icon': Icons.stairs, 'name': 'Tangga'},
+                            {'icon': Icons.elevator, 'name': 'Lift'},
+                            {'icon': Icons.fence, 'name': 'Pagar'},
+                            {'icon': Icons.garage, 'name': 'Garasi'},
+                            {'icon': Icons.balcony, 'name': 'Balkon'},
+                          ]),
+                          _buildIconGrid([
+                            {'icon': Icons.local_florist, 'name': 'Tanaman'},
+                            {'icon': Icons.light, 'name': 'Lampu'},
+                            {'icon': Icons.curtains, 'name': 'Gorden'},
+                            {'icon': Icons.checkroom, 'name': 'Gantungan'},
+                            {'icon': Icons.palette, 'name': 'Lukisan'},
+                            {'icon': Icons.fitness_center, 'name': 'Alat Gym'},
+                            {'icon': Icons.pool, 'name': 'Kolam'},
+                            {'icon': Icons.directions_car, 'name': 'Mobil'},
+                          ]),
+                          // TAB CUSTOM LIBRARY
+                          _controller.savedCustomInteriors.isEmpty
+                              ? const Center(
+                                  child: Text(
+                                    "Belum ada interior tersimpan.",
+                                    style: TextStyle(color: Colors.grey),
+                                  ),
+                                )
+                              : ListView.builder(
+                                  padding: const EdgeInsets.all(16),
+                                  itemCount:
+                                      _controller.savedCustomInteriors.length,
+                                  itemBuilder: (context, index) {
+                                    final path =
+                                        _controller.savedCustomInteriors[index];
+                                    return ListTile(
+                                      leading: const CircleAvatar(
+                                        backgroundColor: Colors.brown,
+                                        child: Icon(
+                                          Icons.brush,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      title: Text(path.name),
+                                      subtitle: Text(path.description),
+                                      onTap: () {
+                                        // Hitung center layar
+                                        final center = Offset(
+                                          MediaQuery.of(context).size.width / 2,
+                                          MediaQuery.of(context).size.height /
+                                              3,
+                                        );
+                                        _controller.placeSavedPath(
+                                          path,
+                                          center,
+                                        );
+                                        Navigator.pop(context);
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              "Interior kustom diletakkan.",
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    );
+                                  },
+                                ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildIconGrid(List<Map<String, dynamic>> items) {
+    return GridView.builder(
+      padding: const EdgeInsets.all(16),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        childAspectRatio: 0.8,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final item = items[index];
+        return InkWell(
+          onTap: () {
+            _controller.selectObjectIcon(item['icon'], item['name']);
+            Navigator.pop(context);
+          },
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: Colors.grey[100],
+                child: Icon(item['icon'], color: Colors.black87),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                item['name'],
+                style: const TextStyle(fontSize: 10),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ... (Metode Export, HandleTapUp, ShowEditDialog SAMA seperti sebelumnya) ...
   Future<void> _exportImage() async {
     if (AppSettings.exportPath == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -122,41 +371,6 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
     } else {
       _controller.onTapUp(localPos);
     }
-  }
-
-  // --- WIDGET DIALOG WARNA ---
-  void _showColorPicker(BuildContext context, Function(Color) onColorSelected) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Pilih Warna"),
-        content: SingleChildScrollView(
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _colors
-                .map(
-                  (color) => InkWell(
-                    onTap: () {
-                      onColorSelected(color);
-                      Navigator.pop(ctx);
-                    },
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: color,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                    ),
-                  ),
-                )
-                .toList(),
-          ),
-        ),
-      ),
-    );
   }
 
   void _showEditDialog() {
@@ -267,13 +481,12 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
       ),
       body: Column(
         children: [
-          // --- TOOLBAR ATAS (DEFAULTS) ---
+          // TOOLBAR ATAS
           Container(
             color: Colors.grey.shade100,
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
             child: Column(
               children: [
-                // Baris 1: Tools & Actions
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: ListenableBuilder(
@@ -304,6 +517,7 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
                                 : null,
                           ),
                           const VerticalDivider(width: 20, thickness: 1),
+
                           _buildToolBtn(
                             icon: Icons.pan_tool,
                             label: "Pilih",
@@ -376,7 +590,61 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
                             ],
                           ),
                           const SizedBox(width: 8),
-                          _buildInteriorMenu(),
+
+                          // TOMBOL INTERIOR BARU
+                          InkWell(
+                            onTap: () => _showInteriorPicker(context),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 8,
+                                horizontal: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _controller.activeTool == PlanTool.object
+                                    ? Colors.blueAccent
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                                border:
+                                    _controller.activeTool == PlanTool.object
+                                    ? null
+                                    : Border.all(color: Colors.grey.shade300),
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    _controller.selectedObjectIcon ??
+                                        Icons.chair,
+                                    size: 20,
+                                    color:
+                                        _controller.activeTool ==
+                                            PlanTool.object
+                                        ? Colors.white
+                                        : Colors.black87,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    "Interior",
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight:
+                                          _controller.activeTool ==
+                                              PlanTool.object
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                      color:
+                                          _controller.activeTool ==
+                                              PlanTool.object
+                                          ? Colors.white
+                                          : Colors.black87,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
                           const SizedBox(width: 8),
                           _buildToolBtn(
                             icon: Icons.delete_forever,
@@ -391,7 +659,6 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
                   ),
                 ),
                 const Divider(height: 12),
-                // Baris 2: Default Color & Stroke
                 ListenableBuilder(
                   listenable: _controller,
                   builder: (context, _) => Row(
@@ -439,7 +706,7 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
             ),
           ),
 
-          // --- BAR SELEKSI (BAWAH TOOLBAR) ---
+          // BAR SELEKSI
           ListenableBuilder(
             listenable: _controller,
             builder: (context, _) {
@@ -465,7 +732,6 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
                               ),
                             ),
                           ),
-                          // Tombol Ubah Warna Seleksi
                           InkWell(
                             onTap: () => _showColorPicker(
                               context,
@@ -476,7 +742,6 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
                               child: Icon(Icons.color_lens, color: Colors.blue),
                             ),
                           ),
-                          // Slider Ubah Stroke Seleksi
                           if (canHaveStroke)
                             SizedBox(
                               width: 80,
@@ -567,7 +832,7 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
             },
           ),
 
-          // --- CANVAS ---
+          // CANVAS
           Expanded(
             child: GestureDetector(
               onPanStart: (d) => _controller.onPanStart(d.localPosition),
@@ -586,91 +851,6 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
           ),
         ],
       ),
-    );
-  }
-
-  // ... (Helper Widgets SAMA: _buildInteriorMenu, _buildToolBtn, _buildPopupItem) ...
-  Widget _buildInteriorMenu() {
-    return PopupMenuButton<dynamic>(
-      child: _buildToolBtn(
-        icon: _controller.selectedObjectIcon ?? Icons.chair,
-        label: "Interior",
-        isActive: _controller.activeTool == PlanTool.object,
-        onTap: null,
-      ),
-      onSelected: (val) {
-        if (val is Map) {
-          _controller.selectObjectIcon(val['icon'], val['name']);
-        } else if (val is PlanPath) {
-          final center = Offset(
-            MediaQuery.of(context).size.width / 2,
-            MediaQuery.of(context).size.height / 3,
-          );
-          _controller.placeSavedPath(val, center);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Interior kustom diletakkan.")),
-          );
-        }
-      },
-      itemBuilder: (ctx) {
-        List<PopupMenuEntry<dynamic>> items = [];
-        items.add(
-          const PopupMenuItem(
-            enabled: false,
-            child: Text(
-              "STANDAR",
-              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-            ),
-          ),
-        );
-        items.addAll([
-          _buildPopupItem(Icons.chair, "Kursi"),
-          _buildPopupItem(Icons.table_bar, "Meja"),
-          _buildPopupItem(Icons.bed, "Kasur"),
-          _buildPopupItem(Icons.door_front_door, "Pintu"),
-          _buildPopupItem(Icons.kitchen, "Kulkas"),
-          _buildPopupItem(Icons.tv, "TV"),
-          _buildPopupItem(Icons.wc, "Toilet"),
-          _buildPopupItem(Icons.local_florist, "Tanaman"),
-        ]);
-        if (_controller.savedCustomInteriors.isNotEmpty) {
-          items.add(const PopupMenuDivider());
-          items.add(
-            const PopupMenuItem(
-              enabled: false,
-              child: Text(
-                "PUSTAKA SAYA",
-                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-              ),
-            ),
-          );
-          for (var savedPath in _controller.savedCustomInteriors) {
-            items.add(
-              PopupMenuItem(
-                value: savedPath,
-                child: Row(
-                  children: [
-                    const Icon(Icons.draw, color: Colors.brown),
-                    const SizedBox(width: 8),
-                    Text(savedPath.name),
-                  ],
-                ),
-              ),
-            );
-          }
-        }
-        return items;
-      },
-    );
-  }
-
-  PopupMenuItem<Map<String, dynamic>> _buildPopupItem(
-    IconData icon,
-    String name,
-  ) {
-    return PopupMenuItem(
-      value: {'icon': icon, 'name': name},
-      child: Row(children: [Icon(icon), const SizedBox(width: 8), Text(name)]),
     );
   }
 
