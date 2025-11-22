@@ -11,6 +11,8 @@ import 'package:mind_palace_manager/features/settings/helpers/wallpaper_image_lo
 import 'package:mind_palace_manager/features/building/presentation/management/building_management_page.dart';
 // --- Import untuk Pixel Studio ---
 import 'package:mind_palace_manager/features/pixel_studio/presentation/pixel_studio_page.dart';
+// --- Import untuk Plan Architect (BARU) ---
+import 'package:mind_palace_manager/features/plan_architect/presentation/plan_editor_page.dart';
 
 class MainApp extends StatelessWidget {
   const MainApp({super.key});
@@ -377,7 +379,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   label: const Text('Kelola Distrik & Bangunan'),
                 ),
 
-                // --- TOMBOL PIXEL STUDIO (BARU) ---
+                // --- TOMBOL PIXEL STUDIO ---
                 const SizedBox(height: 12),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
@@ -394,6 +396,25 @@ class _DashboardPageState extends State<DashboardPage> {
                     );
                   },
                   label: const Text('Pixel Studio (PixlFlow)'),
+                ),
+
+                // --- TOMBOL ARSITEK DENAH (BARU) ---
+                const SizedBox(height: 12),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.teal.shade50,
+                    foregroundColor: Colors.teal,
+                  ),
+                  icon: const Icon(Icons.architecture),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const PlanEditorPage(),
+                      ),
+                    );
+                  },
+                  label: const Text('Arsitek Denah (Plan Builder)'),
                 ),
 
                 // -----------------------------------
