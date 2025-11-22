@@ -1,3 +1,4 @@
+// lib/features/plan_architect/presentation/dialogs/plan_editor_dialogs.dart
 import 'package:flutter/material.dart';
 import 'package:mind_palace_manager/features/plan_architect/logic/plan_controller.dart';
 import 'package:mind_palace_manager/features/plan_architect/data/plan_models.dart';
@@ -27,59 +28,7 @@ class PlanEditorDialogs {
     Colors.brown,
   ];
 
-  static void showCanvasResizer(
-    BuildContext context,
-    PlanController controller,
-  ) {
-    final widthCtrl = TextEditingController(
-      text: controller.canvasWidth.toInt().toString(),
-    );
-    final heightCtrl = TextEditingController(
-      text: controller.canvasHeight.toInt().toString(),
-    );
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Ubah Ukuran Canvas"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text("Masukkan ukuran dalam pixel (px)."),
-            const SizedBox(height: 16),
-            TextField(
-              controller: widthCtrl,
-              decoration: const InputDecoration(labelText: "Lebar (Width)"),
-              keyboardType: TextInputType.number,
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: heightCtrl,
-              decoration: const InputDecoration(labelText: "Tinggi (Height)"),
-              keyboardType: TextInputType.number,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text("Batal"),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final w = double.tryParse(widthCtrl.text) ?? 2500.0;
-              final h = double.tryParse(heightCtrl.text) ?? 2500.0;
-              final finalW = (w < 500) ? 500.0 : w;
-              final finalH = (h < 500) ? 500.0 : h;
-              controller.updateCanvasSize(finalW, finalH);
-              Navigator.pop(ctx);
-            },
-            child: const Text("Terapkan"),
-          ),
-        ],
-      ),
-    );
-  }
+  // FUNGSI showCanvasResizer DIHAPUS KARENA CANVAS SUDAH INFINITE/FIXED
 
   static void showLayerSettings(
     BuildContext context,
@@ -135,19 +84,8 @@ class PlanEditorDialogs {
                     setState(() {});
                   },
                 ),
-                const Divider(),
-                ListTile(
-                  leading: const Icon(Icons.aspect_ratio),
-                  title: const Text("Ukuran Area Gambar"),
-                  subtitle: Text(
-                    "${controller.canvasWidth.toInt()} x ${controller.canvasHeight.toInt()} px",
-                  ),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    showCanvasResizer(context, controller);
-                  },
-                  trailing: const Icon(Icons.edit, size: 16),
-                ),
+
+                // --- BAGIAN RESIZE CANVAS DIHAPUS DI SINI ---
                 const Divider(),
                 const Text(
                   "Warna Latar Kanvas",

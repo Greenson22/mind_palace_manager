@@ -11,7 +11,8 @@ import 'package:mind_palace_manager/features/settings/helpers/wallpaper_image_lo
 import 'package:mind_palace_manager/features/building/presentation/management/building_management_page.dart';
 // --- Import untuk Pixel Studio ---
 import 'package:mind_palace_manager/features/pixel_studio/presentation/pixel_studio_page.dart';
-// --- Import untuk Plan Architect (BARU) ---
+
+// --- PENTING: Import ini WAJIB ADA agar PlanEditorPage dikenali ---
 import 'package:mind_palace_manager/features/plan_architect/presentation/plan_editor_page.dart';
 
 class MainApp extends StatelessWidget {
@@ -410,6 +411,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
+                        // Class ini sekarang sudah dikenali karena import di atas
                         builder: (context) => const PlanEditorPage(),
                       ),
                     );

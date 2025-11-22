@@ -36,6 +36,7 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
     }
     try {
       final recorder = ui.PictureRecorder();
+      // Gunakan ukuran canvas dari controller (Fixed 5000x5000)
       final exportSize = Size(
         _controller.canvasWidth,
         _controller.canvasHeight,
@@ -44,10 +45,14 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
         recorder,
         Rect.fromLTWH(0, 0, exportSize.width, exportSize.height),
       );
+
+      // Gambar background
       canvas.drawRect(
         Rect.fromLTWH(0, 0, exportSize.width, exportSize.height),
         Paint()..color = _controller.canvasColor,
       );
+
+      // Gambar konten
       final painter = PlanPainter(controller: _controller);
       painter.paint(canvas, exportSize);
 
@@ -176,11 +181,10 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
           body: Stack(
             children: [
               // 1. CANVAS (LAYER PALING BAWAH)
+              // Catatan: Tombol Zoom sudah ada di dalam widget PlanCanvasView
               Positioned.fill(child: PlanCanvasView(controller: _controller)),
 
               // 2. SELECTION BAR (MUNCUL DI ATAS TOOLBAR UTAMA)
-              // Kita taruh di urutan bawah stack agar dirender duluan (di belakang toolbar)
-              // atau diatur posisinya agar tidak tertutup.
               if (!isView && _controller.selectedId != null)
                 Positioned(
                   bottom: 100, // Di atas toolbar utama (32 + 60 + padding)
@@ -192,7 +196,7 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
               // 3. TOOLBAR UTAMA (LAYER ATAS, DI BAWAH LAYAR)
               if (!isView)
                 Positioned(
-                  bottom: 32, // PINDAH KE BAWAH
+                  bottom: 32,
                   left: 16,
                   right: 16,
                   child: Center(
@@ -203,8 +207,7 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
               // 4. STATUS INDIKATOR (MISAL: ERASER AKTIF)
               if (!isView && _controller.activeTool == PlanTool.eraser)
                 Positioned(
-                  top:
-                      16, // Pindah ke atas agar tidak bentrok dengan toolbar bawah
+                  top: 16,
                   left: 0,
                   right: 0,
                   child: Center(

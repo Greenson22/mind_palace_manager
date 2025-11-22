@@ -1,4 +1,3 @@
-// lib/features/plan_architect/presentation/plan_painter.dart
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'dart:math' as math;
@@ -11,29 +10,27 @@ class PlanPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 0. Background Color
+    // 0. Background
     canvas.drawRect(
       Rect.fromLTWH(0, 0, size.width, size.height),
       Paint()..color = controller.canvasColor,
     );
 
-    // 1. Grid (Hanya jika aktif dan bukan view mode penuh, atau jika user mau grid di view mode)
+    // 1. Grid
     if (controller.showGrid) {
       _drawGrid(canvas, size);
     }
 
-    // Snap Points (Hanya di mode edit dan jika snap aktif)
+    // Snap Points
     if (!controller.isViewMode && controller.enableSnap) {
       _drawSnapPoints(canvas, size);
     }
 
-    // 2. Shapes & Objects (Jika Layer Objects ON)
+    // 2. Shapes & Objects
     if (controller.layerObjects) {
-      // Shapes
       for (var shape in controller.shapes) {
         _drawShape(canvas, shape, controller.selectedId == shape.id);
       }
-      // Preview Shape
       if (controller.activeTool == PlanTool.shape &&
           controller.tempStart != null &&
           controller.tempEnd != null) {
@@ -53,7 +50,6 @@ class PlanPainter extends CustomPainter {
         );
       }
 
-      // Objects (Icons)
       TextPainter tp = TextPainter(textDirection: TextDirection.ltr);
       for (var obj in controller.objects) {
         bool isSel = (controller.selectedId == obj.id);
@@ -80,7 +76,6 @@ class PlanPainter extends CustomPainter {
         canvas.restore();
       }
 
-      // Custom Paths
       final Paint pathPaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round
@@ -101,7 +96,6 @@ class PlanPainter extends CustomPainter {
           canvas.drawPoints(PointMode.points, path.points, pathPaint);
         }
       }
-      // Preview Freehand
       if (controller.activeTool == PlanTool.freehand &&
           controller.currentPathPoints.isNotEmpty) {
         pathPaint.color = controller.activeColor.withOpacity(0.7);
@@ -120,7 +114,7 @@ class PlanPainter extends CustomPainter {
       }
     }
 
-    // 3. Labels (Jika Layer Labels ON)
+    // 3. Labels
     if (controller.layerLabels) {
       TextPainter tp = TextPainter(textDirection: TextDirection.ltr);
       for (var label in controller.labels) {
@@ -162,7 +156,7 @@ class PlanPainter extends CustomPainter {
       }
     }
 
-    // 4. Walls (Jika Layer Walls ON)
+    // 4. Walls
     if (controller.layerWalls) {
       final Paint wallPaint = Paint()..strokeCap = StrokeCap.square;
       final Paint selectedPaint = Paint()
@@ -181,10 +175,9 @@ class PlanPainter extends CustomPainter {
         );
 
         if (controller.layerDims) {
-          _drawWallLabel(canvas, wall); // Gambar ukuran jika Layer Dims ON
+          _drawWallLabel(canvas, wall);
         }
       }
-      // Preview Wall
       if (controller.activeTool == PlanTool.wall &&
           controller.tempStart != null &&
           controller.tempEnd != null) {
@@ -219,7 +212,25 @@ class PlanPainter extends CustomPainter {
     }
   }
 
-  // --- HELPERS ---
+  void _drawGrid(Canvas canvas, Size size) {
+    Paint gridPaint = Paint()
+      ..color = Colors.grey.withOpacity(0.3)
+      ..strokeWidth = 1;
+
+    double step = 40.0;
+    for (double x = 0; x <= size.width; x += step) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
+    }
+    for (double y = 0; y <= size.height; y += step) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+  }
+
+  void _drawSnapPoints(Canvas canvas, Size size) {
+    // Snap points tidak digambar untuk performa di canvas 5000x5000
+    // Logic snap tetap aktif di controller.
+  }
+
   void _drawShape(Canvas canvas, PlanShape shape, bool isSelected) {
     canvas.save();
     final center = shape.rect.center;
@@ -265,27 +276,6 @@ class PlanPainter extends CustomPainter {
     path.close();
     canvas.drawPath(path, fill);
     canvas.drawPath(path, border);
-  }
-
-  void _drawGrid(Canvas canvas, Size size) {
-    Paint gridPaint = Paint()
-      ..color = Colors.grey.withOpacity(0.3)
-      ..strokeWidth = 1;
-    double step = 40.0;
-    for (double x = 0; x < size.width; x += step)
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
-    for (double y = 0; y < size.height; y += step)
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
-  }
-
-  void _drawSnapPoints(Canvas canvas, Size size) {
-    Paint snapPaint = Paint()
-      ..color = Colors.blue.withOpacity(0.2)
-      ..style = PaintingStyle.fill;
-    double step = controller.gridSize;
-    for (double x = 0; x < size.width; x += step)
-      for (double y = 0; y < size.height; y += step)
-        canvas.drawCircle(Offset(x, y), 1.0, snapPaint);
   }
 
   void _drawWallLabel(Canvas canvas, Wall wall) {

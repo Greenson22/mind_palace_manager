@@ -1,4 +1,3 @@
-// lib/features/plan_architect/logic/plan_controller.dart
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -26,10 +25,10 @@ class PlanController extends ChangeNotifier {
   Color canvasColor = Colors.white;
   bool showGrid = true;
 
-  // --- CANVAS SIZE CONFIG (INFINITE SETTING) ---
-  // Diubah menjadi 20.000 agar area gambar sangat luas (seperti tak terbatas)
-  double canvasWidth = 20000.0;
-  double canvasHeight = 20000.0;
+  // --- CANVAS SIZE CONFIG (FIXED 5000x5000) ---
+  // Area kerja ditetapkan ke 5000x5000 pixel
+  final double canvasWidth = 5000.0;
+  final double canvasHeight = 5000.0;
 
   // Layer Visibility
   bool layerWalls = true;
@@ -121,6 +120,7 @@ class PlanController extends ChangeNotifier {
     );
   }
 
+  // --- UNDO/REDO ---
   bool get canUndo => _historyIndex > 0;
   bool get canRedo => _historyIndex < _history.length - 1;
 
@@ -131,8 +131,6 @@ class PlanController extends ChangeNotifier {
     final state = jsonEncode({
       'floors': floors.map((f) => f.toJson()).toList(),
       'activeIdx': activeFloorIndex,
-      'cw': canvasWidth,
-      'ch': canvasHeight,
       'cc': canvasColor.value,
     });
 
@@ -164,8 +162,6 @@ class PlanController extends ChangeNotifier {
         .toList();
     activeFloorIndex = data['activeIdx'] ?? 0;
 
-    if (data['cw'] != null) canvasWidth = (data['cw'] as num).toDouble();
-    if (data['ch'] != null) canvasHeight = (data['ch'] as num).toDouble();
     if (data['cc'] != null) canvasColor = Color(data['cc']);
 
     if (activeFloorIndex >= floors.length) activeFloorIndex = 0;
@@ -188,13 +184,6 @@ class PlanController extends ChangeNotifier {
 
   void setCanvasColor(Color color) {
     canvasColor = color;
-    _saveState();
-  }
-
-  void updateCanvasSize(double width, double height) {
-    canvasWidth = width;
-    canvasHeight = height;
-    notifyListeners();
     _saveState();
   }
 
