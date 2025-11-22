@@ -1,22 +1,29 @@
 // lib/features/plan_architect/logic/plan_controller.dart
 import 'dart:convert';
-import 'dart:math';
+import 'dart:math'; // Penting untuk fungsi matematika
 import 'package:flutter/material.dart';
 import '../data/plan_models.dart';
 
-enum PlanTool { select, wall, object, text, eraser, freehand, shape }
+enum PlanTool { select, wall, object, text, eraser, freehand, shape, hand }
 
 class PlanController extends ChangeNotifier {
-  // --- DATA ---
-  List<Wall> walls = [];
-  List<PlanObject> objects = [];
-  List<PlanPath> paths = [];
-  List<PlanLabel> labels = [];
-  List<PlanShape> shapes = [];
+  // --- DATA MULTI-LANTAI ---
+  List<PlanFloor> floors = [];
+  int activeFloorIndex = 0;
+
+  // Library Custom Interior
   List<PlanPath> savedCustomInteriors = [];
 
-  // --- VIEW STATE (BARU) ---
-  bool isViewMode = false; // Mode Lihat vs Edit
+  // Getters untuk akses cepat ke data lantai aktif
+  PlanFloor get activeFloor => floors[activeFloorIndex];
+  List<Wall> get walls => activeFloor.walls;
+  List<PlanObject> get objects => activeFloor.objects;
+  List<PlanPath> get paths => activeFloor.paths;
+  List<PlanLabel> get labels => activeFloor.labels;
+  List<PlanShape> get shapes => activeFloor.shapes;
+
+  // --- VIEW CONFIG ---
+  bool isViewMode = false;
   Color canvasColor = Colors.white;
   bool showGrid = true;
 
@@ -24,7 +31,7 @@ class PlanController extends ChangeNotifier {
   bool layerWalls = true;
   bool layerObjects = true;
   bool layerLabels = true;
-  bool layerDims = true; // Dimensi/Ukuran Tembok
+  bool layerDims = true;
 
   // --- EDITOR CONFIG ---
   bool enableSnap = true;
@@ -35,14 +42,12 @@ class PlanController extends ChangeNotifier {
   Color activeColor = Colors.black;
   double activeStrokeWidth = 4.0;
 
-  // State Drawing/Interaction
+  // State Interaction
   Offset? tempStart;
   Offset? tempEnd;
   List<Offset> currentPathPoints = [];
   bool isDragging = false;
   Offset? lastDragPos;
-
-  // Selection
   String? selectedId;
   bool isObjectSelected = false;
 
@@ -51,19 +56,123 @@ class PlanController extends ChangeNotifier {
   String selectedObjectName = "Furniture";
   PlanShapeType selectedShapeType = PlanShapeType.rectangle;
 
-  // History
+  // Zoom Controller
+  final TransformationController transformController =
+      TransformationController();
+
+  // History (Undo/Redo)
   final List<String> _history = [];
   int _historyIndex = -1;
 
   PlanController() {
+    // Inisialisasi Lantai Pertama jika kosong
+    if (floors.isEmpty) {
+      floors.add(PlanFloor(id: 'floor_1', name: 'Lantai 1'));
+    }
     _saveState();
   }
 
-  // --- VIEW MODE ACTIONS ---
+  // ===============================================================
+  // 1. MANAJEMEN LANTAI & STATE
+  // ===============================================================
+
+  void addFloor() {
+    final newId = 'floor_${floors.length + 1}';
+    floors.add(PlanFloor(id: newId, name: 'Lantai ${floors.length + 1}'));
+    activeFloorIndex = floors.length - 1;
+    selectedId = null;
+    _saveState();
+  }
+
+  void removeActiveFloor() {
+    if (floors.length <= 1) return;
+    floors.removeAt(activeFloorIndex);
+    if (activeFloorIndex >= floors.length) activeFloorIndex = floors.length - 1;
+    selectedId = null;
+    _saveState();
+  }
+
+  void setActiveFloor(int index) {
+    if (index >= 0 && index < floors.length) {
+      activeFloorIndex = index;
+      selectedId = null;
+      notifyListeners();
+    }
+  }
+
+  void renameActiveFloor(String newName) {
+    floors[activeFloorIndex] = floors[activeFloorIndex].copyWith(name: newName);
+    _saveState();
+  }
+
+  // Helper Penting: Update data di lantai aktif
+  void _updateActiveFloor({
+    List<Wall>? walls,
+    List<PlanObject>? objects,
+    List<PlanLabel>? labels,
+    List<PlanPath>? paths,
+    List<PlanShape>? shapes,
+  }) {
+    floors[activeFloorIndex] = activeFloor.copyWith(
+      walls: walls,
+      objects: objects,
+      labels: labels,
+      paths: paths,
+      shapes: shapes,
+    );
+  }
+
+  // --- UNDO/REDO ---
+  bool get canUndo => _historyIndex > 0;
+  bool get canRedo => _historyIndex < _history.length - 1;
+
+  void _saveState() {
+    if (_historyIndex < _history.length - 1)
+      _history.removeRange(_historyIndex + 1, _history.length);
+    final state = jsonEncode({
+      'floors': floors.map((f) => f.toJson()).toList(),
+      'activeIdx': activeFloorIndex,
+    });
+    _history.add(state);
+    _historyIndex++;
+    if (_history.length > 30) {
+      _history.removeAt(0);
+      _historyIndex--;
+    }
+    notifyListeners();
+  }
+
+  void undo() {
+    if (!canUndo) return;
+    _historyIndex--;
+    _loadState(_history[_historyIndex]);
+  }
+
+  void redo() {
+    if (!canRedo) return;
+    _historyIndex++;
+    _loadState(_history[_historyIndex]);
+  }
+
+  void _loadState(String stateJson) {
+    final data = jsonDecode(stateJson);
+    floors = (data['floors'] as List)
+        .map((e) => PlanFloor.fromJson(e))
+        .toList();
+    activeFloorIndex = data['activeIdx'] ?? 0;
+    if (activeFloorIndex >= floors.length) activeFloorIndex = 0;
+    selectedId = null;
+    notifyListeners();
+  }
+
+  // ===============================================================
+  // 2. ACTION & SETTINGS
+  // ===============================================================
+
+  // --- View & Layer ---
   void toggleViewMode() {
     isViewMode = !isViewMode;
     if (isViewMode) {
-      // Saat masuk view mode, bersihkan seleksi & reset tool
       selectedId = null;
       activeTool = PlanTool.select;
     }
@@ -98,59 +207,26 @@ class PlanController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- EDITOR ACTIONS ---
-  // ... (Undo/Redo SAMA) ...
-  bool get canUndo => _historyIndex > 0;
-  bool get canRedo => _historyIndex < _history.length - 1;
-  void _saveState() {
-    if (_historyIndex < _history.length - 1)
-      _history.removeRange(_historyIndex + 1, _history.length);
-    final state = jsonEncode({
-      'walls': walls.map((e) => e.toJson()).toList(),
-      'objects': objects.map((e) => e.toJson()).toList(),
-      'paths': paths.map((e) => e.toJson()).toList(),
-      'labels': labels.map((e) => e.toJson()).toList(),
-      'shapes': shapes.map((e) => e.toJson()).toList(),
-    });
-    _history.add(state);
-    _historyIndex++;
-    if (_history.length > 30) {
-      _history.removeAt(0);
-      _historyIndex--;
-    }
-    notifyListeners();
-  }
-
-  void undo() {
-    if (!canUndo) return;
-    _historyIndex--;
-    _loadState(_history[_historyIndex]);
-  }
-
-  void redo() {
-    if (!canRedo) return;
-    _historyIndex++;
-    _loadState(_history[_historyIndex]);
-  }
-
-  void _loadState(String stateJson) {
-    final data = jsonDecode(stateJson);
-    walls = (data['walls'] as List).map((e) => Wall.fromJson(e)).toList();
-    objects = (data['objects'] as List)
-        .map((e) => PlanObject.fromJson(e))
-        .toList();
-    paths = (data['paths'] as List).map((e) => PlanPath.fromJson(e)).toList();
-    labels =
-        (data['labels'] as List?)?.map((e) => PlanLabel.fromJson(e)).toList() ??
-        [];
-    shapes =
-        (data['shapes'] as List?)?.map((e) => PlanShape.fromJson(e)).toList() ??
-        [];
+  // --- Editor Tools ---
+  void setTool(PlanTool tool) {
+    activeTool = tool;
     selectedId = null;
+    isDragging = false;
     notifyListeners();
   }
 
-  // ... (Tools & Settings SAMA) ...
+  void zoomIn() {
+    transformController.value = transformController.value.clone()..scale(1.2);
+  }
+
+  void zoomOut() {
+    transformController.value = transformController.value.clone()..scale(0.8);
+  }
+
+  void resetZoom() {
+    transformController.value = Matrix4.identity();
+  }
+
   void setActiveColor(Color color) {
     activeColor = color;
     notifyListeners();
@@ -158,13 +234,6 @@ class PlanController extends ChangeNotifier {
 
   void setActiveStrokeWidth(double width) {
     activeStrokeWidth = width;
-    notifyListeners();
-  }
-
-  void setTool(PlanTool tool) {
-    activeTool = tool;
-    selectedId = null;
-    isDragging = false;
     notifyListeners();
   }
 
@@ -184,7 +253,22 @@ class PlanController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- INPUT HANDLING (Cek View Mode) ---
+  // --- RESET / CLEAR ALL (FIXED) ---
+  void clearAll() {
+    _updateActiveFloor(
+      walls: [],
+      objects: [],
+      paths: [],
+      labels: [],
+      shapes: [],
+    );
+    selectedId = null;
+    _saveState();
+  }
+
+  // ===============================================================
+  // 3. INPUT HANDLING
+  // ===============================================================
 
   Offset _snapToGrid(Offset pos) {
     double x = (pos.dx / gridSize).round() * gridSize;
@@ -202,7 +286,8 @@ class PlanController extends ChangeNotifier {
   }
 
   void onPanStart(Offset localPos) {
-    if (isViewMode) return; // Disable di View Mode
+    if (isViewMode) return;
+    if (activeTool == PlanTool.hand) return;
 
     if (activeTool == PlanTool.select) {
       _handleSelection(localPos);
@@ -223,7 +308,7 @@ class PlanController extends ChangeNotifier {
   }
 
   void onPanUpdate(Offset localPos) {
-    if (isViewMode) return;
+    if (isViewMode || activeTool == PlanTool.hand) return;
 
     if (activeTool == PlanTool.select &&
         isDragging &&
@@ -251,7 +336,7 @@ class PlanController extends ChangeNotifier {
   }
 
   void onPanEnd() {
-    if (isViewMode) return;
+    if (isViewMode || activeTool == PlanTool.hand) return;
 
     if (activeTool == PlanTool.select && isDragging) {
       isDragging = false;
@@ -261,15 +346,14 @@ class PlanController extends ChangeNotifier {
         tempStart != null &&
         tempEnd != null) {
       if ((tempStart! - tempEnd!).distance > 5) {
-        walls.add(
-          Wall(
-            id: DateTime.now().millisecondsSinceEpoch.toString(),
-            start: tempStart!,
-            end: tempEnd!,
-            color: activeColor,
-            thickness: activeStrokeWidth,
-          ),
+        final newWall = Wall(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          start: tempStart!,
+          end: tempEnd!,
+          color: activeColor,
+          thickness: activeStrokeWidth,
         );
+        _updateActiveFloor(walls: [...walls, newWall]);
         _saveState();
       }
       tempStart = null;
@@ -277,27 +361,25 @@ class PlanController extends ChangeNotifier {
     } else if (activeTool == PlanTool.shape &&
         tempStart != null &&
         tempEnd != null) {
-      shapes.add(
-        PlanShape(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          rect: Rect.fromPoints(tempStart!, tempEnd!),
-          type: selectedShapeType,
-          color: activeColor,
-        ),
+      final newShape = PlanShape(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        rect: Rect.fromPoints(tempStart!, tempEnd!),
+        type: selectedShapeType,
+        color: activeColor,
       );
+      _updateActiveFloor(shapes: [...shapes, newShape]);
       _saveState();
       tempStart = null;
       tempEnd = null;
     } else if (activeTool == PlanTool.freehand &&
         currentPathPoints.isNotEmpty) {
-      paths.add(
-        PlanPath(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          points: List.from(currentPathPoints),
-          color: activeColor,
-          strokeWidth: activeStrokeWidth,
-        ),
+      final newPath = PlanPath(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        points: List.from(currentPathPoints),
+        color: activeColor,
+        strokeWidth: activeStrokeWidth,
       );
+      _updateActiveFloor(paths: [...paths, newPath]);
       currentPathPoints = [];
       _saveState();
     }
@@ -305,24 +387,35 @@ class PlanController extends ChangeNotifier {
   }
 
   void onTapUp(Offset localPos) {
-    // Di View Mode, Tap hanya untuk select (Info), tidak ada aksi lain
     if (isViewMode) {
       _handleSelection(localPos);
+      if (selectedId != null) {
+        try {
+          final obj = objects.firstWhere((o) => o.id == selectedId);
+          if (obj.navTargetFloorId != null) {
+            final targetIdx = floors.indexWhere(
+              (f) => f.id == obj.navTargetFloorId,
+            );
+            if (targetIdx != -1) setActiveFloor(targetIdx);
+          }
+        } catch (_) {}
+      }
       return;
     }
 
+    if (activeTool == PlanTool.hand) return;
+
     if (activeTool == PlanTool.object && selectedObjectIcon != null) {
       Offset pos = enableSnap ? _snapToGrid(localPos) : localPos;
-      objects.add(
-        PlanObject(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          position: pos,
-          name: selectedObjectName,
-          description: "...",
-          iconCodePoint: selectedObjectIcon!.codePoint,
-          color: activeColor,
-        ),
+      final newObj = PlanObject(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        position: pos,
+        name: selectedObjectName,
+        description: "...",
+        iconCodePoint: selectedObjectIcon!.codePoint,
+        color: activeColor,
       );
+      _updateActiveFloor(objects: [...objects, newObj]);
       _saveState();
     } else if (activeTool == PlanTool.select) {
       if (!isDragging) _handleSelection(localPos);
@@ -331,167 +424,136 @@ class PlanController extends ChangeNotifier {
     }
   }
 
-  // ... (Helper methods SAMA: Move, HitTest, Update, Delete, Library) ...
-  void updateSelectedColor(Color color) {
-    if (selectedId == null) return;
-    final shpIdx = shapes.indexWhere((s) => s.id == selectedId);
-    if (shpIdx != -1) {
-      shapes[shpIdx] = shapes[shpIdx].copyWith(color: color);
-      _saveState();
-      return;
-    }
-    final lblIdx = labels.indexWhere((l) => l.id == selectedId);
-    if (lblIdx != -1) {
-      labels[lblIdx] = labels[lblIdx].copyWith(color: color);
-      _saveState();
-      return;
-    }
-    final objIdx = objects.indexWhere((o) => o.id == selectedId);
-    if (objIdx != -1) {
-      objects[objIdx] = objects[objIdx].copyWith(color: color);
-      _saveState();
-      return;
-    }
-    final pIdx = paths.indexWhere((p) => p.id == selectedId);
-    if (pIdx != -1) {
-      paths[pIdx] = paths[pIdx].copyWith(color: color);
-      _saveState();
-      return;
-    }
-    final wIdx = walls.indexWhere((w) => w.id == selectedId);
-    if (wIdx != -1) {
-      walls[wIdx] = walls[wIdx].copyWith(color: color);
-      _saveState();
-      return;
-    }
-  }
-
-  void updateSelectedStrokeWidth(double width) {
-    if (selectedId == null) return;
-    final pIdx = paths.indexWhere((p) => p.id == selectedId);
-    if (pIdx != -1) {
-      paths[pIdx] = paths[pIdx].copyWith(strokeWidth: width);
-      _saveState();
-      return;
-    }
-    final wIdx = walls.indexWhere((w) => w.id == selectedId);
-    if (wIdx != -1) {
-      walls[wIdx] = walls[wIdx].copyWith(thickness: width);
-      _saveState();
-      return;
-    }
-  }
-
-  void duplicateSelected() {
-    if (selectedId == null) return;
-    final offset = const Offset(20, 20);
-    final newId = DateTime.now().millisecondsSinceEpoch.toString();
-    try {
-      final obj = objects.firstWhere((o) => o.id == selectedId);
-      objects.add(obj.copyWith(id: newId, position: obj.position + offset));
-    } catch (_) {}
-    try {
-      final shp = shapes.firstWhere((s) => s.id == selectedId);
-      shapes.add(shp.copyWith(id: newId, rect: shp.rect.shift(offset)));
-    } catch (_) {}
-    try {
-      final wall = walls.firstWhere((w) => w.id == selectedId);
-      walls.add(
-        wall.copyWith(
-          id: newId,
-          start: wall.start + offset,
-          end: wall.end + offset,
-        ),
-      );
-    } catch (_) {}
-    try {
-      final pth = paths.firstWhere((p) => p.id == selectedId);
-      paths.add(pth.moveBy(offset).copyWith(id: newId));
-    } catch (_) {}
-    try {
-      final lbl = labels.firstWhere((l) => l.id == selectedId);
-      labels.add(lbl.moveBy(offset).copyWith(id: newId));
-    } catch (_) {}
-    selectedId = newId;
+  void addLabel(Offset pos, String text) {
+    final newLbl = PlanLabel(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      position: pos,
+      text: text,
+      color: activeColor,
+    );
+    _updateActiveFloor(labels: [...labels, newLbl]);
     _saveState();
   }
 
-  void rotateSelected() {
-    if (selectedId == null) return;
-    final objIdx = objects.indexWhere((o) => o.id == selectedId);
-    if (objIdx != -1) {
-      objects[objIdx] = objects[objIdx].copyWith(
-        rotation: objects[objIdx].rotation + (pi / 2),
-      );
-      _saveState();
-      return;
-    }
-    final shpIdx = shapes.indexWhere((s) => s.id == selectedId);
-    if (shpIdx != -1) {
-      shapes[shpIdx] = shapes[shpIdx].copyWith(
-        rotation: shapes[shpIdx].rotation + (pi / 2),
-      );
-      _saveState();
-      return;
-    }
-  }
-
-  void bringToFront() {
-    if (selectedId == null) return;
-    final shpIdx = shapes.indexWhere((s) => s.id == selectedId);
-    if (shpIdx != -1) {
-      shapes.add(shapes.removeAt(shpIdx));
-      _saveState();
-      return;
-    }
-    final objIdx = objects.indexWhere((o) => o.id == selectedId);
-    if (objIdx != -1) {
-      objects.add(objects.removeAt(objIdx));
-      _saveState();
-      return;
-    }
-  }
-
-  void sendToBack() {
-    if (selectedId == null) return;
-    final shpIdx = shapes.indexWhere((s) => s.id == selectedId);
-    if (shpIdx != -1) {
-      shapes.insert(0, shapes.removeAt(shpIdx));
-      _saveState();
-      return;
-    }
-    final objIdx = objects.indexWhere((o) => o.id == selectedId);
-    if (objIdx != -1) {
-      objects.insert(0, objects.removeAt(objIdx));
-      _saveState();
-      return;
-    }
-  }
+  // ===============================================================
+  // 4. MODIFIERS & HIT TEST
+  // ===============================================================
 
   void _moveSelectedItem(Offset delta) {
-    final shpIdx = shapes.indexWhere((s) => s.id == selectedId);
+    List<PlanShape> newShapes = List.from(shapes);
+    final shpIdx = newShapes.indexWhere((s) => s.id == selectedId);
     if (shpIdx != -1) {
-      shapes[shpIdx] = shapes[shpIdx].moveBy(delta);
+      newShapes[shpIdx] = newShapes[shpIdx].moveBy(delta);
+      _updateActiveFloor(shapes: newShapes);
       return;
     }
-    final lblIdx = labels.indexWhere((l) => l.id == selectedId);
+    List<PlanLabel> newLabels = List.from(labels);
+    final lblIdx = newLabels.indexWhere((l) => l.id == selectedId);
     if (lblIdx != -1) {
-      labels[lblIdx] = labels[lblIdx].moveBy(delta);
+      newLabels[lblIdx] = newLabels[lblIdx].moveBy(delta);
+      _updateActiveFloor(labels: newLabels);
       return;
     }
-    final objIdx = objects.indexWhere((o) => o.id == selectedId);
+    List<PlanObject> newObjects = List.from(objects);
+    final objIdx = newObjects.indexWhere((o) => o.id == selectedId);
     if (objIdx != -1) {
-      objects[objIdx] = objects[objIdx].moveBy(delta);
+      newObjects[objIdx] = newObjects[objIdx].moveBy(delta);
+      _updateActiveFloor(objects: newObjects);
       return;
     }
-    final pathIdx = paths.indexWhere((p) => p.id == selectedId);
-    if (pathIdx != -1) {
-      paths[pathIdx] = paths[pathIdx].moveBy(delta);
+    List<PlanPath> newPaths = List.from(paths);
+    final pIdx = newPaths.indexWhere((p) => p.id == selectedId);
+    if (pIdx != -1) {
+      newPaths[pIdx] = newPaths[pIdx].moveBy(delta);
+      _updateActiveFloor(paths: newPaths);
       return;
     }
-    final wallIdx = walls.indexWhere((w) => w.id == selectedId);
-    if (wallIdx != -1) {
-      walls[wallIdx] = walls[wallIdx].moveBy(delta);
+    List<Wall> newWalls = List.from(walls);
+    final wIdx = newWalls.indexWhere((w) => w.id == selectedId);
+    if (wIdx != -1) {
+      newWalls[wIdx] = newWalls[wIdx].moveBy(delta);
+      _updateActiveFloor(walls: newWalls);
+      return;
+    }
+  }
+
+  void deleteSelected() {
+    if (selectedId == null) return;
+    _updateActiveFloor(
+      shapes: List.from(shapes)..removeWhere((s) => s.id == selectedId),
+      labels: List.from(labels)..removeWhere((l) => l.id == selectedId),
+      objects: List.from(objects)..removeWhere((o) => o.id == selectedId),
+      paths: List.from(paths)..removeWhere((p) => p.id == selectedId),
+      walls: List.from(walls)..removeWhere((w) => w.id == selectedId),
+    );
+    selectedId = null;
+    _saveState();
+  }
+
+  void updateSelectedAttribute({
+    Color? color,
+    double? stroke,
+    String? desc,
+    String? name,
+    String? navTarget,
+  }) {
+    if (selectedId == null) return;
+    List<PlanObject> newObjects = List.from(objects);
+    final objIdx = newObjects.indexWhere((o) => o.id == selectedId);
+    if (objIdx != -1) {
+      newObjects[objIdx] = newObjects[objIdx].copyWith(
+        color: color,
+        description: desc,
+        name: name,
+        navTargetFloorId: navTarget,
+      );
+      _updateActiveFloor(objects: newObjects);
+      _saveState();
+      return;
+    }
+    List<Wall> newWalls = List.from(walls);
+    final wIdx = newWalls.indexWhere((w) => w.id == selectedId);
+    if (wIdx != -1) {
+      newWalls[wIdx] = newWalls[wIdx].copyWith(
+        color: color,
+        thickness: stroke,
+        description: desc,
+      );
+      _updateActiveFloor(walls: newWalls);
+      _saveState();
+      return;
+    }
+    List<PlanPath> newPaths = List.from(paths);
+    final pIdx = newPaths.indexWhere((p) => p.id == selectedId);
+    if (pIdx != -1) {
+      newPaths[pIdx] = newPaths[pIdx].copyWith(
+        color: color,
+        strokeWidth: stroke,
+        description: desc,
+        name: name,
+      );
+      _updateActiveFloor(paths: newPaths);
+      _saveState();
+      return;
+    }
+    List<PlanLabel> newLabels = List.from(labels);
+    final lIdx = newLabels.indexWhere((l) => l.id == selectedId);
+    if (lIdx != -1) {
+      newLabels[lIdx] = newLabels[lIdx].copyWith(color: color, text: name);
+      _updateActiveFloor(labels: newLabels);
+      _saveState();
+      return;
+    }
+    List<PlanShape> newShapes = List.from(shapes);
+    final sIdx = newShapes.indexWhere((s) => s.id == selectedId);
+    if (sIdx != -1) {
+      newShapes[sIdx] = newShapes[sIdx].copyWith(
+        color: color,
+        description: desc,
+        name: name,
+      );
+      _updateActiveFloor(shapes: newShapes);
+      _saveState();
       return;
     }
   }
@@ -562,47 +624,138 @@ class PlanController extends ChangeNotifier {
   }
 
   void _handleEraser(Offset pos) {
-    bool deleted = false;
-    final lblIdx = labels.lastIndexWhere(
-      (l) => (l.position - pos).distance < 20.0,
-    );
-    if (lblIdx != -1) {
-      labels.removeAt(lblIdx);
-      deleted = true;
-    }
-    if (!deleted) {
-      final shpIdx = shapes.lastIndexWhere((s) => s.rect.contains(pos));
-      if (shpIdx != -1) {
-        shapes.removeAt(shpIdx);
-        deleted = true;
-      }
-    }
-    if (!deleted) {
-      final objIdx = objects.lastIndexWhere(
-        (o) => (o.position - pos).distance < 30.0,
+    _handleSelection(pos);
+    if (selectedId != null) deleteSelected();
+  }
+
+  // Extra Actions Helpers
+  void updateSelectedColor(Color color) {
+    updateSelectedAttribute(color: color);
+  }
+
+  void updateSelectedStrokeWidth(double width) {
+    updateSelectedAttribute(stroke: width);
+  }
+
+  void duplicateSelected() {
+    if (selectedId == null) return;
+    final offset = const Offset(20, 20);
+    final newId = DateTime.now().millisecondsSinceEpoch.toString();
+    try {
+      final obj = objects.firstWhere((o) => o.id == selectedId);
+      _updateActiveFloor(
+        objects: [
+          ...objects,
+          obj.copyWith(id: newId, position: obj.position + offset),
+        ],
       );
-      if (objIdx != -1) {
-        objects.removeAt(objIdx);
-        deleted = true;
-      }
-    }
-    if (!deleted) {
-      final pIdx = paths.lastIndexWhere((p) => _isPointNearPath(pos, p));
-      if (pIdx != -1) {
-        paths.removeAt(pIdx);
-        deleted = true;
-      }
-    }
-    if (!deleted) {
-      final wIdx = walls.indexWhere(
-        (w) => _isPointNearLine(pos, w.start, w.end, 15.0),
+    } catch (_) {}
+    try {
+      final shp = shapes.firstWhere((s) => s.id == selectedId);
+      _updateActiveFloor(
+        shapes: [
+          ...shapes,
+          shp.copyWith(id: newId, rect: shp.rect.shift(offset)),
+        ],
       );
-      if (wIdx != -1) {
-        walls.removeAt(wIdx);
-        deleted = true;
-      }
+    } catch (_) {}
+    try {
+      final wall = walls.firstWhere((w) => w.id == selectedId);
+      _updateActiveFloor(
+        walls: [
+          ...walls,
+          wall.copyWith(
+            id: newId,
+            start: wall.start + offset,
+            end: wall.end + offset,
+          ),
+        ],
+      );
+    } catch (_) {}
+    try {
+      final pth = paths.firstWhere((p) => p.id == selectedId);
+      _updateActiveFloor(
+        paths: [
+          ...paths,
+          pth.moveBy(offset).copyWith(id: newId),
+        ],
+      );
+    } catch (_) {}
+    try {
+      final lbl = labels.firstWhere((l) => l.id == selectedId);
+      _updateActiveFloor(
+        labels: [
+          ...labels,
+          lbl.moveBy(offset).copyWith(id: newId),
+        ],
+      );
+    } catch (_) {}
+    selectedId = newId;
+    _saveState();
+  }
+
+  void rotateSelected() {
+    if (selectedId == null) return;
+    List<PlanObject> newObjs = List.from(objects);
+    final objIdx = newObjs.indexWhere((o) => o.id == selectedId);
+    if (objIdx != -1) {
+      newObjs[objIdx] = newObjs[objIdx].copyWith(
+        rotation: newObjs[objIdx].rotation + (pi / 2),
+      );
+      _updateActiveFloor(objects: newObjs);
+      _saveState();
+      return;
     }
-    if (deleted) _saveState();
+    List<PlanShape> newShapes = List.from(shapes);
+    final shpIdx = newShapes.indexWhere((s) => s.id == selectedId);
+    if (shpIdx != -1) {
+      newShapes[shpIdx] = newShapes[shpIdx].copyWith(
+        rotation: newShapes[shpIdx].rotation + (pi / 2),
+      );
+      _updateActiveFloor(shapes: newShapes);
+      _saveState();
+      return;
+    }
+  }
+
+  void bringToFront() {
+    if (selectedId == null) return;
+    List<PlanShape> newShapes = List.from(shapes);
+    final shpIdx = newShapes.indexWhere((s) => s.id == selectedId);
+    if (shpIdx != -1) {
+      newShapes.add(newShapes.removeAt(shpIdx));
+      _updateActiveFloor(shapes: newShapes);
+      _saveState();
+      return;
+    }
+    List<PlanObject> newObjs = List.from(objects);
+    final objIdx = newObjs.indexWhere((o) => o.id == selectedId);
+    if (objIdx != -1) {
+      newObjs.add(newObjs.removeAt(objIdx));
+      _updateActiveFloor(objects: newObjs);
+      _saveState();
+      return;
+    }
+  }
+
+  void sendToBack() {
+    if (selectedId == null) return;
+    List<PlanShape> newShapes = List.from(shapes);
+    final shpIdx = newShapes.indexWhere((s) => s.id == selectedId);
+    if (shpIdx != -1) {
+      newShapes.insert(0, newShapes.removeAt(shpIdx));
+      _updateActiveFloor(shapes: newShapes);
+      _saveState();
+      return;
+    }
+    List<PlanObject> newObjs = List.from(objects);
+    final objIdx = newObjs.indexWhere((o) => o.id == selectedId);
+    if (objIdx != -1) {
+      newObjs.insert(0, newObjs.removeAt(objIdx));
+      _updateActiveFloor(objects: newObjs);
+      _saveState();
+      return;
+    }
   }
 
   Map<String, dynamic>? getSelectedItemData() {
@@ -615,6 +768,7 @@ class PlanController extends ChangeNotifier {
         'desc': s.description,
         'type': 'Bentuk',
         'isPath': false,
+        'nav': null,
       };
     } catch (_) {}
     try {
@@ -625,6 +779,7 @@ class PlanController extends ChangeNotifier {
         'desc': 'Label',
         'type': 'Label',
         'isPath': false,
+        'nav': null,
       };
     } catch (_) {}
     try {
@@ -635,6 +790,7 @@ class PlanController extends ChangeNotifier {
         'desc': o.description,
         'type': 'Interior',
         'isPath': false,
+        'nav': o.navTargetFloorId,
       };
     } catch (_) {}
     try {
@@ -645,6 +801,7 @@ class PlanController extends ChangeNotifier {
         'desc': p.description,
         'type': 'Gambar',
         'isPath': true,
+        'nav': null,
       };
     } catch (_) {}
     try {
@@ -655,85 +812,10 @@ class PlanController extends ChangeNotifier {
         'desc': w.description,
         'type': 'Struktur',
         'isPath': false,
+        'nav': null,
       };
     } catch (_) {}
     return null;
-  }
-
-  void updateDescription(String newDesc, {String? newName}) {
-    if (selectedId == null) return;
-    final shpIdx = shapes.indexWhere((s) => s.id == selectedId);
-    if (shpIdx != -1) {
-      shapes[shpIdx] = shapes[shpIdx].copyWith(
-        description: newDesc,
-        name: newName,
-      );
-      _saveState();
-      return;
-    }
-    final lblIdx = labels.indexWhere((l) => l.id == selectedId);
-    if (lblIdx != -1 && newName != null) {
-      labels[lblIdx] = labels[lblIdx].copyWith(text: newName);
-      _saveState();
-      return;
-    }
-    final objIdx = objects.indexWhere((o) => o.id == selectedId);
-    if (objIdx != -1) {
-      objects[objIdx] = objects[objIdx].copyWith(
-        description: newDesc,
-        name: newName,
-      );
-      _saveState();
-      return;
-    }
-    final pIdx = paths.indexWhere((p) => p.id == selectedId);
-    if (pIdx != -1) {
-      paths[pIdx] = paths[pIdx].copyWith(description: newDesc, name: newName);
-      _saveState();
-      return;
-    }
-    final wIdx = walls.indexWhere((w) => w.id == selectedId);
-    if (wIdx != -1) {
-      walls[wIdx] = walls[wIdx].copyWith(description: newDesc);
-      _saveState();
-      return;
-    }
-  }
-
-  void deleteSelected() {
-    if (selectedId == null) return;
-    shapes.removeWhere((s) => s.id == selectedId);
-    labels.removeWhere((l) => l.id == selectedId);
-    objects.removeWhere((o) => o.id == selectedId);
-    paths.removeWhere((p) => p.id == selectedId);
-    walls.removeWhere((w) => w.id == selectedId);
-    selectedId = null;
-    _saveState();
-    notifyListeners();
-  }
-
-  void clearAll() {
-    shapes.clear();
-    labels.clear();
-    objects.clear();
-    paths.clear();
-    walls.clear();
-    selectedId = null;
-    _saveState();
-    notifyListeners();
-  }
-
-  void addLabel(Offset pos, String text) {
-    labels.add(
-      PlanLabel(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        position: pos,
-        text: text,
-        color: activeColor,
-      ),
-    );
-    _saveState();
-    notifyListeners();
   }
 
   void saveCurrentSelectionToLibrary() {
@@ -762,12 +844,11 @@ class PlanController extends ChangeNotifier {
     final List<Offset> newPoints = savedPath.points
         .map((p) => p + offsetDiff)
         .toList();
-    paths.add(
-      savedPath.copyWith(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        points: newPoints,
-      ),
+    final newPath = savedPath.copyWith(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      points: newPoints,
     );
+    _updateActiveFloor(paths: [...paths, newPath]);
     _saveState();
     notifyListeners();
   }

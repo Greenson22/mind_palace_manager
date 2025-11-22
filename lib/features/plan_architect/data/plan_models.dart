@@ -1,15 +1,86 @@
 // lib/features/plan_architect/data/plan_models.dart
 import 'package:flutter/material.dart';
 
-// --- ENUM BENTUK ---
 enum PlanShapeType { rectangle, circle, star }
 
-// --- MODEL TEMBOK (WALL) ---
+// --- MODEL LANTAI ---
+class PlanFloor {
+  final String id;
+  final String name;
+  final List<Wall> walls;
+  final List<PlanObject> objects;
+  final List<PlanLabel> labels;
+  final List<PlanPath> paths;
+  final List<PlanShape> shapes;
+
+  PlanFloor({
+    required this.id,
+    required this.name,
+    this.walls = const [],
+    this.objects = const [],
+    this.labels = const [],
+    this.paths = const [],
+    this.shapes = const [],
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'walls': walls.map((e) => e.toJson()).toList(),
+    'objects': objects.map((e) => e.toJson()).toList(),
+    'labels': labels.map((e) => e.toJson()).toList(),
+    'paths': paths.map((e) => e.toJson()).toList(),
+    'shapes': shapes.map((e) => e.toJson()).toList(),
+  };
+
+  factory PlanFloor.fromJson(Map<String, dynamic> json) => PlanFloor(
+    id: json['id'],
+    name: json['name'],
+    walls:
+        (json['walls'] as List?)?.map((e) => Wall.fromJson(e)).toList() ?? [],
+    objects:
+        (json['objects'] as List?)
+            ?.map((e) => PlanObject.fromJson(e))
+            .toList() ??
+        [],
+    labels:
+        (json['labels'] as List?)?.map((e) => PlanLabel.fromJson(e)).toList() ??
+        [],
+    paths:
+        (json['paths'] as List?)?.map((e) => PlanPath.fromJson(e)).toList() ??
+        [],
+    shapes:
+        (json['shapes'] as List?)?.map((e) => PlanShape.fromJson(e)).toList() ??
+        [],
+  );
+
+  PlanFloor copyWith({
+    String? id, // <-- DITAMBAHKAN
+    String? name,
+    List<Wall>? walls,
+    List<PlanObject>? objects,
+    List<PlanLabel>? labels,
+    List<PlanPath>? paths,
+    List<PlanShape>? shapes,
+  }) {
+    return PlanFloor(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      walls: walls ?? this.walls,
+      objects: objects ?? this.objects,
+      labels: labels ?? this.labels,
+      paths: paths ?? this.paths,
+      shapes: shapes ?? this.shapes,
+    );
+  }
+}
+
+// --- MODEL TEMBOK ---
 class Wall {
   final String id;
   final Offset start;
   final Offset end;
-  final double thickness; // Ketebalan garis
+  final double thickness;
   final String description;
   final Color color;
 
@@ -18,7 +89,7 @@ class Wall {
     required this.start,
     required this.end,
     this.thickness = 6.0,
-    this.description = 'Tembok standar',
+    this.description = 'Tembok',
     this.color = Colors.black,
   });
 
@@ -38,12 +109,12 @@ class Wall {
     start: Offset(json['sx'], json['sy']),
     end: Offset(json['ex'], json['ey']),
     thickness: (json['thick'] as num?)?.toDouble() ?? 6.0,
-    description: json['desc'] ?? 'Tembok standar',
+    description: json['desc'] ?? 'Tembok',
     color: json['col'] != null ? Color(json['col']) : Colors.black,
   );
 
   Wall copyWith({
-    String? id,
+    String? id, // <-- DITAMBAHKAN
     String? description,
     double? thickness,
     Offset? start,
@@ -60,20 +131,19 @@ class Wall {
     );
   }
 
-  Wall moveBy(Offset delta) {
-    return copyWith(start: start + delta, end: end + delta);
-  }
+  Wall moveBy(Offset delta) => copyWith(start: start + delta, end: end + delta);
 }
 
-// --- MODEL INTERIOR (ICON OBJECT) ---
+// --- MODEL INTERIOR ---
 class PlanObject {
   final String id;
   final Offset position;
   final String name;
   final String description;
   final int iconCodePoint;
-  final double rotation; // Rotasi dalam radian
+  final double rotation;
   final Color color;
+  final String? navTargetFloorId;
 
   PlanObject({
     required this.id,
@@ -83,6 +153,7 @@ class PlanObject {
     required this.iconCodePoint,
     this.rotation = 0.0,
     this.color = Colors.black87,
+    this.navTargetFloorId,
   });
 
   Map<String, dynamic> toJson() => {
@@ -94,6 +165,7 @@ class PlanObject {
     'icon': iconCodePoint,
     'rot': rotation,
     'col': color.value,
+    'navFloor': navTargetFloorId,
   };
 
   factory PlanObject.fromJson(Map<String, dynamic> json) => PlanObject(
@@ -104,15 +176,17 @@ class PlanObject {
     iconCodePoint: json['icon'],
     rotation: (json['rot'] as num?)?.toDouble() ?? 0.0,
     color: json['col'] != null ? Color(json['col']) : Colors.black87,
+    navTargetFloorId: json['navFloor'],
   );
 
   PlanObject copyWith({
-    String? id,
+    String? id, // <-- DITAMBAHKAN
     String? name,
     String? description,
     Offset? position,
     double? rotation,
     Color? color,
+    String? navTargetFloorId,
   }) {
     return PlanObject(
       id: id ?? this.id,
@@ -122,15 +196,14 @@ class PlanObject {
       description: description ?? this.description,
       rotation: rotation ?? this.rotation,
       color: color ?? this.color,
+      navTargetFloorId: navTargetFloorId ?? this.navTargetFloorId,
     );
   }
 
-  PlanObject moveBy(Offset delta) {
-    return copyWith(position: position + delta);
-  }
+  PlanObject moveBy(Offset delta) => copyWith(position: position + delta);
 }
 
-// --- MODEL LABEL TEKS (TEXT LABEL) ---
+// --- MODEL LABEL ---
 class PlanLabel {
   final String id;
   final Offset position;
@@ -164,7 +237,7 @@ class PlanLabel {
   );
 
   PlanLabel copyWith({
-    String? id,
+    String? id, // <-- DITAMBAHKAN
     String? text,
     double? fontSize,
     Offset? position,
@@ -179,12 +252,10 @@ class PlanLabel {
     );
   }
 
-  PlanLabel moveBy(Offset delta) {
-    return copyWith(position: position + delta);
-  }
+  PlanLabel moveBy(Offset delta) => copyWith(position: position + delta);
 }
 
-// --- MODEL GAMBAR BEBAS (FREEHAND PATH) ---
+// --- MODEL PATH (GAMBAR) ---
 class PlanPath {
   final String id;
   final List<Offset> points;
@@ -199,8 +270,8 @@ class PlanPath {
     required this.points,
     this.color = Colors.brown,
     this.strokeWidth = 2.0,
-    this.name = "Interior Custom",
-    this.description = "Deskripsi belum diatur.",
+    this.name = "Gambar",
+    this.description = "",
     this.isSavedAsset = false,
   });
 
@@ -214,22 +285,20 @@ class PlanPath {
     'isSaved': isSavedAsset,
   };
 
-  factory PlanPath.fromJson(Map<String, dynamic> json) {
-    return PlanPath(
-      id: json['id'],
-      points: (json['points'] as List)
-          .map((p) => Offset(p['dx'], p['dy']))
-          .toList(),
-      color: Color(json['color']),
-      strokeWidth: (json['width'] as num).toDouble(),
-      name: json['name'] ?? "Interior Custom",
-      description: json['desc'] ?? "Deskripsi belum diatur.",
-      isSavedAsset: json['isSaved'] ?? false,
-    );
-  }
+  factory PlanPath.fromJson(Map<String, dynamic> json) => PlanPath(
+    id: json['id'],
+    points: (json['points'] as List)
+        .map((p) => Offset(p['dx'], p['dy']))
+        .toList(),
+    color: Color(json['color']),
+    strokeWidth: (json['width'] as num).toDouble(),
+    name: json['name'] ?? "Gambar",
+    description: json['desc'] ?? "",
+    isSavedAsset: json['isSaved'] ?? false,
+  );
 
   PlanPath copyWith({
-    String? id,
+    String? id, // <-- DITAMBAHKAN
     String? name,
     String? description,
     bool? isSavedAsset,
@@ -248,12 +317,11 @@ class PlanPath {
     );
   }
 
-  PlanPath moveBy(Offset delta) {
-    return copyWith(points: points.map((p) => p + delta).toList());
-  }
+  PlanPath moveBy(Offset delta) =>
+      copyWith(points: points.map((p) => p + delta).toList());
 }
 
-// --- MODEL BENTUK GEOMETRIS (SHAPES) ---
+// --- MODEL SHAPE (BENTUK) ---
 class PlanShape {
   final String id;
   final Rect rect;
@@ -301,7 +369,7 @@ class PlanShape {
   );
 
   PlanShape copyWith({
-    String? id,
+    String? id, // <-- DITAMBAHKAN
     Rect? rect,
     Color? color,
     bool? isFilled,
@@ -321,7 +389,5 @@ class PlanShape {
     );
   }
 
-  PlanShape moveBy(Offset delta) {
-    return copyWith(rect: rect.shift(delta));
-  }
+  PlanShape moveBy(Offset delta) => copyWith(rect: rect.shift(delta));
 }
