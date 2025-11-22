@@ -1,12 +1,13 @@
 // lib/features/plan_architect/data/plan_models.dart
 import 'package:flutter/material.dart';
 
+// --- MODEL TEMBOK (WALL) ---
 class Wall {
   final String id;
   final Offset start;
   final Offset end;
   final double thickness;
-  final String description; // Deskripsi tembok
+  final String description; // Deskripsi tembok (misal: Beton, Bata)
 
   Wall({
     required this.id,
@@ -30,27 +31,28 @@ class Wall {
     id: json['id'],
     start: Offset(json['sx'], json['sy']),
     end: Offset(json['ex'], json['ey']),
-    thickness: json['thickness'] ?? 10.0,
-    description: json['description'] ?? '',
+    thickness: (json['thickness'] as num?)?.toDouble() ?? 10.0,
+    description: json['description'] ?? 'Tembok standar',
   );
 
-  // Helper: Copy with
-  Wall copyWith({String? description}) {
+  // Helper: Copy with untuk update data parsial
+  Wall copyWith({String? description, double? thickness}) {
     return Wall(
       id: id,
       start: start,
       end: end,
-      thickness: thickness,
+      thickness: thickness ?? this.thickness,
       description: description ?? this.description,
     );
   }
 }
 
+// --- MODEL INTERIOR (OBJECT) ---
 class PlanObject {
   final String id;
   final Offset position;
   final String name;
-  final String description; // Deskripsi interior
+  final String description; // Deskripsi interior (misal: Meja Makan Kayu Jati)
   final int iconCodePoint; // Simpan kode icon agar bisa di-save ke JSON
 
   PlanObject({
@@ -85,6 +87,40 @@ class PlanObject {
       iconCodePoint: iconCodePoint,
       name: name ?? this.name,
       description: description ?? this.description,
+    );
+  }
+}
+
+// --- MODEL GAMBAR BEBAS (FREEHAND PATH) ---
+// Digunakan untuk menggambar interior custom secara manual
+class PlanPath {
+  final String id;
+  final List<Offset> points;
+  final Color color;
+  final double strokeWidth;
+
+  PlanPath({
+    required this.id,
+    required this.points,
+    this.color = Colors.brown,
+    this.strokeWidth = 2.0,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'points': points.map((p) => {'dx': p.dx, 'dy': p.dy}).toList(),
+    'color': color.value,
+    'width': strokeWidth,
+  };
+
+  factory PlanPath.fromJson(Map<String, dynamic> json) {
+    return PlanPath(
+      id: json['id'],
+      points: (json['points'] as List)
+          .map((p) => Offset(p['dx'], p['dy']))
+          .toList(),
+      color: Color(json['color']),
+      strokeWidth: (json['width'] as num).toDouble(),
     );
   }
 }

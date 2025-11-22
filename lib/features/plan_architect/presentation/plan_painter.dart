@@ -1,5 +1,6 @@
 // lib/features/plan_architect/presentation/plan_painter.dart
 import 'package:flutter/material.dart';
+import 'dart:ui'; // Untuk PointMode
 import '../logic/plan_controller.dart';
 
 class PlanPainter extends CustomPainter {
@@ -9,9 +10,52 @@ class PlanPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 1. Gambar Grid (Opsional, biar seperti arsitek)
     _drawGrid(canvas, size);
 
+    // --- 1. GAMBAR PATHS (Custom Interior) ---
+    final Paint pathPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    for (var path in controller.paths) {
+      pathPaint.color = path.color;
+      pathPaint.strokeWidth = path.strokeWidth;
+
+      if (path.points.length > 1) {
+        // Gambar garis mulus
+        Path p = Path();
+        p.moveTo(path.points.first.dx, path.points.first.dy);
+        for (int i = 1; i < path.points.length; i++) {
+          p.lineTo(path.points[i].dx, path.points[i].dy);
+        }
+        canvas.drawPath(p, pathPaint);
+      } else if (path.points.isNotEmpty) {
+        // Gambar titik jika hanya 1 point
+        canvas.drawPoints(PointMode.points, path.points, pathPaint);
+      }
+    }
+
+    // Gambar path yang sedang ditarik (Preview Freehand)
+    if (controller.activeTool == PlanTool.freehand &&
+        controller.currentPathPoints.isNotEmpty) {
+      pathPaint.color = Colors.brown.withOpacity(0.7);
+      pathPaint.strokeWidth = 2.0;
+      Path p = Path();
+      p.moveTo(
+        controller.currentPathPoints.first.dx,
+        controller.currentPathPoints.first.dy,
+      );
+      for (int i = 1; i < controller.currentPathPoints.length; i++) {
+        p.lineTo(
+          controller.currentPathPoints[i].dx,
+          controller.currentPathPoints[i].dy,
+        );
+      }
+      canvas.drawPath(p, pathPaint);
+    }
+
+    // --- 2. GAMBAR TEMBOK ---
     final Paint wallPaint = Paint()
       ..color = Colors.black
       ..strokeWidth = 6.0
@@ -22,29 +66,29 @@ class PlanPainter extends CustomPainter {
       ..strokeWidth = 8.0
       ..strokeCap = StrokeCap.square;
 
-    // 2. Gambar Tembok
     for (var wall in controller.walls) {
       bool isSel =
           (!controller.isObjectSelected && controller.selectedId == wall.id);
       canvas.drawLine(wall.start, wall.end, isSel ? selectedPaint : wallPaint);
     }
 
-    // 3. Gambar Tembok yang sedang ditarik (Preview)
-    if (controller.tempStart != null && controller.tempEnd != null) {
+    // Preview Tembok
+    if (controller.activeTool == PlanTool.wall &&
+        controller.tempStart != null &&
+        controller.tempEnd != null) {
       Paint previewPaint = Paint()
         ..color = Colors.grey.withOpacity(0.5)
         ..strokeWidth = 6.0;
       canvas.drawLine(controller.tempStart!, controller.tempEnd!, previewPaint);
     }
 
-    // 4. Gambar Objek (Interior)
+    // --- 3. GAMBAR OBJEK ---
     TextPainter textPainter = TextPainter(textDirection: TextDirection.ltr);
 
     for (var obj in controller.objects) {
       bool isSel =
           (controller.isObjectSelected && controller.selectedId == obj.id);
 
-      // Gambar highlight jika selected
       if (isSel) {
         canvas.drawCircle(
           obj.position,
@@ -53,7 +97,6 @@ class PlanPainter extends CustomPainter {
         );
       }
 
-      // Gambar Icon
       final icon = IconData(obj.iconCodePoint, fontFamily: 'MaterialIcons');
       textPainter.text = TextSpan(
         text: String.fromCharCode(icon.codePoint),
@@ -64,7 +107,7 @@ class PlanPainter extends CustomPainter {
         ),
       );
       textPainter.layout();
-      textPainter.paint(canvas, obj.position - Offset(16, 16)); // Center icon
+      textPainter.paint(canvas, obj.position - Offset(16, 16));
     }
   }
 
