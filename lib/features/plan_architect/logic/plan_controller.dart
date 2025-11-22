@@ -7,41 +7,40 @@ import '../data/plan_models.dart';
 enum PlanTool { select, wall, object, eraser, freehand }
 
 class PlanController extends ChangeNotifier {
-  // Data Utama
   List<Wall> walls = [];
   List<PlanObject> objects = [];
   List<PlanPath> paths = [];
-
-  // Pustaka (Library) - Untuk menyimpan custom interior
   List<PlanPath> savedCustomInteriors = [];
 
-  // Konfigurasi
   bool enableSnap = true;
   final double gridSize = 20.0;
 
   PlanTool activeTool = PlanTool.select;
 
-  // State Sementara (Menggambar)
+  // State Menggambar
   Offset? tempStart;
   Offset? tempEnd;
   List<Offset> currentPathPoints = [];
 
-  // State Penempatan Objek
-  IconData? selectedObjectIcon;
-  String selectedObjectName = "Furniture";
+  // State Move (Geser)
+  bool isDragging = false;
+  Offset? lastDragPos;
 
   // State Seleksi
+  IconData? selectedObjectIcon;
+  String selectedObjectName = "Furniture";
   String? selectedId;
-  bool isObjectSelected = false; // True jika Objek/Path, False jika Wall
+  bool isObjectSelected = false;
 
-  // --- UNDO / REDO SYSTEM ---
+  // History
   final List<String> _history = [];
   int _historyIndex = -1;
 
   PlanController() {
-    _saveState(); // State awal
+    _saveState();
   }
 
+  // ... (Undo/Redo Logic SAMA SEPERTI SEBELUMNYA) ...
   bool get canUndo => _historyIndex > 0;
   bool get canRedo => _historyIndex < _history.length - 1;
 
@@ -49,16 +48,13 @@ class PlanController extends ChangeNotifier {
     if (_historyIndex < _history.length - 1) {
       _history.removeRange(_historyIndex + 1, _history.length);
     }
-
     final state = jsonEncode({
       'walls': walls.map((e) => e.toJson()).toList(),
       'objects': objects.map((e) => e.toJson()).toList(),
       'paths': paths.map((e) => e.toJson()).toList(),
     });
-
     _history.add(state);
     _historyIndex++;
-
     if (_history.length > 30) {
       _history.removeAt(0);
       _historyIndex--;
@@ -89,11 +85,10 @@ class PlanController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- TOOL ACTIONS ---
-
   void setTool(PlanTool tool) {
     activeTool = tool;
     selectedId = null;
+    isDragging = false;
     notifyListeners();
   }
 
@@ -108,21 +103,38 @@ class PlanController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- INPUT HANDLING ---
+  // --- LOGIKA SNAP (GRID & MAGNET) ---
 
-  Offset _snapToGrid(Offset pos) {
-    double x = (pos.dx / gridSize).round() * gridSize;
-    double y = (pos.dy / gridSize).round() * gridSize;
-    return Offset(x, y);
+  // Menggabungkan Snap Grid dan Magnet ke Tembok Lain
+  Offset _getSmartSnapPoint(Offset rawPos) {
+    // 1. Cek Magnet ke Ujung Tembok Lain (Join)
+    for (var wall in walls) {
+      if ((rawPos - wall.start).distance < 15.0) return wall.start;
+      if ((rawPos - wall.end).distance < 15.0) return wall.end;
+    }
+
+    // 2. Jika tidak ada magnet, Snap ke Grid jika aktif
+    if (enableSnap) {
+      double x = (rawPos.dx / gridSize).round() * gridSize;
+      double y = (rawPos.dy / gridSize).round() * gridSize;
+      return Offset(x, y);
+    }
+
+    return rawPos;
   }
 
-  void onPanStart(Offset localPos) {
-    // Hanya snap tembok, freehand lebih baik natural (kecuali user mau)
-    Offset pos = (activeTool == PlanTool.wall && enableSnap)
-        ? _snapToGrid(localPos)
-        : localPos;
+  // --- INPUT HANDLING ---
 
-    if (activeTool == PlanTool.wall) {
+  void onPanStart(Offset localPos) {
+    if (activeTool == PlanTool.select) {
+      // Cek apakah klik pada item untuk mulai drag
+      _handleSelection(localPos);
+      if (selectedId != null) {
+        isDragging = true;
+        lastDragPos = localPos;
+      }
+    } else if (activeTool == PlanTool.wall) {
+      Offset pos = _getSmartSnapPoint(localPos);
       tempStart = pos;
       tempEnd = pos;
     } else if (activeTool == PlanTool.freehand) {
@@ -132,16 +144,42 @@ class PlanController extends ChangeNotifier {
   }
 
   void onPanUpdate(Offset localPos) {
-    Offset pos = (activeTool == PlanTool.wall && enableSnap)
-        ? _snapToGrid(localPos)
-        : localPos;
+    if (activeTool == PlanTool.select &&
+        isDragging &&
+        selectedId != null &&
+        lastDragPos != null) {
+      // --- LOGIKA MOVE (PINDAH) ---
+      final delta = localPos - lastDragPos!;
 
-    if (activeTool == PlanTool.wall && tempStart != null) {
-      // Auto-straighten logic
+      if (isObjectSelected) {
+        // Pindah Objek
+        final objIdx = objects.indexWhere((o) => o.id == selectedId);
+        if (objIdx != -1) {
+          objects[objIdx] = objects[objIdx].moveBy(delta);
+        } else {
+          // Pindah Path
+          final pathIdx = paths.indexWhere((p) => p.id == selectedId);
+          if (pathIdx != -1) {
+            paths[pathIdx] = paths[pathIdx].moveBy(delta);
+          }
+        }
+      } else {
+        // Pindah Tembok
+        final wallIdx = walls.indexWhere((w) => w.id == selectedId);
+        if (wallIdx != -1) {
+          walls[wallIdx] = walls[wallIdx].moveBy(delta);
+        }
+      }
+      lastDragPos = localPos; // Update posisi terakhir
+    } else if (activeTool == PlanTool.wall && tempStart != null) {
+      Offset pos = _getSmartSnapPoint(localPos);
+
+      // Auto-straighten (Meluruskan garis otomatis)
       if ((pos.dx - tempStart!.dx).abs() < 10)
         pos = Offset(tempStart!.dx, pos.dy);
       if ((pos.dy - tempStart!.dy).abs() < 10)
         pos = Offset(pos.dx, tempStart!.dy);
+
       tempEnd = pos;
     } else if (activeTool == PlanTool.freehand) {
       currentPathPoints.add(localPos);
@@ -150,7 +188,13 @@ class PlanController extends ChangeNotifier {
   }
 
   void onPanEnd() {
-    if (activeTool == PlanTool.wall && tempStart != null && tempEnd != null) {
+    if (activeTool == PlanTool.select && isDragging) {
+      isDragging = false;
+      lastDragPos = null;
+      _saveState(); // Simpan posisi baru ke history
+    } else if (activeTool == PlanTool.wall &&
+        tempStart != null &&
+        tempEnd != null) {
       if ((tempStart! - tempEnd!).distance > 5) {
         walls.add(
           Wall(
@@ -170,7 +214,6 @@ class PlanController extends ChangeNotifier {
         PlanPath(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           points: List.from(currentPathPoints),
-          color: Colors.brown,
           name: "Interior Custom",
           description: "Deskripsi interior...",
         ),
@@ -183,8 +226,7 @@ class PlanController extends ChangeNotifier {
 
   void onTapUp(Offset localPos) {
     if (activeTool == PlanTool.object && selectedObjectIcon != null) {
-      // Snap object position if enabled
-      Offset pos = enableSnap ? _snapToGrid(localPos) : localPos;
+      Offset pos = _getSmartSnapPoint(localPos);
       objects.add(
         PlanObject(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -196,19 +238,21 @@ class PlanController extends ChangeNotifier {
       );
       _saveState();
     } else if (activeTool == PlanTool.select) {
-      _handleSelection(localPos);
+      // Jika tap tanpa drag, hanya select (sudah dihandle di PanStart, tapi double check)
+      if (!isDragging) _handleSelection(localPos);
     } else if (activeTool == PlanTool.eraser) {
       _handleEraser(localPos);
     }
   }
 
-  // --- HIT TEST & SELECTION ---
+  // ... (Sisa metode: _handleSelection, _handleEraser, updateDescription, deleteSelected, Library Functions SAMA SEPERTI KODE SEBELUMNYA) ...
+  // Saya sertakan _handleSelection agar lengkap
 
   void _handleSelection(Offset pos) {
     selectedId = null;
     isObjectSelected = false;
 
-    // 1. Objek (Icon)
+    // 1. Objek
     for (var obj in objects.reversed) {
       if ((obj.position - pos).distance < 25.0) {
         selectedId = obj.id;
@@ -217,8 +261,7 @@ class PlanController extends ChangeNotifier {
         return;
       }
     }
-
-    // 2. Path (Freehand)
+    // 2. Path
     for (var path in paths.reversed) {
       if (_isPointNearPath(pos, path)) {
         selectedId = path.id;
@@ -227,7 +270,6 @@ class PlanController extends ChangeNotifier {
         return;
       }
     }
-
     // 3. Tembok
     for (var wall in walls) {
       if (_isPointNearLine(pos, wall.start, wall.end, 15.0)) {
@@ -238,43 +280,6 @@ class PlanController extends ChangeNotifier {
       }
     }
     notifyListeners();
-  }
-
-  void _handleEraser(Offset pos) {
-    bool deleted = false;
-
-    // Hapus Objek
-    final objIndex = objects.lastIndexWhere(
-      (obj) => (obj.position - pos).distance < 30.0,
-    );
-    if (objIndex != -1) {
-      objects.removeAt(objIndex);
-      deleted = true;
-    }
-
-    // Hapus Path
-    if (!deleted) {
-      final pathIndex = paths.lastIndexWhere(
-        (path) => _isPointNearPath(pos, path),
-      );
-      if (pathIndex != -1) {
-        paths.removeAt(pathIndex);
-        deleted = true;
-      }
-    }
-
-    // Hapus Tembok
-    if (!deleted) {
-      final wallIndex = walls.indexWhere(
-        (w) => _isPointNearLine(pos, w.start, w.end, 15.0),
-      );
-      if (wallIndex != -1) {
-        walls.removeAt(wallIndex);
-        deleted = true;
-      }
-    }
-
-    if (deleted) _saveState();
   }
 
   bool _isPointNearLine(Offset p, Offset a, Offset b, double threshold) {
@@ -296,50 +301,38 @@ class PlanController extends ChangeNotifier {
     return false;
   }
 
-  // --- DATA MANAGEMENT ---
-
-  Map<String, dynamic>? getSelectedItemData() {
-    if (selectedId == null) return null;
-
-    try {
-      final obj = objects.firstWhere((o) => o.id == selectedId);
-      return {
-        'id': obj.id,
-        'title': obj.name,
-        'desc': obj.description,
-        'type': 'Furniture',
-        'isPath': false,
-      };
-    } catch (_) {}
-
-    try {
-      final path = paths.firstWhere((p) => p.id == selectedId);
-      return {
-        'id': path.id,
-        'title': path.name,
-        'desc': path.description,
-        'type': 'Custom Interior',
-        'isPath': true,
-      };
-    } catch (_) {}
-
-    try {
-      final wall = walls.firstWhere((w) => w.id == selectedId);
-      return {
-        'id': wall.id,
-        'title': 'Tembok',
-        'desc': wall.description,
-        'type': 'Struktur',
-        'isPath': false,
-      };
-    } catch (_) {}
-
-    return null;
+  void _handleEraser(Offset pos) {
+    bool deleted = false;
+    final objIndex = objects.lastIndexWhere(
+      (obj) => (obj.position - pos).distance < 30.0,
+    );
+    if (objIndex != -1) {
+      objects.removeAt(objIndex);
+      deleted = true;
+    }
+    if (!deleted) {
+      final pathIndex = paths.lastIndexWhere(
+        (path) => _isPointNearPath(pos, path),
+      );
+      if (pathIndex != -1) {
+        paths.removeAt(pathIndex);
+        deleted = true;
+      }
+    }
+    if (!deleted) {
+      final wallIndex = walls.indexWhere(
+        (w) => _isPointNearLine(pos, w.start, w.end, 15.0),
+      );
+      if (wallIndex != -1) {
+        walls.removeAt(wallIndex);
+        deleted = true;
+      }
+    }
+    if (deleted) _saveState();
   }
 
   void updateDescription(String newDesc, {String? newName}) {
     if (selectedId == null) return;
-
     final objIdx = objects.indexWhere((o) => o.id == selectedId);
     if (objIdx != -1) {
       objects[objIdx] = objects[objIdx].copyWith(
@@ -349,7 +342,6 @@ class PlanController extends ChangeNotifier {
       _saveState();
       return;
     }
-
     final pathIdx = paths.indexWhere((p) => p.id == selectedId);
     if (pathIdx != -1) {
       paths[pathIdx] = paths[pathIdx].copyWith(
@@ -359,7 +351,6 @@ class PlanController extends ChangeNotifier {
       _saveState();
       return;
     }
-
     final wallIdx = walls.indexWhere((w) => w.id == selectedId);
     if (wallIdx != -1) {
       walls[wallIdx] = walls[wallIdx].copyWith(description: newDesc);
@@ -378,7 +369,40 @@ class PlanController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- LIBRARY FUNCTIONS ---
+  Map<String, dynamic>? getSelectedItemData() {
+    if (selectedId == null) return null;
+    try {
+      final obj = objects.firstWhere((o) => o.id == selectedId);
+      return {
+        'id': obj.id,
+        'title': obj.name,
+        'desc': obj.description,
+        'type': 'Furniture',
+        'isPath': false,
+      };
+    } catch (_) {}
+    try {
+      final path = paths.firstWhere((p) => p.id == selectedId);
+      return {
+        'id': path.id,
+        'title': path.name,
+        'desc': path.description,
+        'type': 'Custom Interior',
+        'isPath': true,
+      };
+    } catch (_) {}
+    try {
+      final wall = walls.firstWhere((w) => w.id == selectedId);
+      return {
+        'id': wall.id,
+        'title': 'Tembok',
+        'desc': wall.description,
+        'type': 'Struktur',
+        'isPath': false,
+      };
+    } catch (_) {}
+    return null;
+  }
 
   void saveCurrentSelectionToLibrary() {
     if (selectedId == null) return;
@@ -392,8 +416,6 @@ class PlanController extends ChangeNotifier {
 
   void placeSavedPath(PlanPath savedPath, Offset centerPos) {
     if (savedPath.points.isEmpty) return;
-
-    // Hitung center bounding box dari path yang disimpan
     double minX = double.infinity, maxX = double.negativeInfinity;
     double minY = double.infinity, maxY = double.negativeInfinity;
     for (var p in savedPath.points) {
@@ -404,8 +426,6 @@ class PlanController extends ChangeNotifier {
     }
     final Offset oldCenter = Offset((minX + maxX) / 2, (minY + maxY) / 2);
     final Offset offsetDiff = centerPos - oldCenter;
-
-    // Geser titik ke posisi baru
     final List<Offset> newPoints = savedPath.points
         .map((p) => p + offsetDiff)
         .toList();
@@ -419,7 +439,6 @@ class PlanController extends ChangeNotifier {
         color: savedPath.color,
       ),
     );
-
     _saveState();
     notifyListeners();
   }

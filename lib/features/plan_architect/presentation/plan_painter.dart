@@ -1,6 +1,6 @@
 // lib/features/plan_architect/presentation/plan_painter.dart
 import 'package:flutter/material.dart';
-import 'dart:ui'; // Untuk PointMode
+import 'dart:ui';
 import '../logic/plan_controller.dart';
 import '../data/plan_models.dart';
 
@@ -11,13 +11,11 @@ class PlanPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    // 1. Grid
     _drawGrid(canvas, size);
+    if (controller.enableSnap) _drawSnapPoints(canvas, size);
 
-    if (controller.enableSnap) {
-      _drawSnapPoints(canvas, size);
-    }
-
-    // --- 1. GAMBAR PATHS (Custom Interior) ---
+    // 2. Custom Paths (Gambar Bebas)
     final Paint pathPaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
@@ -25,7 +23,6 @@ class PlanPainter extends CustomPainter {
 
     for (var path in controller.paths) {
       bool isSel = (controller.selectedId == path.id);
-
       pathPaint.color = isSel ? Colors.blue : path.color;
       pathPaint.strokeWidth = isSel ? path.strokeWidth + 2.0 : path.strokeWidth;
 
@@ -60,12 +57,11 @@ class PlanPainter extends CustomPainter {
       canvas.drawPath(p, pathPaint);
     }
 
-    // --- 2. GAMBAR TEMBOK ---
+    // 3. Tembok
     final Paint wallPaint = Paint()
       ..color = Colors.black
       ..strokeWidth = 6.0
       ..strokeCap = StrokeCap.square;
-
     final Paint selectedPaint = Paint()
       ..color = Colors.blueAccent
       ..strokeWidth = 8.0
@@ -75,7 +71,7 @@ class PlanPainter extends CustomPainter {
       bool isSel =
           (!controller.isObjectSelected && controller.selectedId == wall.id);
       canvas.drawLine(wall.start, wall.end, isSel ? selectedPaint : wallPaint);
-      _drawWallLabel(canvas, wall); // Gambar ukuran
+      _drawWallLabel(canvas, wall);
     }
 
     // Preview Tembok
@@ -86,8 +82,6 @@ class PlanPainter extends CustomPainter {
         ..color = Colors.grey.withOpacity(0.5)
         ..strokeWidth = 6.0;
       canvas.drawLine(controller.tempStart!, controller.tempEnd!, previewPaint);
-
-      // Preview ukuran saat menarik garis
       _drawWallLabel(
         canvas,
         Wall(
@@ -96,15 +90,25 @@ class PlanPainter extends CustomPainter {
           end: controller.tempEnd!,
         ),
       );
+
+      // Visualisasi Magnet (Lingkaran kecil di ujung jika menempel)
+      canvas.drawCircle(
+        controller.tempStart!,
+        4,
+        Paint()..color = Colors.redAccent,
+      );
+      canvas.drawCircle(
+        controller.tempEnd!,
+        4,
+        Paint()..color = Colors.redAccent,
+      );
     }
 
-    // --- 3. GAMBAR OBJEK (ICON) ---
+    // 4. Objek Icon
     TextPainter textPainter = TextPainter(textDirection: TextDirection.ltr);
-
     for (var obj in controller.objects) {
       bool isSel =
           (controller.isObjectSelected && controller.selectedId == obj.id);
-
       if (isSel) {
         canvas.drawCircle(
           obj.position,
@@ -112,7 +116,6 @@ class PlanPainter extends CustomPainter {
           Paint()..color = Colors.blue.withOpacity(0.3),
         );
       }
-
       final icon = IconData(obj.iconCodePoint, fontFamily: 'MaterialIcons');
       textPainter.text = TextSpan(
         text: String.fromCharCode(icon.codePoint),
@@ -147,7 +150,7 @@ class PlanPainter extends CustomPainter {
     double step = controller.gridSize;
     for (double x = 0; x < size.width; x += step) {
       for (double y = 0; y < size.height; y += step) {
-        canvas.drawCircle(Offset(x, y), 1.5, snapPaint);
+        canvas.drawCircle(Offset(x, y), 1.0, snapPaint);
       }
     }
   }
@@ -155,10 +158,8 @@ class PlanPainter extends CustomPainter {
   void _drawWallLabel(Canvas canvas, Wall wall) {
     final center = (wall.start + wall.end) / 2;
     final lengthPx = (wall.start - wall.end).distance;
-    if (lengthPx < 20) return; // Jangan gambar jika terlalu pendek
-
-    final lengthM = (lengthPx / 40).toStringAsFixed(1); // Asumsi 40px = 1m
-
+    if (lengthPx < 20) return;
+    final lengthM = (lengthPx / 40).toStringAsFixed(1);
     final textSpan = TextSpan(
       text: "${lengthM}m",
       style: const TextStyle(
@@ -172,14 +173,12 @@ class PlanPainter extends CustomPainter {
       textDirection: TextDirection.ltr,
     );
     textPainter.layout();
-
     final rect = Rect.fromCenter(
       center: center,
       width: textPainter.width + 4,
       height: textPainter.height + 2,
     );
     canvas.drawRect(rect, Paint()..color = Colors.white.withOpacity(0.7));
-
     textPainter.paint(
       canvas,
       center - Offset(textPainter.width / 2, textPainter.height / 2),

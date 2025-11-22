@@ -1,7 +1,7 @@
 // lib/features/plan_architect/data/plan_models.dart
 import 'package:flutter/material.dart';
 
-// --- MODEL TEMBOK (WALL) ---
+// --- MODEL TEMBOK ---
 class Wall {
   final String id;
   final Offset start;
@@ -35,18 +35,34 @@ class Wall {
     description: json['description'] ?? 'Tembok standar',
   );
 
-  Wall copyWith({String? description, double? thickness}) {
+  Wall copyWith({
+    String? description,
+    double? thickness,
+    Offset? start,
+    Offset? end,
+  }) {
     return Wall(
       id: id,
-      start: start,
-      end: end,
+      start: start ?? this.start,
+      end: end ?? this.end,
       thickness: thickness ?? this.thickness,
       description: description ?? this.description,
     );
   }
+
+  // --- BARU: Fungsi Geser ---
+  Wall moveBy(Offset delta) {
+    return Wall(
+      id: id,
+      start: start + delta,
+      end: end + delta,
+      thickness: thickness,
+      description: description,
+    );
+  }
 }
 
-// --- MODEL INTERIOR (ICON OBJECT) ---
+// --- MODEL INTERIOR (ICON) ---
 class PlanObject {
   final String id;
   final Offset position;
@@ -79,25 +95,28 @@ class PlanObject {
     iconCodePoint: json['icon'],
   );
 
-  PlanObject copyWith({String? name, String? description}) {
+  PlanObject copyWith({String? name, String? description, Offset? position}) {
     return PlanObject(
       id: id,
-      position: position,
+      position: position ?? this.position,
       iconCodePoint: iconCodePoint,
       name: name ?? this.name,
       description: description ?? this.description,
     );
   }
+
+  // --- BARU: Fungsi Geser ---
+  PlanObject moveBy(Offset delta) {
+    return copyWith(position: position + delta);
+  }
 }
 
-// --- MODEL GAMBAR BEBAS (FREEHAND PATH) ---
+// --- MODEL GAMBAR BEBAS (PATH) ---
 class PlanPath {
   final String id;
   final List<Offset> points;
   final Color color;
   final double strokeWidth;
-
-  // Metadata
   final String name;
   final String description;
   final bool isSavedAsset;
@@ -151,5 +170,10 @@ class PlanPath {
       description: description ?? this.description,
       isSavedAsset: isSavedAsset ?? this.isSavedAsset,
     );
+  }
+
+  // --- BARU: Fungsi Geser ---
+  PlanPath moveBy(Offset delta) {
+    return copyWith(points: points.map((p) => p + delta).toList());
   }
 }
