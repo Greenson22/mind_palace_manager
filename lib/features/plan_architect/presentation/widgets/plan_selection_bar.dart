@@ -16,27 +16,50 @@ class PlanSelectionBar extends StatelessWidget {
     bool isGroup = data['isGroup'] ?? false;
 
     double currentSize = 2.0;
+
+    // --- PERBAIKAN DI SINI: Handle Crash saat memilih Pintu/Jendela ---
     if (!isGroup) {
       if (data['type'] == 'Struktur') {
-        currentSize = controller.walls
-            .firstWhere((w) => w.id == controller.selectedId)
-            .thickness;
+        // Cek apakah ini Tembok
+        try {
+          final wall = controller.walls.firstWhere(
+            (w) => w.id == controller.selectedId,
+          );
+          currentSize = wall.thickness;
+        } catch (_) {
+          // Jika bukan Tembok, cek apakah ini Portal (Pintu/Jendela)
+          try {
+            final portal = controller.portals.firstWhere(
+              (p) => p.id == controller.selectedId,
+            );
+            currentSize = portal.width;
+          } catch (e) {
+            currentSize = 2.0; // Fallback aman
+          }
+        }
       } else if (data['type'] == 'Gambar') {
-        currentSize = controller.paths
-            .firstWhere((p) => p.id == controller.selectedId)
-            .strokeWidth;
+        try {
+          currentSize = controller.paths
+              .firstWhere((p) => p.id == controller.selectedId)
+              .strokeWidth;
+        } catch (_) {}
       } else if (data['type'] == 'Interior') {
-        currentSize = controller.objects
-            .firstWhere((o) => o.id == controller.selectedId)
-            .size;
+        try {
+          currentSize = controller.objects
+              .firstWhere((o) => o.id == controller.selectedId)
+              .size;
+        } catch (_) {}
       } else if (data['type'] == 'Label') {
-        currentSize = controller.labels
-            .firstWhere((l) => l.id == controller.selectedId)
-            .fontSize;
+        try {
+          currentSize = controller.labels
+              .firstWhere((l) => l.id == controller.selectedId)
+              .fontSize;
+        } catch (_) {}
       } else if (data['type'] == 'Bentuk') {
         currentSize = 5.0;
       }
     }
+    // ------------------------------------------------------------------
 
     return Container(
       constraints: const BoxConstraints(maxWidth: 600),
@@ -132,7 +155,9 @@ class PlanSelectionBar extends StatelessWidget {
                   child: Column(
                     children: [
                       Text(
-                        "Ukuran",
+                        (data['type'] == 'Struktur' && currentSize > 10)
+                            ? "Lebar"
+                            : "Ukuran",
                         style: TextStyle(
                           fontSize: 9,
                           color: colorScheme.onSurfaceVariant,
@@ -150,10 +175,13 @@ class PlanSelectionBar extends StatelessWidget {
                             ),
                           ),
                           child: Slider(
-                            value: currentSize.clamp(1.0, 50.0),
+                            value: currentSize.clamp(
+                              1.0,
+                              150.0,
+                            ), // Naikkan max agar pintu muat
                             min: 1.0,
-                            max: 50.0,
-                            divisions: 49,
+                            max: 150.0,
+                            divisions: 149,
                             onChanged: (v) =>
                                 controller.updateSelectedStrokeWidth(v),
                           ),
@@ -163,7 +191,6 @@ class PlanSelectionBar extends StatelessWidget {
                   ),
                 ),
 
-              // --- UPDATE: UNGROUP WITH CONFIRMATION ---
               if (isGroup)
                 _buildQuickAction(
                   context,
@@ -222,7 +249,6 @@ class PlanSelectionBar extends StatelessWidget {
                 onTap: () => _showOrderMenu(context, controller),
               ),
 
-              // --- UPDATE: DELETE WITH CONFIRMATION ---
               _buildQuickAction(
                 context,
                 icon: Icons.delete_outline,
