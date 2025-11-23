@@ -11,8 +11,8 @@ class PlanSelectionBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final data = controller.getSelectedItemData();
-    // Jika multi-select aktif tapi tidak ada selectedId utama, data bisa null.
-    // Kita tetap butuh bar ini untuk aksi grup/merge.
+
+    // Tampilkan bar jika ada item terpilih ATAU jika multi-select mode aktif dan ada item yang dipilih
     if (data == null && controller.multiSelectedIds.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -64,7 +64,7 @@ class PlanSelectionBar extends StatelessWidget {
     // --- LOGIKA SNAP UNTUK NUDGE ---
     double nudgeStep = controller.enableSnap ? controller.gridSize : 2.0;
 
-    // --- LOGIKA CEK MERGE WALLS ---
+    // --- LOGIKA CEK MERGE WALLS (GABUNG TEMBOK) ---
     bool canMerge = false;
     if (controller.isMultiSelectMode &&
         controller.multiSelectedIds.length == 2) {
@@ -94,7 +94,7 @@ class PlanSelectionBar extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 1. Header
+          // 1. Header (Judul Item)
           if (data != null)
             Row(
               children: [
@@ -154,7 +154,7 @@ class PlanSelectionBar extends StatelessWidget {
               child: Divider(height: 1),
             ),
 
-          // 2. Ukuran & Warna
+          // 2. Slider Ukuran & Warna
           if (data != null)
             Row(
               children: [
@@ -265,13 +265,13 @@ class PlanSelectionBar extends StatelessWidget {
 
           const SizedBox(height: 8),
 
-          // 4. Quick Actions
+          // 4. Quick Actions Row
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // --- TOMBOL BARU: GABUNG TEMBOK ---
+                // --- TOMBOL GABUNG TEMBOK ---
                 if (canMerge)
                   _buildQuickAction(
                     context,
@@ -286,7 +286,38 @@ class PlanSelectionBar extends StatelessWidget {
                     },
                   ),
 
-                // ----------------------------------
+                // --- TOMBOL BUAT GRUP (BARU) ---
+                if (controller.isMultiSelectMode &&
+                    controller.multiSelectedIds.isNotEmpty)
+                  _buildQuickAction(
+                    context,
+                    icon: Icons.group_work,
+                    label: "Buat Grup",
+                    color: Colors.blue,
+                    onTap: () {
+                      controller.createGroupFromSelection();
+                      // Beri feedback visual
+                      if (controller.selectedId != null &&
+                          !controller.isMultiSelectMode) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("Grup berhasil dibuat!"),
+                          ),
+                        );
+                      } else {
+                        // Jika gagal (misal karena memilih tembok), beri tahu user
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              "Hanya Interior, Bentuk, Gambar & Teks yang bisa digrup.",
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+
+                // -------------------------------
                 if (isGroup)
                   _buildQuickAction(
                     context,

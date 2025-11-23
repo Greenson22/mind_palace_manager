@@ -5,12 +5,16 @@ import '../../data/plan_models.dart';
 
 mixin PlanGroupMixin on PlanVariables, PlanStateMixin {
   void createGroupFromSelection() {
+    // Pastikan ada yang dipilih (baik single atau multi)
     if (multiSelectedIds.isEmpty && selectedId == null) return;
+
+    // Kumpulkan semua ID yang akan diproses
     final idsToGroup = isMultiSelectMode
         ? multiSelectedIds.toList()
         : [selectedId!];
     if (idsToGroup.isEmpty) return;
 
+    // Filter objek yang BISA digrup (Tembok & Portal TIDAK BISA digrup saat ini)
     List<PlanObject> selObjects = objects
         .where((e) => idsToGroup.contains(e.id))
         .toList();
@@ -24,11 +28,13 @@ mixin PlanGroupMixin on PlanVariables, PlanStateMixin {
         .where((e) => idsToGroup.contains(e.id))
         .toList();
 
+    // Jika seleksi hanya berisi Tembok atau Pintu (tidak ada objek valid), berhenti.
     if (selObjects.isEmpty &&
         selShapes.isEmpty &&
         selPaths.isEmpty &&
-        selLabels.isEmpty)
+        selLabels.isEmpty) {
       return;
+    }
 
     double sumX = 0, sumY = 0;
     int count = 0;
@@ -82,6 +88,7 @@ mixin PlanGroupMixin on PlanVariables, PlanStateMixin {
       name: "Grup Baru",
     );
 
+    // Hapus item asli dari lantai dan tambahkan Grup baru
     updateActiveFloor(
       objects: objects.where((e) => !idsToGroup.contains(e.id)).toList(),
       shapes: shapes.where((e) => !idsToGroup.contains(e.id)).toList(),
@@ -89,6 +96,8 @@ mixin PlanGroupMixin on PlanVariables, PlanStateMixin {
       labels: labels.where((e) => !idsToGroup.contains(e.id)).toList(),
       groups: [...groups, newGroup],
     );
+
+    // Reset seleksi agar fokus ke Grup baru
     multiSelectedIds.clear();
     isMultiSelectMode = false;
     selectedId = newGroup.id;
