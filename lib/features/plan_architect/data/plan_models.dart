@@ -67,6 +67,7 @@ class PlanGroup {
   final String id;
   final Offset position;
   final double rotation;
+  final bool flipX; // TAMBAHAN: Properti Flip
   final List<PlanObject> objects;
   final List<PlanShape> shapes;
   final List<PlanPath> paths;
@@ -78,6 +79,7 @@ class PlanGroup {
     required this.id,
     required this.position,
     this.rotation = 0.0,
+    this.flipX = false, // Default false
     this.objects = const [],
     this.shapes = const [],
     this.paths = const [],
@@ -136,6 +138,7 @@ class PlanGroup {
     'x': position.dx,
     'y': position.dy,
     'rot': rotation,
+    'flpX': flipX, // Simpan properti flip
     'name': name,
     'isSaved': isSavedAsset,
     'objects': objects.map((e) => e.toJson()).toList(),
@@ -148,6 +151,7 @@ class PlanGroup {
     id: json['id'],
     position: Offset(json['x'], json['y']),
     rotation: (json['rot'] as num?)?.toDouble() ?? 0.0,
+    flipX: json['flpX'] ?? false, // Baca properti flip
     name: json['name'] ?? "Grup",
     isSavedAsset: json['isSaved'] ?? false,
     objects:
@@ -170,6 +174,7 @@ class PlanGroup {
     String? id,
     Offset? position,
     double? rotation,
+    bool? flipX, // Parameter copyWith
     List<PlanObject>? objects,
     List<PlanShape>? shapes,
     List<PlanPath>? paths,
@@ -181,6 +186,7 @@ class PlanGroup {
       id: id ?? this.id,
       position: position ?? this.position,
       rotation: rotation ?? this.rotation,
+      flipX: flipX ?? this.flipX, // Assign
       objects: objects ?? this.objects,
       shapes: shapes ?? this.shapes,
       paths: paths ?? this.paths,
@@ -348,6 +354,7 @@ class PlanObject {
   final String description;
   final int iconCodePoint;
   final double rotation;
+  final bool flipX; // TAMBAHAN: Properti Flip
   final Color color;
   final String? navTargetFloorId;
   final double size;
@@ -361,6 +368,7 @@ class PlanObject {
     required this.description,
     required this.iconCodePoint,
     this.rotation = 0.0,
+    this.flipX = false, // Default false
     this.color = Colors.black87,
     this.navTargetFloorId,
     this.size = 14.0,
@@ -376,6 +384,7 @@ class PlanObject {
     'desc': description,
     'icon': iconCodePoint,
     'rot': rotation,
+    'flpX': flipX, // Simpan
     'col': color.value,
     'navFloor': navTargetFloorId,
     'size': size,
@@ -389,6 +398,7 @@ class PlanObject {
     description: json['description'],
     iconCodePoint: json['icon'],
     rotation: (json['rot'] as num?)?.toDouble() ?? 0.0,
+    flipX: json['flpX'] ?? false, // Baca
     color: json['col'] != null ? Color(json['col']) : Colors.black87,
     navTargetFloorId: json['navFloor'],
     size: (json['size'] as num?)?.toDouble() ?? 14.0,
@@ -401,6 +411,7 @@ class PlanObject {
     String? description,
     Offset? position,
     double? rotation,
+    bool? flipX, // Params
     Color? color,
     String? navTargetFloorId,
     double? size,
@@ -414,6 +425,7 @@ class PlanObject {
       name: name ?? this.name,
       description: description ?? this.description,
       rotation: rotation ?? this.rotation,
+      flipX: flipX ?? this.flipX, // Assign
       color: color ?? this.color,
       navTargetFloorId: navTargetFloorId ?? this.navTargetFloorId,
       size: size ?? this.size,
@@ -548,6 +560,7 @@ class PlanShape {
   final Color color;
   final bool isFilled;
   final double rotation;
+  final bool flipX; // TAMBAHAN: Properti Flip
   final String name;
   final String description;
 
@@ -558,6 +571,7 @@ class PlanShape {
     this.color = Colors.blue,
     this.isFilled = true,
     this.rotation = 0.0,
+    this.flipX = false, // Default false
     this.name = "Bentuk",
     this.description = "",
   });
@@ -572,6 +586,7 @@ class PlanShape {
     'color': color.value,
     'filled': isFilled,
     'rot': rotation,
+    'flpX': flipX, // Simpan
     'name': name,
     'desc': description,
   };
@@ -583,6 +598,7 @@ class PlanShape {
     color: Color(json['color']),
     isFilled: json['filled'] ?? true,
     rotation: (json['rot'] as num?)?.toDouble() ?? 0.0,
+    flipX: json['flpX'] ?? false, // Baca
     name: json['name'] ?? 'Bentuk',
     description: json['desc'] ?? '',
   );
@@ -593,6 +609,7 @@ class PlanShape {
     Color? color,
     bool? isFilled,
     double? rotation,
+    bool? flipX, // Params
     String? name,
     String? description,
   }) {
@@ -603,6 +620,7 @@ class PlanShape {
       color: color ?? this.color,
       isFilled: isFilled ?? this.isFilled,
       rotation: rotation ?? this.rotation,
+      flipX: flipX ?? this.flipX, // Assign
       name: name ?? this.name,
       description: description ?? this.description,
     );

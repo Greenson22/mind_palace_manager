@@ -78,7 +78,7 @@ class PlanPainter extends CustomPainter {
           previewPaint,
         );
 
-        // --- PERBAIKAN: Tampilkan label ukuran saat menggambar (Preview) ---
+        // Tampilkan label ukuran saat menggambar (Preview)
         _drawWallLabel(
           canvas,
           Wall(
@@ -88,7 +88,6 @@ class PlanPainter extends CustomPainter {
             thickness: controller.activeStrokeWidth,
           ),
         );
-        // ------------------------------------------------------------------
       }
     }
 
@@ -150,6 +149,12 @@ class PlanPainter extends CustomPainter {
         canvas.save();
         canvas.translate(obj.position.dx, obj.position.dy);
         canvas.rotate(obj.rotation);
+
+        // --- LOGIKA FLIP OBJEK ---
+        if (obj.flipX) {
+          canvas.scale(-1.0, 1.0);
+        }
+        // -------------------------
 
         if (isSel) {
           double selectionRadius = (obj.size / 2) + 8;
@@ -337,6 +342,12 @@ class PlanPainter extends CustomPainter {
     canvas.translate(group.position.dx, group.position.dy);
     canvas.rotate(group.rotation);
 
+    // --- LOGIKA FLIP GRUP ---
+    if (group.flipX) {
+      canvas.scale(-1.0, 1.0);
+    }
+    // ------------------------
+
     if (isSelected) {
       final bounds = group.getBounds().inflate(10.0);
       canvas.drawRect(
@@ -447,6 +458,13 @@ class PlanPainter extends CustomPainter {
     final center = shape.rect.center;
     canvas.translate(center.dx, center.dy);
     canvas.rotate(shape.rotation);
+
+    // --- LOGIKA FLIP SHAPE ---
+    if (shape.flipX) {
+      canvas.scale(-1.0, 1.0);
+    }
+    // -------------------------
+
     canvas.translate(-center.dx, -center.dy);
 
     final Paint fillPaint = Paint()

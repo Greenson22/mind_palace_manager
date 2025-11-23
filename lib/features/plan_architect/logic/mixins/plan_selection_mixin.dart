@@ -1,4 +1,3 @@
-// lib/features/plan_architect/logic/mixins/plan_selection_mixin.dart
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'plan_variables.dart';
@@ -138,10 +137,8 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
     saveState();
   }
 
-  // --- FUNGSI BARU: Nudge (Geser sedikit + Update UI) ---
   void nudgeSelection(Offset delta) {
     moveSelectedItem(delta);
-    // PENTING: Beritahu UI untuk repaint agar pergerakan terlihat
     notifyListeners();
   }
 
@@ -495,6 +492,8 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
 
   void rotateSelected() {
     if (selectedId == null) return;
+
+    // 1. Rotasi Group
     List<PlanGroup> newGroups = List.from(groups);
     final gIdx = newGroups.indexWhere((g) => g.id == selectedId);
     if (gIdx != -1) {
@@ -506,6 +505,7 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       return;
     }
 
+    // 2. Rotasi Object
     List<PlanObject> newObjs = List.from(objects);
     final objIdx = newObjs.indexWhere((o) => o.id == selectedId);
     if (objIdx != -1) {
@@ -517,6 +517,7 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       return;
     }
 
+    // 3. Rotasi Shape
     List<PlanShape> newShapes = List.from(shapes);
     final shpIdx = newShapes.indexWhere((s) => s.id == selectedId);
     if (shpIdx != -1) {
@@ -528,6 +529,7 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       return;
     }
 
+    // 4. Rotasi Portal (Pintu/Jendela)
     List<PlanPortal> newPortals = List.from(portals);
     final pIdx = newPortals.indexWhere((p) => p.id == selectedId);
     if (pIdx != -1) {
@@ -535,6 +537,173 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
         rotation: newPortals[pIdx].rotation + (pi / 4),
       );
       updateActiveFloor(portals: newPortals);
+      saveState();
+      return;
+    }
+
+    // 5. Rotasi Tembok (Wall) - PERBAIKAN
+    List<Wall> newWalls = List.from(walls);
+    final wIdx = newWalls.indexWhere((w) => w.id == selectedId);
+    if (wIdx != -1) {
+      final w = newWalls[wIdx];
+      final center = (w.start + w.end) / 2;
+
+      // Rumus Rotasi 90 derajat
+      Offset rotatePoint(Offset p, Offset c) {
+        final dx = p.dx - c.dx;
+        final dy = p.dy - c.dy;
+        return Offset(c.dx - dy, c.dy + dx);
+      }
+
+      newWalls[wIdx] = w.copyWith(
+        start: rotatePoint(w.start, center),
+        end: rotatePoint(w.end, center),
+      );
+      updateActiveFloor(walls: newWalls);
+      saveState();
+      return;
+    }
+
+    // 6. Rotasi Path (Gambar)
+    List<PlanPath> newPaths = List.from(paths);
+    final pathIdx = newPaths.indexWhere((p) => p.id == selectedId);
+    if (pathIdx != -1) {
+      final p = newPaths[pathIdx];
+      double minX = double.infinity, maxX = double.negativeInfinity;
+      double minY = double.infinity, maxY = double.negativeInfinity;
+      for (var pt in p.points) {
+        if (pt.dx < minX) minX = pt.dx;
+        if (pt.dx > maxX) maxX = pt.dx;
+        if (pt.dy < minY) minY = pt.dy;
+        if (pt.dy > maxY) maxY = pt.dy;
+      }
+      final center = Offset((minX + maxX) / 2, (minY + maxY) / 2);
+
+      Offset rotatePoint(Offset pt, Offset c) {
+        final dx = pt.dx - c.dx;
+        final dy = pt.dy - c.dy;
+        return Offset(c.dx - dy, c.dy + dx);
+      }
+
+      final newPoints = p.points.map((pt) => rotatePoint(pt, center)).toList();
+      newPaths[pathIdx] = p.copyWith(points: newPoints);
+      updateActiveFloor(paths: newPaths);
+      saveState();
+      return;
+    }
+  }
+
+  void flipSelected(bool horizontal) {
+    if (selectedId == null) return;
+
+    // 1. Flip Tembok
+    List<Wall> newWalls = List.from(walls);
+    final wIdx = newWalls.indexWhere((w) => w.id == selectedId);
+    if (wIdx != -1) {
+      final w = newWalls[wIdx];
+      final center = (w.start + w.end) / 2;
+
+      Offset flipPoint(Offset p, Offset c) {
+        double dx = p.dx - c.dx;
+        double dy = p.dy - c.dy;
+        if (horizontal) {
+          return Offset(c.dx - dx, p.dy);
+        } else {
+          return Offset(p.dx, c.dy - dy);
+        }
+      }
+
+      newWalls[wIdx] = w.copyWith(
+        start: flipPoint(w.start, center),
+        end: flipPoint(w.end, center),
+      );
+      updateActiveFloor(walls: newWalls);
+      saveState();
+      return;
+    }
+
+    // 2. Flip Object
+    List<PlanObject> newObjs = List.from(objects);
+    final oIdx = newObjs.indexWhere((o) => o.id == selectedId);
+    if (oIdx != -1) {
+      if (horizontal) {
+        newObjs[oIdx] = newObjs[oIdx].copyWith(flipX: !newObjs[oIdx].flipX);
+      } else {
+        newObjs[oIdx] = newObjs[oIdx].copyWith(
+          flipX: !newObjs[oIdx].flipX,
+          rotation: newObjs[oIdx].rotation + pi,
+        );
+      }
+      updateActiveFloor(objects: newObjs);
+      saveState();
+      return;
+    }
+
+    // 3. Flip Group
+    List<PlanGroup> newGroups = List.from(groups);
+    final gIdx = newGroups.indexWhere((g) => g.id == selectedId);
+    if (gIdx != -1) {
+      if (horizontal) {
+        newGroups[gIdx] = newGroups[gIdx].copyWith(
+          flipX: !newGroups[gIdx].flipX,
+        );
+      } else {
+        newGroups[gIdx] = newGroups[gIdx].copyWith(
+          flipX: !newGroups[gIdx].flipX,
+          rotation: newGroups[gIdx].rotation + pi,
+        );
+      }
+      updateActiveFloor(groups: newGroups);
+      saveState();
+      return;
+    }
+
+    // 4. Flip Path
+    List<PlanPath> newPaths = List.from(paths);
+    final pIdx = newPaths.indexWhere((p) => p.id == selectedId);
+    if (pIdx != -1) {
+      final p = newPaths[pIdx];
+      double minX = double.infinity, maxX = double.negativeInfinity;
+      double minY = double.infinity, maxY = double.negativeInfinity;
+      for (var pt in p.points) {
+        if (pt.dx < minX) minX = pt.dx;
+        if (pt.dx > maxX) maxX = pt.dx;
+        if (pt.dy < minY) minY = pt.dy;
+        if (pt.dy > maxY) maxY = pt.dy;
+      }
+      final center = Offset((minX + maxX) / 2, (minY + maxY) / 2);
+
+      Offset flipPoint(Offset pt, Offset c) {
+        double dx = pt.dx - c.dx;
+        double dy = pt.dy - c.dy;
+        if (horizontal)
+          return Offset(c.dx - dx, pt.dy);
+        else
+          return Offset(pt.dx, c.dy - dy);
+      }
+
+      final newPoints = p.points.map((pt) => flipPoint(pt, center)).toList();
+      newPaths[pIdx] = p.copyWith(points: newPoints);
+      updateActiveFloor(paths: newPaths);
+      saveState();
+      return;
+    }
+
+    // 5. Flip Shape
+    List<PlanShape> newShapes = List.from(shapes);
+    final sIdx = newShapes.indexWhere((s) => s.id == selectedId);
+    if (sIdx != -1) {
+      if (horizontal) {
+        newShapes[sIdx] = newShapes[sIdx].copyWith(
+          flipX: !newShapes[sIdx].flipX,
+        );
+      } else {
+        newShapes[sIdx] = newShapes[sIdx].copyWith(
+          flipX: !newShapes[sIdx].flipX,
+          rotation: newShapes[sIdx].rotation + pi,
+        );
+      }
+      updateActiveFloor(shapes: newShapes);
       saveState();
       return;
     }

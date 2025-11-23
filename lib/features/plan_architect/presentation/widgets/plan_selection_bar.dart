@@ -299,12 +299,28 @@ class PlanSelectionBar extends StatelessWidget {
                   label: "Salin",
                   onTap: controller.duplicateSelected,
                 ),
+
+                // --- TOMBOL FLIP & ROTATE ---
+                _buildQuickAction(
+                  context,
+                  icon: Icons.flip,
+                  label: "Flip H",
+                  onTap: () => controller.flipSelected(true),
+                ),
+                _buildQuickAction(
+                  context,
+                  icon: Icons.flip_camera_android,
+                  label: "Flip V",
+                  onTap: () => controller.flipSelected(false),
+                ),
                 _buildQuickAction(
                   context,
                   icon: Icons.rotate_right,
                   label: "Putar",
                   onTap: controller.rotateSelected,
                 ),
+
+                // -----------------------------
                 _buildQuickAction(
                   context,
                   icon: Icons.layers,
