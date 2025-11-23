@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
+import 'package:flutter/material.dart'; // Tambahan untuk akses Icons & Colors
 import 'package:path/path.dart' as p;
 import 'package:mind_palace_manager/app_settings.dart';
 
@@ -7,8 +8,6 @@ class DistrictBuildingLogic {
   final Directory districtDirectory;
 
   DistrictBuildingLogic(this.districtDirectory);
-
-  // ... (Fungsi loadBuildings, createBuilding, updateBuilding, deleteBuilding TETAP SAMA) ...
 
   // --- Load Data ---
   Future<List<Directory>> loadBuildings() async {
@@ -49,6 +48,7 @@ class DistrictBuildingLogic {
       "icon_data": finalIconData,
       "type": type,
       "rooms": [],
+      "plans": [], // Inisialisasi array plans kosong
     };
     await dataJsonFile.writeAsString(json.encode(jsonData));
   }
@@ -71,7 +71,7 @@ class DistrictBuildingLogic {
 
     // 2. Baca JSON Lama
     final jsonFile = File(p.join(currentDir.path, 'data.json'));
-    Map<String, dynamic> jsonData = {"rooms": []};
+    Map<String, dynamic> jsonData = {"rooms": [], "plans": []};
     if (await jsonFile.exists()) {
       try {
         jsonData = json.decode(await jsonFile.readAsString());
@@ -113,7 +113,6 @@ class DistrictBuildingLogic {
   }
 
   // --- Helper: Get Icon Data ---
-  // --- PERUBAHAN DISINI: Mengembalikan juga buildingType ---
   Future<Map<String, dynamic>> getBuildingIconData(
     Directory buildingDir,
   ) async {
@@ -190,5 +189,150 @@ class DistrictBuildingLogic {
 
     await buildingDir.rename(p.join(warehouseDir.path, newName));
     await removeBuildingFromMapData(name);
+  }
+
+  // --- LOGIKA BARU: MANAJEMEN MULTI-DENAH ---
+
+  // 1. Ambil Daftar Denah (dengan migrasi otomatis untuk plan lama)
+  Future<List<Map<String, dynamic>>> getBuildingPlans(
+    Directory buildingDir,
+  ) async {
+    final jsonFile = File(p.join(buildingDir.path, 'data.json'));
+    Map<String, dynamic> data = {};
+
+    if (await jsonFile.exists()) {
+      try {
+        data = json.decode(await jsonFile.readAsString());
+      } catch (_) {}
+    }
+
+    // Migrasi: Jika belum ada list 'plans', tapi ada file 'plan.json' lama
+    List<dynamic> plans = data['plans'] ?? [];
+
+    if (plans.isEmpty) {
+      final oldPlanFile = File(p.join(buildingDir.path, 'plan.json'));
+      if (await oldPlanFile.exists()) {
+        // Masukkan plan lama sebagai entri pertama
+        plans.add({
+          'id': 'main',
+          'name': 'Denah Utama',
+          'filename': 'plan.json',
+          'icon': Icons.map.codePoint,
+        });
+
+        data['plans'] = plans;
+        await jsonFile.writeAsString(json.encode(data));
+      }
+    }
+
+    return List<Map<String, dynamic>>.from(plans);
+  }
+
+  // 2. Tambah Denah Baru ke Bangunan
+  Future<void> addPlanToBuilding(
+    Directory buildingDir,
+    String name,
+    int iconCodePoint,
+  ) async {
+    final jsonFile = File(p.join(buildingDir.path, 'data.json'));
+    if (!await jsonFile.exists()) return;
+
+    final content = await jsonFile.readAsString();
+    final data = json.decode(content);
+    List<dynamic> plans = data['plans'] ?? [];
+
+    final newId = DateTime.now().millisecondsSinceEpoch.toString();
+    final filename = 'plan_$newId.json';
+
+    // Buat file denah kosong baru
+    final planFile = File(p.join(buildingDir.path, filename));
+    // Struktur awal denah kosong
+    await planFile.writeAsString(
+      json.encode({
+        'floors': [
+          {'id': 'main', 'name': name},
+        ],
+        'activeIdx': 0,
+        'cc': Colors.white.value,
+      }),
+    );
+
+    plans.add({
+      'id': newId,
+      'name': name,
+      'filename': filename,
+      'icon': iconCodePoint,
+    });
+
+    data['plans'] = plans;
+    await jsonFile.writeAsString(json.encode(data));
+  }
+
+  // 3. Update Info Denah (Nama/Icon)
+  Future<void> updatePlanInfo(
+    Directory buildingDir,
+    String planId,
+    String newName,
+    int newIcon,
+  ) async {
+    final jsonFile = File(p.join(buildingDir.path, 'data.json'));
+    if (!await jsonFile.exists()) return;
+
+    final data = json.decode(await jsonFile.readAsString());
+    List<dynamic> plans = data['plans'] ?? [];
+
+    final index = plans.indexWhere((p) => p['id'] == planId);
+    if (index != -1) {
+      plans[index]['name'] = newName;
+      plans[index]['icon'] = newIcon;
+      data['plans'] = plans;
+      await jsonFile.writeAsString(json.encode(data));
+    }
+  }
+
+  // 4. Hapus Denah
+  Future<void> deletePlan(
+    Directory buildingDir,
+    String planId,
+    String filename,
+  ) async {
+    final jsonFile = File(p.join(buildingDir.path, 'data.json'));
+    if (!await jsonFile.exists()) return;
+
+    final data = json.decode(await jsonFile.readAsString());
+    List<dynamic> plans = data['plans'] ?? [];
+
+    // Hapus dari list
+    plans.removeWhere((p) => p['id'] == planId);
+    data['plans'] = plans;
+    await jsonFile.writeAsString(json.encode(data));
+
+    // Hapus filenya
+    final file = File(p.join(buildingDir.path, filename));
+    if (await file.exists()) {
+      await file.delete();
+    }
+  }
+
+  // 5. Reorder (Geser urutan)
+  Future<void> reorderPlans(
+    Directory buildingDir,
+    int oldIndex,
+    int newIndex,
+  ) async {
+    final jsonFile = File(p.join(buildingDir.path, 'data.json'));
+    if (!await jsonFile.exists()) return;
+
+    final data = json.decode(await jsonFile.readAsString());
+    List<dynamic> plans = data['plans'] ?? [];
+
+    if (oldIndex < plans.length && newIndex <= plans.length) {
+      if (newIndex > oldIndex) newIndex -= 1;
+      final item = plans.removeAt(oldIndex);
+      plans.insert(newIndex, item);
+
+      data['plans'] = plans;
+      await jsonFile.writeAsString(json.encode(data));
+    }
   }
 }

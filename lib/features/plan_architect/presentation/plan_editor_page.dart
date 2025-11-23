@@ -14,13 +14,19 @@ class PlanEditorPage extends StatefulWidget {
   // Parameter opsional: jika diisi, editor berjalan dalam mode "Bangunan Denah"
   final Directory? buildingDirectory;
 
-  // --- BARU: Opsi untuk membuka langsung dalam mode lihat ---
+  // Opsi untuk membuka langsung dalam mode lihat
   final bool initialViewMode;
+
+  // --- BARU: Parameter untuk Multi-Denah ---
+  final String? planFilename; // Nama file spesifik (misal: plan_123.json)
+  final String? planName; // Nama tampilan (misal: Lantai 1)
 
   const PlanEditorPage({
     super.key,
     this.buildingDirectory,
-    this.initialViewMode = false, // Default false (Edit Mode)
+    this.initialViewMode = false,
+    this.planFilename,
+    this.planName,
   });
 
   @override
@@ -33,12 +39,12 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
   @override
   void initState() {
     super.initState();
-    // Jika dibuka dari bangunan, muat file plan.json
+    // Jika dibuka dari bangunan, muat file plan yang sesuai
     if (widget.buildingDirectory != null) {
       _loadBuildingPlan();
     }
 
-    // --- BARU: Set mode awal ---
+    // Set mode awal
     if (widget.initialViewMode) {
       _controller.isViewMode = true;
       _controller.activeTool = PlanTool.select;
@@ -46,13 +52,16 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
   }
 
   Future<void> _loadBuildingPlan() async {
-    final planFile = p.join(widget.buildingDirectory!.path, 'plan.json');
+    // Gunakan filename yang dikirim, atau fallback ke 'plan.json' untuk kompatibilitas lama
+    final filename = widget.planFilename ?? 'plan.json';
+    final planFile = p.join(widget.buildingDirectory!.path, filename);
     await _controller.loadFromPath(planFile);
   }
 
   Future<void> _saveBuildingPlan() async {
     if (widget.buildingDirectory != null) {
-      final planFile = p.join(widget.buildingDirectory!.path, 'plan.json');
+      final filename = widget.planFilename ?? 'plan.json';
+      final planFile = p.join(widget.buildingDirectory!.path, filename);
       await _controller.saveToPath(planFile);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -113,6 +122,9 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
         // Jika dalam mode bangunan, gunakan nama bangunan sebagai prefix
         if (widget.buildingDirectory != null) {
           prefix = "plan_${p.basename(widget.buildingDirectory!.path)}";
+          if (widget.planName != null) {
+            prefix += "_${widget.planName!.replaceAll(' ', '_')}";
+          }
         }
 
         final fileName =
@@ -191,7 +203,9 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
         final colorScheme = Theme.of(context).colorScheme;
 
         String title = isView ? "Mode Lihat" : "Arsitek Denah";
-        if (widget.buildingDirectory != null) {
+        if (widget.planName != null) {
+          title += " - ${widget.planName}";
+        } else if (widget.buildingDirectory != null) {
           title += " (${p.basename(widget.buildingDirectory!.path)})";
         }
 
@@ -203,7 +217,7 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
               title: Text(
                 title,
                 style: const TextStyle(
-                  fontSize: 16, // Font agak kecil agar muat
+                  fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
               ),

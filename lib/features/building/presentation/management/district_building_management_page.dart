@@ -13,6 +13,8 @@ import 'package:mind_palace_manager/features/building/presentation/map/district_
 import 'package:mind_palace_manager/features/building/presentation/map/district_map_editor_page.dart';
 import 'package:mind_palace_manager/features/building/presentation/dialogs/move_building_dialog.dart';
 import 'package:mind_palace_manager/features/plan_architect/presentation/plan_editor_page.dart';
+// --- IMPORT HALAMAN BARU ---
+import 'package:mind_palace_manager/features/building/presentation/management/building_plan_list_page.dart';
 
 // --- Refactored Modules ---
 import 'logic/district_building_logic.dart';
@@ -45,7 +47,6 @@ class _DistrictBuildingManagementPageState
     WidgetsBinding.instance.addPostFrameCallback((_) => _refreshList());
   }
 
-  // ... (Metode _refreshList, _handleCreate, _handleEdit, _handleDelete, _handleMove, _handleRetract, _handleExportIcon TETAP SAMA) ...
   Future<void> _refreshList() async {
     setState(() => _isLoading = true);
     if (!await checkAndRequestPermissions()) {
@@ -233,7 +234,7 @@ class _DistrictBuildingManagementPageState
     }
   }
 
-  // --- Navigasi Utama ---
+  // --- Navigasi Utama (MODIFIED) ---
   Future<void> _navigateToView(
     Directory folder, {
     bool editMode = false,
@@ -248,20 +249,41 @@ class _DistrictBuildingManagementPageState
     } catch (_) {}
 
     if (!mounted) return;
+
     if (type == 'plan') {
-      // Jika Edit Plan (Arsitek), buka tanpa initialViewMode (default edit)
-      // Jika View Plan, buka dengan initialViewMode = true
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => PlanEditorPage(
-            buildingDirectory: folder,
-            initialViewMode: !editMode, // Jika editMode false -> View Mode
+      // --- LOGIKA BARU UNTUK DENAH ---
+      // Cek daftar denah di logic
+      final plans = await _logic.getBuildingPlans(folder);
+
+      if (plans.isEmpty) {
+        // Jika kosong, buka halaman manajemen agar user buat baru
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (c) => BuildingPlanListPage(
+              buildingDirectory: folder,
+              buildingName: p.basename(folder.path),
+            ),
           ),
-        ),
-      );
+        );
+      } else {
+        // Buka denah PERTAMA (Index 0) secara default
+        final firstPlan = plans[0];
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PlanEditorPage(
+              buildingDirectory: folder,
+              initialViewMode: !editMode,
+              // Kirim nama file denah spesifik
+              planFilename: firstPlan['filename'],
+              planName: firstPlan['name'],
+            ),
+          ),
+        );
+      }
     } else {
-      // Bangunan Biasa
+      // Bangunan Biasa (Room Viewer)
       CloudNavigation.push(
         context,
         BuildingViewerPage(buildingDirectory: folder),
@@ -306,13 +328,25 @@ class _DistrictBuildingManagementPageState
                 return BuildingListItem(
                   buildingFolder: folder,
                   iconDataFuture: _logic.getBuildingIconData(folder),
-                  // Tap utama selalu ke mode view
+                  // Tap utama selalu ke mode view (Denah pertama atau Room Viewer)
                   onTap: () => _navigateToView(folder),
                   onActionSelected: (action) {
                     if (action == 'view') _navigateToView(folder);
-                    // Aksi khusus Edit Plan
+                    // Aksi khusus Edit Plan (Buka denah pertama dalam mode edit)
                     if (action == 'edit_plan') {
                       _navigateToView(folder, editMode: true);
+                    }
+                    // --- MENU BARU: KELOLA DENAH ---
+                    if (action == 'manage_plans') {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (c) => BuildingPlanListPage(
+                            buildingDirectory: folder,
+                            buildingName: p.basename(folder.path),
+                          ),
+                        ),
+                      );
                     }
                     // Aksi khusus Edit Ruangan (Bangunan Biasa)
                     if (action == 'edit_room') {
