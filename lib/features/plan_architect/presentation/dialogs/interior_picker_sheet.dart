@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mind_palace_manager/app_settings.dart'; // Import AppSettings
 import 'package:mind_palace_manager/features/plan_architect/logic/plan_controller.dart';
 import 'package:mind_palace_manager/features/plan_architect/data/interior_data.dart';
 
@@ -40,13 +41,40 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
     return InteriorData.list.where((item) => item['cat'] == category).toList();
   }
 
+  // --- HELPER: Favorites & Recents ---
+  List<Map<String, dynamic>> _getFavorites() {
+    return InteriorData.list
+        .where((item) => AppSettings.favoriteInteriors.contains(item['name']))
+        .toList();
+  }
+
+  List<Map<String, dynamic>> _getRecents() {
+    List<Map<String, dynamic>> results = [];
+    for (String name in AppSettings.recentInteriors) {
+      try {
+        final item = InteriorData.list.firstWhere((e) => e['name'] == name);
+        results.add(item);
+      } catch (_) {}
+    }
+    return results;
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isSearching = _searchQuery.isNotEmpty;
-    final int totalCount = InteriorData.list.length;
-    final int filteredCount = isSearching
-        ? _getFilteredItems().length
-        : totalCount;
+    final List<String> categories = [
+      'Baru / Custom', // Tab 0
+      'Favorit', // Tab 1
+      'Furnitur',
+      'Elektronik',
+      'Sanitasi',
+      'Dapur',
+      'Kantor',
+      'Struktur',
+      'Dekorasi',
+      'Outdoor',
+      'Simbol/Lain',
+    ];
 
     return Container(
       decoration: BoxDecoration(
@@ -87,67 +115,38 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
                 ),
                 filled: true,
                 fillColor: widget.colorScheme.surfaceContainerHighest,
+                contentPadding: const EdgeInsets.symmetric(vertical: 0),
               ),
-              onChanged: (val) {
-                setState(() => _searchQuery = val);
-              },
+              onChanged: (val) => setState(() => _searchQuery = val),
             ),
           ),
-
-          // INDIKATOR JUMLAH
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 0),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.info_outline,
-                  size: 14,
-                  color: widget.colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  isSearching
-                      ? "Ditemukan $filteredCount dari $totalCount interior"
-                      : "Total $totalCount interior tersedia",
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: widget.colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
 
           Expanded(
             child: isSearching
                 ? _buildSearchResults()
                 : DefaultTabController(
-                    length: 9,
+                    length: categories.length,
                     child: Column(
                       children: [
                         TabBar(
                           isScrollable: true,
+                          tabAlignment: TabAlignment.start,
                           labelColor: widget.colorScheme.primary,
                           unselectedLabelColor:
                               widget.colorScheme.onSurfaceVariant,
                           indicatorColor: widget.colorScheme.primary,
-                          tabs: const [
-                            Tab(text: "Furnitur"),
-                            Tab(text: "Elektronik"),
-                            Tab(text: "Sanitasi"),
-                            Tab(text: "Dapur"),
-                            Tab(text: "Kantor"),
-                            Tab(text: "Struktur"),
-                            Tab(text: "Dekorasi"),
-                            Tab(text: "Outdoor"),
-                            Tab(text: "Simbol/Lain"),
-                          ],
+                          tabs: categories.map((c) => Tab(text: c)).toList(),
                         ),
                         Expanded(
                           child: TabBarView(
                             children: [
+                              // 1. Tab Recent / Custom
+                              _buildRecentAndCustomTab(),
+
+                              // 2. Tab Favorites
+                              _buildFavoritesTab(),
+
+                              // 3. Tabs Kategori Lain
                               _buildGrid(_getItemsByCategory('Furnitur')),
                               _buildGrid(_getItemsByCategory('Elektronik')),
                               _buildGrid(_getItemsByCategory('Sanitasi')),
@@ -185,6 +184,116 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
     return _buildGrid(results);
   }
 
+  Widget _buildRecentAndCustomTab() {
+    final recents = _getRecents();
+    return ListView(
+      controller: widget.scrollController,
+      padding: const EdgeInsets.all(16),
+      children: [
+        // --- TOMBOL UPLOAD GAMBAR ---
+        InkWell(
+          onTap: () {
+            Navigator.pop(context);
+            widget.controller.addCustomImageObject();
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: widget.colorScheme.primaryContainer,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: widget.colorScheme.primary.withOpacity(0.3),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.add_photo_alternate,
+                  size: 28,
+                  color: widget.colorScheme.primary,
+                ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Buat Interior dari Gambar",
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: widget.colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                    Text(
+                      "Pilih foto dari galeri",
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: widget.colorScheme.onPrimaryContainer
+                            .withOpacity(0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 24),
+        const Text(
+          "Baru Digunakan",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 12),
+
+        if (recents.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Text(
+              "Belum ada item yang digunakan.",
+              style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+            ),
+          )
+        else
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 4,
+              childAspectRatio: 0.8,
+            ),
+            itemCount: recents.length,
+            itemBuilder: (c, i) => _buildGridItem(recents[i]),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildFavoritesTab() {
+    final favs = _getFavorites();
+    if (favs.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.favorite_border, size: 48, color: Colors.grey.shade300),
+            const SizedBox(height: 16),
+            const Text(
+              "Belum ada favorit.",
+              style: TextStyle(color: Colors.grey),
+            ),
+            const Text(
+              "Tekan lama item untuk memfavoritkan.",
+              style: TextStyle(fontSize: 11, color: Colors.grey),
+            ),
+          ],
+        ),
+      );
+    }
+    return _buildGrid(favs);
+  }
+
   Widget _buildGrid(List<Map<String, dynamic>> items) {
     return GridView.builder(
       controller: widget.scrollController,
@@ -194,15 +303,38 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
         childAspectRatio: 0.8,
       ),
       itemCount: items.length,
-      itemBuilder: (context, index) {
-        final item = items[index];
-        return InkWell(
-          onTap: () {
-            widget.controller.selectObjectIcon(item['icon'], item['name']);
-            Navigator.pop(context);
-          },
-          borderRadius: BorderRadius.circular(12),
-          child: Column(
+      itemBuilder: (context, index) => _buildGridItem(items[index]),
+    );
+  }
+
+  Widget _buildGridItem(Map<String, dynamic> item) {
+    final bool isFav = AppSettings.favoriteInteriors.contains(item['name']);
+
+    return InkWell(
+      onTap: () {
+        widget.controller.selectObjectIcon(item['icon'], item['name']);
+        Navigator.pop(context);
+      },
+      onLongPress: () async {
+        await AppSettings.toggleFavoriteInterior(item['name']);
+        setState(() {});
+        if (mounted) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                isFav ? 'Dihapus dari favorit' : 'Ditambahkan ke favorit',
+              ),
+              duration: const Duration(milliseconds: 800),
+            ),
+          );
+        }
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(item['icon'], size: 28, color: widget.colorScheme.onSurface),
@@ -219,8 +351,18 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
               ),
             ],
           ),
-        );
-      },
+          if (isFav)
+            Positioned(
+              top: 0,
+              right: 0,
+              child: Icon(
+                Icons.favorite,
+                size: 14,
+                color: Colors.red.withOpacity(0.8),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

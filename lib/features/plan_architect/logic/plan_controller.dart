@@ -1,7 +1,11 @@
 // lib/features/plan_architect/logic/plan_controller.dart
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart'; // Import File Picker
+import 'package:mind_palace_manager/app_settings.dart'; // Import AppSettings
 import '../data/plan_models.dart';
 
 enum PlanTool {
@@ -39,13 +43,9 @@ class PlanController extends ChangeNotifier {
   bool layerWalls = true;
   bool layerObjects = true;
   bool layerLabels = true;
-
-  // --- PERUBAHAN 1: Default layerDims jadi false ---
   bool layerDims = false;
 
   bool enableSnap = true;
-
-  // --- PERUBAHAN 2: Grid Size tidak final agar bisa diubah ---
   double gridSize = 20.0;
 
   PlanTool activeTool = PlanTool.select;
@@ -70,19 +70,52 @@ class PlanController extends ChangeNotifier {
   final List<String> _history = [];
   int _historyIndex = -1;
 
-  // --- PERUBAHAN 3: Flag Unsaved Changes ---
   bool hasUnsavedChanges = false;
 
   PlanController() {
     if (floors.isEmpty) {
       floors.add(PlanFloor(id: 'floor_1', name: 'Lantai 1'));
     }
-    // Reset flag saat init karena baru load
     hasUnsavedChanges = false;
     _saveState(initial: true);
   }
 
-  // ... (Fungsi addFloor, removeActiveFloor, setActiveFloor, renameActiveFloor SAMA) ...
+  // --- HELPER LOAD IMAGE UNTUK CANVAS ---
+  Future<ui.Image> _loadImageFromFile(String path) async {
+    final file = File(path);
+    final data = await file.readAsBytes();
+    final codec = await ui.instantiateImageCodec(data);
+    final frame = await codec.getNextFrame();
+    return frame.image;
+  }
+
+  // Panggil saat load state atau pindah lantai untuk memastikan gambar termuat
+  Future<void> _reloadImagesForActiveFloor() async {
+    List<PlanObject> newObjects = [];
+    bool changed = false;
+
+    for (var obj in objects) {
+      if (obj.imagePath != null && obj.cachedImage == null) {
+        try {
+          final img = await _loadImageFromFile(obj.imagePath!);
+          newObjects.add(obj.copyWith(cachedImage: img));
+          changed = true;
+        } catch (e) {
+          newObjects.add(obj);
+        }
+      } else {
+        newObjects.add(obj);
+      }
+    }
+
+    if (changed) {
+      floors[activeFloorIndex] = activeFloor.copyWith(objects: newObjects);
+      notifyListeners();
+    }
+  }
+
+  // --- LOGIC STANDARD ---
+
   void addFloor() {
     final newId = 'floor_${floors.length + 1}';
     floors.add(PlanFloor(id: newId, name: 'Lantai ${floors.length + 1}'));
@@ -104,6 +137,7 @@ class PlanController extends ChangeNotifier {
       activeFloorIndex = index;
       selectedId = null;
       notifyListeners();
+      _reloadImagesForActiveFloor(); // Load gambar
     }
   }
 
@@ -131,7 +165,6 @@ class PlanController extends ChangeNotifier {
   bool get canUndo => _historyIndex > 0;
   bool get canRedo => _historyIndex < _history.length - 1;
 
-  // --- PERUBAHAN 3: Update flag unsaved changes ---
   void _saveState({bool initial = false}) {
     if (_historyIndex < _history.length - 1)
       _history.removeRange(_historyIndex + 1, _history.length);
@@ -175,11 +208,10 @@ class PlanController extends ChangeNotifier {
     if (data['cc'] != null) canvasColor = Color(data['cc']);
     if (activeFloorIndex >= floors.length) activeFloorIndex = 0;
     selectedId = null;
-    // Saat undo/redo, kita anggap ada perubahan status state
     notifyListeners();
+    _reloadImagesForActiveFloor(); // Load gambar setelah state diload
   }
 
-  // ... (Bagian View/Layer Settings) ...
   void toggleViewMode() {
     isViewMode = !isViewMode;
     if (isViewMode) {
@@ -199,7 +231,6 @@ class PlanController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- PERUBAHAN 2: Fungsi Ubah Grid Size ---
   void setGridSize(double size) {
     gridSize = size;
     notifyListeners();
@@ -223,7 +254,6 @@ class PlanController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ... (SetTool, Zoom, dll SAMA) ...
   void setTool(PlanTool tool) {
     activeTool = tool;
     selectedId = null;
@@ -253,10 +283,48 @@ class PlanController extends ChangeNotifier {
     notifyListeners();
   }
 
+  // --- UPDATE: Menambah ke Recent ---
   void selectObjectIcon(IconData icon, String name) {
     selectedObjectIcon = icon;
     selectedObjectName = name;
+    AppSettings.addRecentInterior(name); // Tambah ke recent
     setTool(PlanTool.object);
+  }
+
+  // --- FUNGSI BARU: Custom Image ---
+  Future<void> addCustomImageObject() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+    );
+
+    if (result != null && result.files.single.path != null) {
+      final path = result.files.single.path!;
+      ui.Image? img;
+      try {
+        img = await _loadImageFromFile(path);
+      } catch (_) {}
+
+      final pos = Offset(canvasWidth / 2, canvasHeight / 2);
+
+      final newObj = PlanObject(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        position: pos,
+        name: "Gambar Custom",
+        description: "Gambar dari galeri",
+        iconCodePoint: Icons.image.codePoint,
+        color: Colors.white,
+        imagePath: path,
+        cachedImage: img,
+        size: 50.0,
+      );
+
+      _updateActiveFloor(objects: [...objects, newObj]);
+      _saveState();
+
+      setTool(PlanTool.select);
+      selectedId = newObj.id;
+      isObjectSelected = true;
+    }
   }
 
   void selectShape(PlanShapeType type) {
@@ -281,7 +349,6 @@ class PlanController extends ChangeNotifier {
     _saveState();
   }
 
-  // ... (Snap Logic SAMA) ...
   Offset _snapToGrid(Offset pos) {
     double x = (pos.dx / gridSize).round() * gridSize;
     double y = (pos.dy / gridSize).round() * gridSize;
@@ -297,7 +364,6 @@ class PlanController extends ChangeNotifier {
     return rawPos;
   }
 
-  // ... (Pan Start/Update/End SAMA - dengan Move All yang sudah ada) ...
   void onPanStart(Offset localPos) {
     if (isViewMode) return;
     if (activeTool == PlanTool.hand) return;
@@ -412,7 +478,6 @@ class PlanController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ... (TapUp, AddLabel, MoveAllContent, MoveSelectedItem SAMA) ...
   void onTapUp(Offset localPos) {
     if (isViewMode) {
       _handleSelection(localPos);
@@ -518,7 +583,6 @@ class PlanController extends ChangeNotifier {
     }
   }
 
-  // ... (deleteSelected, updateSelectedAttribute, _handleSelection SAMA) ...
   void deleteSelected() {
     if (selectedId == null) return;
     _updateActiveFloor(
@@ -625,26 +689,21 @@ class PlanController extends ChangeNotifier {
     }
   }
 
-  // --- PERUBAHAN 4: Fungsi Update Panjang Tembok/Garis ---
   void updateSelectedWallLength(double newLengthInMeters) {
     if (selectedId == null) return;
 
-    // 1. Cek Wall
     List<Wall> newWalls = List.from(walls);
     final wIdx = newWalls.indexWhere((w) => w.id == selectedId);
     if (wIdx != -1) {
       final oldWall = newWalls[wIdx];
-      // Konversi meter ke pixel (1 meter = 40 px, asumsi skala)
       final double newLengthPx = newLengthInMeters * 40.0;
 
-      // Hitung vektor arah
       final double dx = oldWall.end.dx - oldWall.start.dx;
       final double dy = oldWall.end.dy - oldWall.start.dy;
       final double currentLen = sqrt(dx * dx + dy * dy);
 
       if (currentLen == 0) return;
 
-      // Normalisasi dan perpanjang dari titik Start
       final double unitX = dx / currentLen;
       final double unitY = dy / currentLen;
 
@@ -659,7 +718,6 @@ class PlanController extends ChangeNotifier {
       return;
     }
   }
-  // -------------------------------------------------------
 
   void _handleSelection(Offset pos) {
     selectedId = null;

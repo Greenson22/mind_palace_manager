@@ -27,10 +27,6 @@ class PlanPainter extends CustomPainter {
       _drawGrid(canvas, size);
     }
 
-    if (!controller.isViewMode && controller.enableSnap) {
-      // _drawSnapPoints(canvas, size);
-    }
-
     // 2. Shapes & Objects
     if (controller.layerObjects) {
       for (var shape in controller.shapes) {
@@ -61,23 +57,75 @@ class PlanPainter extends CustomPainter {
         canvas.save();
         canvas.translate(obj.position.dx, obj.position.dy);
         canvas.rotate(obj.rotation);
-        if (isSel)
-          canvas.drawCircle(
-            Offset.zero,
-            (obj.size / 2) + 8,
-            Paint()..color = Colors.blue.withOpacity(0.3),
+
+        // Draw Selection
+        if (isSel) {
+          double selectionRadius = (obj.size / 2) + 8;
+          if (obj.cachedImage != null) {
+            selectionRadius = (obj.size / 2) + 4;
+            canvas.drawRect(
+              Rect.fromCenter(
+                center: Offset.zero,
+                width: obj.size + 8,
+                height: obj.size + 8,
+              ),
+              Paint()
+                ..color = Colors.blue.withOpacity(0.3)
+                ..style = PaintingStyle.stroke
+                ..strokeWidth = 2,
+            );
+          } else {
+            canvas.drawCircle(
+              Offset.zero,
+              selectionRadius,
+              Paint()..color = Colors.blue.withOpacity(0.3),
+            );
+          }
+        }
+
+        // --- LOGIKA GAMBAR ---
+        if (obj.cachedImage != null) {
+          // GAMBAR IMAGE
+          final img = obj.cachedImage!;
+          final srcRect = Rect.fromLTWH(
+            0,
+            0,
+            img.width.toDouble(),
+            img.height.toDouble(),
           );
-        final icon = IconData(obj.iconCodePoint, fontFamily: 'MaterialIcons');
-        tp.text = TextSpan(
-          text: String.fromCharCode(icon.codePoint),
-          style: TextStyle(
-            fontSize: obj.size,
-            fontFamily: icon.fontFamily,
-            color: isSel ? Colors.blue : obj.color,
-          ),
-        );
-        tp.layout();
-        tp.paint(canvas, Offset(-tp.width / 2, -tp.height / 2));
+
+          // Aspect ratio aware
+          double drawWidth = obj.size;
+          double drawHeight = obj.size;
+
+          final double aspectRatio = img.width / img.height;
+          if (aspectRatio > 1) {
+            drawHeight = drawWidth / aspectRatio;
+          } else {
+            drawWidth = drawHeight * aspectRatio;
+          }
+
+          final dstRect = Rect.fromCenter(
+            center: Offset.zero,
+            width: drawWidth,
+            height: drawHeight,
+          );
+
+          canvas.drawImageRect(img, srcRect, dstRect, Paint());
+        } else {
+          // GAMBAR IKON
+          final icon = IconData(obj.iconCodePoint, fontFamily: 'MaterialIcons');
+          tp.text = TextSpan(
+            text: String.fromCharCode(icon.codePoint),
+            style: TextStyle(
+              fontSize: obj.size,
+              fontFamily: icon.fontFamily,
+              color: isSel ? Colors.blue : obj.color,
+            ),
+          );
+          tp.layout();
+          tp.paint(canvas, Offset(-tp.width / 2, -tp.height / 2));
+        }
         canvas.restore();
       }
 
@@ -175,7 +223,6 @@ class PlanPainter extends CustomPainter {
         ..color = Colors.blueAccent
         ..strokeCap = StrokeCap.square;
 
-      // --- PERUBAHAN 3: Logic Show Dims (Layer aktif ATAU sedang menggambar tembok) ---
       bool isDrawingWall =
           controller.activeTool == PlanTool.wall &&
           controller.tempStart != null;
@@ -208,7 +255,6 @@ class PlanPainter extends CustomPainter {
           controller.tempEnd!,
           previewPaint,
         );
-        // Selalu tampilkan dim saat menggambar
         _drawWallLabel(
           canvas,
           Wall(
@@ -236,7 +282,6 @@ class PlanPainter extends CustomPainter {
       ..color = Colors.grey.withOpacity(0.3)
       ..strokeWidth = 1;
 
-    // --- PERUBAHAN 2: Gunakan controller.gridSize dinamis ---
     double step = controller.gridSize;
     for (double x = 0; x <= size.width; x += step) {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
@@ -245,9 +290,6 @@ class PlanPainter extends CustomPainter {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
     }
   }
-
-  // ... (drawSnapPoints, drawShape, drawStar SAMA) ...
-  void _drawSnapPoints(Canvas canvas, Size size) {}
 
   void _drawShape(Canvas canvas, PlanShape shape, bool isSelected) {
     canvas.save();

@@ -1,5 +1,5 @@
-// lib/features/plan_architect/data/plan_models.dart
 import 'package:flutter/material.dart';
+import 'dart:ui' as ui; // Diperlukan untuk tipe data ui.Image
 
 enum PlanShapeType { rectangle, circle, star }
 
@@ -88,7 +88,7 @@ class Wall {
     required this.id,
     required this.start,
     required this.end,
-    this.thickness = 2.0, // Default diubah jadi 2.0
+    this.thickness = 2.0,
     this.description = 'Tembok',
     this.color = Colors.black,
   });
@@ -134,7 +134,7 @@ class Wall {
   Wall moveBy(Offset delta) => copyWith(start: start + delta, end: end + delta);
 }
 
-// --- MODEL INTERIOR (Ditambah Property Size) ---
+// --- MODEL INTERIOR ---
 class PlanObject {
   final String id;
   final Offset position;
@@ -144,7 +144,11 @@ class PlanObject {
   final double rotation;
   final Color color;
   final String? navTargetFloorId;
-  final double size; // Properti baru
+  final double size;
+
+  // --- FIELD BARU UNTUK GAMBAR ---
+  final String? imagePath; // Path lokal ke file gambar
+  final ui.Image? cachedImage; // Objek gambar runtime (tidak disimpan ke JSON)
 
   PlanObject({
     required this.id,
@@ -155,7 +159,9 @@ class PlanObject {
     this.rotation = 0.0,
     this.color = Colors.black87,
     this.navTargetFloorId,
-    this.size = 14.0, // Default kecil
+    this.size = 14.0,
+    this.imagePath,
+    this.cachedImage,
   });
 
   Map<String, dynamic> toJson() => {
@@ -169,6 +175,7 @@ class PlanObject {
     'col': color.value,
     'navFloor': navTargetFloorId,
     'size': size,
+    'imgPath': imagePath, // Simpan path gambar
   };
 
   factory PlanObject.fromJson(Map<String, dynamic> json) => PlanObject(
@@ -181,6 +188,7 @@ class PlanObject {
     color: json['col'] != null ? Color(json['col']) : Colors.black87,
     navTargetFloorId: json['navFloor'],
     size: (json['size'] as num?)?.toDouble() ?? 14.0,
+    imagePath: json['imgPath'], // Load path gambar
   );
 
   PlanObject copyWith({
@@ -192,6 +200,8 @@ class PlanObject {
     Color? color,
     String? navTargetFloorId,
     double? size,
+    String? imagePath,
+    ui.Image? cachedImage,
   }) {
     return PlanObject(
       id: id ?? this.id,
@@ -203,6 +213,8 @@ class PlanObject {
       color: color ?? this.color,
       navTargetFloorId: navTargetFloorId ?? this.navTargetFloorId,
       size: size ?? this.size,
+      imagePath: imagePath ?? this.imagePath,
+      cachedImage: cachedImage ?? this.cachedImage,
     );
   }
 
@@ -221,7 +233,7 @@ class PlanLabel {
     required this.id,
     required this.position,
     required this.text,
-    this.fontSize = 12.0, // Default diperkecil
+    this.fontSize = 12.0,
     this.color = Colors.black,
   });
 
@@ -261,7 +273,7 @@ class PlanLabel {
   PlanLabel moveBy(Offset delta) => copyWith(position: position + delta);
 }
 
-// --- MODEL PATH (GAMBAR) ---
+// --- MODEL PATH (GAMBAR GARIS) ---
 class PlanPath {
   final String id;
   final List<Offset> points;
@@ -275,7 +287,7 @@ class PlanPath {
     required this.id,
     required this.points,
     this.color = Colors.brown,
-    this.strokeWidth = 2.0, // Default diperkecil
+    this.strokeWidth = 2.0,
     this.name = "Gambar",
     this.description = "",
     this.isSavedAsset = false,

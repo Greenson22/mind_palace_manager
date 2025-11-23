@@ -1,7 +1,7 @@
 // lib/app_settings.dart
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert'; // <-- TAMBAHAN PENTING
+import 'dart:convert';
 
 class AppSettings {
   // --- KEYS EXISTING ---
@@ -48,7 +48,7 @@ class AppSettings {
   static const String _navigationArrowScaleKey = 'navigationArrowScale';
   static const String _navigationArrowColorKey = 'navigationArrowColor';
 
-  // --- KEY BARU UNTUK PRESET SUDUT ---
+  // --- PRESET SUDUT ---
   static const String _customRotationPresetsKey = 'customRotationPresets';
 
   // --- CLOUD TRANSITION KEYS ---
@@ -56,6 +56,10 @@ class AppSettings {
   static const String _cloudColorKey = 'cloudColor';
   static const String _cloudTransitionDurationKey = 'cloudTransitionDuration';
   static const String _cloudShapeKey = 'cloudShape';
+
+  // --- KEYS BARU UNTUK INTERIOR ---
+  static const String _favoriteInteriorsKey = 'favoriteInteriors';
+  static const String _recentInteriorsKey = 'recentInteriors';
 
   // --- VARIABLES ---
   static String? baseBuildingsPath;
@@ -96,21 +100,21 @@ class AppSettings {
   static double objectIconOpacity = 1.0;
   static bool interactableWhenHidden = true;
 
-  // Navigation Variables
   static bool showNavigationArrows = true;
   static double navigationArrowOpacity = 0.9;
   static double navigationArrowScale = 1.5;
   static int navigationArrowColor = 0xFFFFFFFF;
 
-  // --- VARIABLE BARU: List Preset Sudut Custom ---
-  // Format: [{"name": "Miring Kiri", "value": 0.78}, ...]
   static List<Map<String, dynamic>> customRotationPresets = [];
 
-  // --- CLOUD TRANSITION VARIABLES ---
   static bool enableCloudTransition = false;
   static int cloudColor = Colors.white.value;
   static double cloudTransitionDuration = 1.8;
   static String cloudShape = 'Bulat';
+
+  // --- VARIABLE BARU UNTUK INTERIOR ---
+  static List<String> favoriteInteriors = [];
+  static List<String> recentInteriors = [];
 
   static Future<void> loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
@@ -165,7 +169,6 @@ class AppSettings {
     navigationArrowScale = prefs.getDouble(_navigationArrowScaleKey) ?? 1.5;
     navigationArrowColor = prefs.getInt(_navigationArrowColorKey) ?? 0xFFFFFFFF;
 
-    // --- LOAD CUSTOM PRESETS ---
     final customPresetsList = prefs.getStringList(_customRotationPresetsKey);
     if (customPresetsList != null) {
       try {
@@ -182,9 +185,13 @@ class AppSettings {
     cloudTransitionDuration =
         prefs.getDouble(_cloudTransitionDurationKey) ?? 1.8;
     cloudShape = prefs.getString(_cloudShapeKey) ?? 'Bulat';
+
+    // --- LOAD FAVORITE & RECENT ---
+    favoriteInteriors = prefs.getStringList(_favoriteInteriorsKey) ?? [];
+    recentInteriors = prefs.getStringList(_recentInteriorsKey) ?? [];
   }
 
-  // --- SAVE FUNCTIONS (EXISTING) ---
+  // ... (Save functions existing) ...
   static Future<void> saveBackgroundMode(String mode) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_wallpaperModeKey, mode);
@@ -404,18 +411,15 @@ class AppSettings {
     navigationArrowColor = value;
   }
 
-  // --- SAVE FUNCTION: CUSTOM ROTATION PRESETS ---
   static Future<void> saveCustomRotationPresets(
     List<Map<String, dynamic>> presets,
   ) async {
     final prefs = await SharedPreferences.getInstance();
-    // Encode List<Map> ke List<String> (JSON)
     List<String> strings = presets.map((e) => json.encode(e)).toList();
     await prefs.setStringList(_customRotationPresetsKey, strings);
     customRotationPresets = presets;
   }
 
-  // --- SAVE FUNCTIONS: CLOUD TRANSITION ---
   static Future<void> saveEnableCloudTransition(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_enableCloudTransitionKey, value);
@@ -438,6 +442,27 @@ class AppSettings {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_cloudShapeKey, shape);
     cloudShape = shape;
+  }
+
+  // --- FUNGSI BARU UNTUK INTERIOR ---
+  static Future<void> toggleFavoriteInterior(String name) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (favoriteInteriors.contains(name)) {
+      favoriteInteriors.remove(name);
+    } else {
+      favoriteInteriors.add(name);
+    }
+    await prefs.setStringList(_favoriteInteriorsKey, favoriteInteriors);
+  }
+
+  static Future<void> addRecentInterior(String name) async {
+    final prefs = await SharedPreferences.getInstance();
+    recentInteriors.remove(name); // Hapus jika ada (agar pindah ke depan)
+    recentInteriors.insert(0, name); // Masukkan di awal
+    if (recentInteriors.length > 20) {
+      recentInteriors = recentInteriors.sublist(0, 20); // Batasi 20
+    }
+    await prefs.setStringList(_recentInteriorsKey, recentInteriors);
   }
 
   static ThemeMode _getThemeModeFromString(String themeString) {
