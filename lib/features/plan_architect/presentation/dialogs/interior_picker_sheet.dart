@@ -1,7 +1,10 @@
+// lib/features/plan_architect/presentation/dialogs/interior_picker_sheet.dart
+
 import 'package:flutter/material.dart';
-import 'package:mind_palace_manager/app_settings.dart'; // Import AppSettings
+import 'package:mind_palace_manager/app_settings.dart';
 import 'package:mind_palace_manager/features/plan_architect/logic/plan_controller.dart';
 import 'package:mind_palace_manager/features/plan_architect/data/interior_data.dart';
+import 'package:mind_palace_manager/features/plan_architect/data/plan_models.dart'; // Pastikan import model ada
 
 class InteriorPickerSheet extends StatefulWidget {
   final PlanController controller;
@@ -29,6 +32,7 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
     super.dispose();
   }
 
+  // ... (Fungsi _getFilteredItems, _getItemsByCategory, _getFavorites, _getRecents TETAP SAMA) ...
   List<Map<String, dynamic>> _getFilteredItems() {
     if (_searchQuery.isEmpty) return [];
     final query = _searchQuery.toLowerCase();
@@ -41,7 +45,6 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
     return InteriorData.list.where((item) => item['cat'] == category).toList();
   }
 
-  // --- HELPER: Favorites & Recents ---
   List<Map<String, dynamic>> _getFavorites() {
     return InteriorData.list
         .where((item) => AppSettings.favoriteInteriors.contains(item['name']))
@@ -61,6 +64,7 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
 
   @override
   Widget build(BuildContext context) {
+    // ... (Kode build TETAP SAMA sampai bagian TabBarView) ...
     final bool isSearching = _searchQuery.isNotEmpty;
     final List<String> categories = [
       'Baru / Custom', // Tab 0
@@ -140,13 +144,13 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
                         Expanded(
                           child: TabBarView(
                             children: [
-                              // 1. Tab Recent / Custom
+                              // 1. Tab Recent / Custom (INI YANG KITA UBAH)
                               _buildRecentAndCustomTab(),
 
                               // 2. Tab Favorites
                               _buildFavoritesTab(),
 
-                              // 3. Tabs Kategori Lain
+                              // 3. Tabs Kategori Lain (TETAP SAMA)
                               _buildGrid(_getItemsByCategory('Furnitur')),
                               _buildGrid(_getItemsByCategory('Elektronik')),
                               _buildGrid(_getItemsByCategory('Sanitasi')),
@@ -184,13 +188,16 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
     return _buildGrid(results);
   }
 
+  // --- BAGIAN YANG DIMODIFIKASI: Menampilkan Saved Custom Interiors ---
   Widget _buildRecentAndCustomTab() {
     final recents = _getRecents();
+    final savedCustoms = widget.controller.savedCustomInteriors;
+
     return ListView(
       controller: widget.scrollController,
       padding: const EdgeInsets.all(16),
       children: [
-        // --- TOMBOL UPLOAD GAMBAR ---
+        // 1. Tombol Upload Gambar
         InkWell(
           onTap: () {
             Navigator.pop(context);
@@ -240,6 +247,78 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
           ),
         ),
 
+        // 2. Bagian Interior Gambar Tangan Sendiri (Saved)
+        if (savedCustoms.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          const Text(
+            "Interior Buatan Saya (Gambar Tangan)",
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 4,
+              childAspectRatio: 0.8,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+            ),
+            itemCount: savedCustoms.length,
+            itemBuilder: (c, i) {
+              final customItem = savedCustoms[i];
+              return InkWell(
+                onTap: () {
+                  // Tempatkan item di tengah kanvas
+                  final center = Offset(
+                    widget.controller.canvasWidth / 2,
+                    widget.controller.canvasHeight / 2,
+                  );
+                  widget.controller.placeSavedPath(customItem, center);
+                  Navigator.pop(context);
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: widget.colorScheme.surfaceContainer,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: widget.colorScheme.outlineVariant,
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.draw, // Ikon pensil/gambar
+                        size: 24,
+                        color: customItem.color,
+                      ),
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                        child: Text(
+                          customItem.name.isEmpty
+                              ? "Tanpa Nama"
+                              : customItem.name,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: widget.colorScheme.onSurface,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+
+        // 3. Bagian Baru Digunakan (Recents)
         const SizedBox(height: 24),
         const Text(
           "Baru Digunakan",
@@ -270,6 +349,7 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
     );
   }
 
+  // ... (Widget _buildFavoritesTab, _buildGrid, _buildGridItem TETAP SAMA) ...
   Widget _buildFavoritesTab() {
     final favs = _getFavorites();
     if (favs.isEmpty) {
