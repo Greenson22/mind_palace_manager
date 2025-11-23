@@ -6,6 +6,7 @@ import '../../data/plan_models.dart';
 import '../plan_enums.dart';
 
 mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
+  // ... (toggleMultiSelectMode, selectAll, selectInRect tetap sama) ...
   void toggleMultiSelectMode() {
     isMultiSelectMode = !isMultiSelectMode;
     if (!isMultiSelectMode) {
@@ -15,7 +16,6 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
     notifyListeners();
   }
 
-  // ... (Method Select All & Select in Rect tetap sama) ...
   void selectAll() {
     isMultiSelectMode = true;
     selectedId = null;
@@ -83,9 +83,9 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
     notifyListeners();
   }
 
-  // --- HELPER BARU: Temukan item yang bisa dinavigasi di posisi tertentu ---
+  // --- UPDATE: Cek Tembok untuk Navigasi ---
   Map<String, String>? findNavigableItemAt(Offset pos) {
-    // Cek Portals (Pintu/Jendela)
+    // Cek Portals
     for (var p in portals.reversed) {
       if ((p.position - pos).distance < (p.width / 2 + 5)) {
         if (p.navTargetFloorId != null) {
@@ -103,20 +103,27 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         return null;
       }
     }
+    // Cek Walls (Baru)
+    for (var wall in walls) {
+      if (isPointNearLine(pos, wall.start, wall.end, 15.0)) {
+        if (wall.navTargetFloorId != null) {
+          return {'id': wall.id, 'targetPlanId': wall.navTargetFloorId!};
+        }
+        return null;
+      }
+    }
     return null;
   }
 
+  // ... (handleSelection, isPointNearLine, isPointNearPath, deleteSelected, getRawSelectedItems tetap sama) ...
   void handleSelection(Offset pos) {
-    // ... (Logika handleSelection yang lama tetap sama) ...
     String? hitId;
-    // 1. Labels
     for (var lbl in labels.reversed) {
       if ((lbl.position - pos).distance < 20.0) {
         hitId = lbl.id;
         break;
       }
     }
-    // 2. Portals
     if (hitId == null) {
       for (var p in portals.reversed) {
         if ((p.position - pos).distance < (p.width / 2 + 5)) {
@@ -125,7 +132,6 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         }
       }
     }
-    // 3. Objects
     if (hitId == null) {
       for (var obj in objects.reversed) {
         if ((obj.position - pos).distance < 25.0) {
@@ -134,7 +140,6 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         }
       }
     }
-    // 4. Groups
     if (hitId == null) {
       for (var grp in groups.reversed) {
         final offset = pos - grp.position;
@@ -150,7 +155,6 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         }
       }
     }
-    // 5. Shapes
     if (hitId == null) {
       for (var shp in shapes.reversed) {
         if (shp.rect.contains(pos)) {
@@ -159,7 +163,6 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         }
       }
     }
-    // 6. Paths
     if (hitId == null) {
       for (var path in paths.reversed) {
         if (isPointNearPath(pos, path)) {
@@ -168,7 +171,6 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         }
       }
     }
-    // 7. Walls
     if (hitId == null) {
       for (var wall in walls) {
         if (isPointNearLine(pos, wall.start, wall.end, 15.0)) {
@@ -238,7 +240,6 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
     saveState();
   }
 
-  // --- Method getRawSelectedItems yang sudah ada sebelumnya ---
   Map<String, List<Map<String, dynamic>>> getRawSelectedItems() {
     if (selectedId == null && multiSelectedIds.isEmpty) return {};
 
@@ -278,6 +279,7 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
     return result;
   }
 
+  // --- UPDATE: Sertakan 'nav' untuk Walls ---
   Map<String, dynamic>? getSelectedItemData() {
     if (selectedId == null) return null;
 
@@ -289,7 +291,7 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         'desc': 'Lebar: ${p.width.toInt()}',
         'type': 'Struktur',
         'isPath': false,
-        'nav': p.navTargetFloorId, // Update nav
+        'nav': p.navTargetFloorId,
         'refImage': p.referenceImage,
       };
     } catch (_) {}
@@ -360,7 +362,7 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         'desc': w.description,
         'type': 'Struktur',
         'isPath': false,
-        'nav': null,
+        'nav': w.navTargetFloorId, // Baru: Sertakan nav
         'refImage': w.referenceImage,
       };
     } catch (_) {}

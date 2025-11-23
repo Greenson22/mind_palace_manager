@@ -88,7 +88,7 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
     String? name,
     String? navTarget,
     bool? isFilled,
-    String? referenceImage, // TAMBAHAN: Parameter Baru
+    String? referenceImage,
   }) {
     if (selectedId == null) return;
 
@@ -106,7 +106,7 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
             name: name,
             navTargetFloorId: navTarget,
             size: stroke,
-            referenceImage: referenceImage, // UPDATE
+            referenceImage: referenceImage,
           ),
       );
     } else if ((idx = walls.indexWhere((w) => w.id == selectedId)) != -1) {
@@ -116,7 +116,8 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
             color: color,
             thickness: stroke,
             description: desc,
-            referenceImage: referenceImage, // UPDATE
+            referenceImage: referenceImage,
+            navTargetFloorId: navTarget,
           ),
       );
     } else if ((idx = paths.indexWhere((p) => p.id == selectedId)) != -1) {
@@ -144,7 +145,8 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
           ..[idx] = portals[idx].copyWith(
             color: color,
             width: stroke,
-            referenceImage: referenceImage, // UPDATE
+            referenceImage: referenceImage,
+            navTargetFloorId: navTarget,
           ),
       );
     } else if ((idx = shapes.indexWhere((s) => s.id == selectedId)) != -1) {
@@ -169,7 +171,7 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
             name: name,
             rect: stroke != null ? newRect : null,
             isFilled: isFilled,
-            referenceImage: referenceImage, // UPDATE
+            referenceImage: referenceImage,
           ),
       );
     }
@@ -215,8 +217,6 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
       updateSelectedAttribute(color: color);
   void updateSelectedStrokeWidth(double width) =>
       updateSelectedAttribute(stroke: width);
-
-  // --- IMPLEMENTASI FUNGSI REORDER (URUTAN) ---
 
   void bringToFront() {
     if (selectedId == null) return;
@@ -358,7 +358,7 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
     }
   }
 
-  // --- FITUR BARU: GABUNG TEMBOK ---
+  // --- FITUR GABUNG TEMBOK (DIKEMBALIKAN) ---
   void mergeSelectedWalls() {
     // 1. Kumpulkan tembok yang sedang dipilih
     final selectedWallIds = <String>[];
@@ -370,14 +370,14 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
         .where((w) => selectedWallIds.contains(w.id))
         .toList();
 
-    // Kita batasi fitur ini hanya untuk menggabungkan 2 tembok sekaligus agar aman
+    // Batasi fitur ini hanya untuk 2 tembok
     if (targetWalls.length != 2) return;
 
     final w1 = targetWalls[0];
     final w2 = targetWalls[1];
 
     if (_areWallsMergeable(w1, w2)) {
-      // Cari titik terluar (ujung ke ujung terjauh)
+      // Cari titik terluar
       final points = [w1.start, w1.end, w2.start, w2.end];
       double maxDist = -1.0;
       Offset pStart = points[0];
@@ -399,17 +399,15 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         start: pStart,
         end: pEnd,
-        // Gunakan atribut dari w1 (tebal/warna/dll)
       );
 
-      // Update list tembok: Hapus 2 lama, tambah 1 baru
+      // Update list: Hapus 2 lama, tambah 1 baru
       final newWallList = List<Wall>.from(walls)
         ..removeWhere((w) => w.id == w1.id || w.id == w2.id)
         ..add(newWall);
 
       updateActiveFloor(walls: newWallList);
 
-      // Reset seleksi ke tembok baru
       selectedId = newWall.id;
       multiSelectedIds.clear();
       isMultiSelectMode = false;
@@ -419,17 +417,15 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
   }
 
   bool _areWallsMergeable(Wall w1, Wall w2) {
-    // 1. Cek apakah sejajar (Cross Product mendekati 0)
+    // 1. Cek kesejajaran
     final v1 = w1.end - w1.start;
     final v2 = w2.end - w2.start;
     final crossProd = v1.dx * v2.dy - v1.dy * v2.dx;
 
-    // Toleransi kesejajaran (misal 200 unit area)
-    if (crossProd.abs() > 200) return false;
+    if (crossProd.abs() > 200) return false; // Toleransi
 
-    // 2. Cek apakah bersentuhan (jarak antar ujung < threshold)
+    // 2. Cek sentuhan
     const double touchThreshold = 20.0;
-
     bool touching = false;
     if ((w1.start - w2.start).distance < touchThreshold)
       touching = true;

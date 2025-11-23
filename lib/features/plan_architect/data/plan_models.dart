@@ -15,7 +15,7 @@ class PlanPortal {
   final Color color;
   final bool flipX;
   final String? referenceImage;
-  final String? navTargetFloorId; // --- PROPERTI BARU ---
+  final String? navTargetFloorId;
 
   PlanPortal({
     required this.id,
@@ -26,7 +26,7 @@ class PlanPortal {
     this.color = Colors.blueGrey,
     this.flipX = false,
     this.referenceImage,
-    this.navTargetFloorId, // Baru
+    this.navTargetFloorId,
   });
 
   Map<String, dynamic> toJson() => {
@@ -39,7 +39,7 @@ class PlanPortal {
     'col': color.value,
     'flpX': flipX,
     'refImg': referenceImage,
-    'nav': navTargetFloorId, // Baru
+    'nav': navTargetFloorId,
   };
 
   factory PlanPortal.fromJson(Map<String, dynamic> json) => PlanPortal(
@@ -51,7 +51,7 @@ class PlanPortal {
     color: json['col'] != null ? Color(json['col']) : Colors.blueGrey,
     flipX: json['flpX'] ?? false,
     referenceImage: json['refImg'],
-    navTargetFloorId: json['nav'], // Baru
+    navTargetFloorId: json['nav'],
   );
 
   PlanPortal copyWith({
@@ -63,7 +63,7 @@ class PlanPortal {
     Color? color,
     bool? flipX,
     String? referenceImage,
-    String? navTargetFloorId, // Baru
+    String? navTargetFloorId,
   }) {
     return PlanPortal(
       id: id ?? this.id,
@@ -74,20 +74,13 @@ class PlanPortal {
       color: color ?? this.color,
       flipX: flipX ?? this.flipX,
       referenceImage: referenceImage ?? this.referenceImage,
-      navTargetFloorId: navTargetFloorId ?? this.navTargetFloorId, // Baru
+      navTargetFloorId: navTargetFloorId ?? this.navTargetFloorId,
     );
   }
 
   PlanPortal moveBy(Offset delta) => copyWith(position: position + delta);
 }
 
-// ... (Kelas PlanGroup, PlanFloor, Wall TETAP SAMA) ...
-// ... (PlanObject TETAP SAMA, sudah punya navTargetFloorId) ...
-// ... (PlanLabel, PlanPath, PlanShape TETAP SAMA) ...
-
-// Paste ulang PlanObject untuk memastikan konsistensi jika diperlukan,
-// tapi kode existing Anda untuk PlanObject sudah benar (ada navTargetFloorId).
-// Pastikan saja PlanPortal diupdate seperti di atas.
 class PlanGroup {
   final String id;
   final Offset position;
@@ -117,8 +110,6 @@ class PlanGroup {
     this.isSavedAsset = false,
   });
 
-  // ... (Metode getBounds, toJson, fromJson, copyWith, moveBy TETAP SAMA) ...
-  // (Demi keringkasan, gunakan kode yang sudah ada untuk bagian ini)
   Rect getBounds() {
     if (objects.isEmpty &&
         shapes.isEmpty &&
@@ -355,6 +346,7 @@ class Wall {
   final String description;
   final Color color;
   final String? referenceImage;
+  final String? navTargetFloorId; // --- PROPERTI BARU ---
 
   Wall({
     required this.id,
@@ -364,6 +356,7 @@ class Wall {
     this.description = 'Tembok',
     this.color = Colors.black,
     this.referenceImage,
+    this.navTargetFloorId,
   });
 
   Map<String, dynamic> toJson() => {
@@ -376,6 +369,7 @@ class Wall {
     'desc': description,
     'col': color.value,
     'refImg': referenceImage,
+    'nav': navTargetFloorId, // Baru
   };
 
   factory Wall.fromJson(Map<String, dynamic> json) => Wall(
@@ -386,6 +380,7 @@ class Wall {
     description: json['desc'] ?? 'Tembok',
     color: json['col'] != null ? Color(json['col']) : Colors.black,
     referenceImage: json['refImg'],
+    navTargetFloorId: json['nav'], // Baru
   );
 
   Wall copyWith({
@@ -396,6 +391,7 @@ class Wall {
     Offset? end,
     Color? color,
     String? referenceImage,
+    String? navTargetFloorId, // Baru
   }) {
     return Wall(
       id: id ?? this.id,
@@ -405,6 +401,7 @@ class Wall {
       description: description ?? this.description,
       color: color ?? this.color,
       referenceImage: referenceImage ?? this.referenceImage,
+      navTargetFloorId: navTargetFloorId ?? this.navTargetFloorId, // Baru
     );
   }
 
