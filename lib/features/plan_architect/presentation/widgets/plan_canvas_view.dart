@@ -12,18 +12,10 @@ class PlanCanvasView extends StatelessWidget {
   const PlanCanvasView({super.key, required this.controller, this.onNavigate});
 
   void _handleTapUp(BuildContext context, Offset localPos) {
-    // --- LOGIKA NAVIGASI (VIEW MODE) ---
-    if (controller.isViewMode && onNavigate != null) {
-      final hitItem = controller.findNavigableItemAt(localPos);
-      if (hitItem != null) {
-        // Jika item punya target plan, panggil callback navigasi
-        onNavigate!(hitItem['targetPlanId']!);
-        return;
-      }
-    }
-    // -----------------------------------
+    // --- LOGIKA TAP (TEKAN): Tampilkan Info / Pilih Objek ---
 
     if (controller.activeTool == PlanTool.text && !controller.isViewMode) {
+      // Logika tambah teks (Edit Mode)
       final textCtrl = TextEditingController();
       showDialog(
         context: context,
@@ -51,10 +43,27 @@ class PlanCanvasView extends StatelessWidget {
         ),
       );
     } else {
+      // Seleksi Objek (Baik View maupun Edit Mode)
       controller.onTapUp(localPos);
+
+      // Jika View Mode & ada objek terpilih -> Tampilkan Info
       if (controller.isViewMode && controller.selectedId != null) {
         final data = controller.getSelectedItemData();
         if (data != null) PlanEditorDialogs.showViewModeInfo(context, data);
+      }
+    }
+  }
+
+  void _handleLongPress(BuildContext context, Offset localPos) {
+    // --- LOGIKA LONG PRESS (TAHAN): Navigasi (View Mode) ---
+    if (controller.isViewMode && onNavigate != null) {
+      final hitItem = controller.findNavigableItemAt(localPos);
+      if (hitItem != null) {
+        // Getar sedikit untuk feedback (opsional, butuh package haptic)
+        // HapticFeedback.mediumImpact();
+
+        // Panggil navigasi
+        onNavigate!(hitItem['targetPlanId']!);
       }
     }
   }
@@ -87,7 +96,13 @@ class PlanCanvasView extends StatelessWidget {
                   ? null
                   : (d) => controller.onPanUpdate(d.localPosition),
               onPanEnd: allowPan ? null : (d) => controller.onPanEnd(),
+
+              // TAP: Pilih / Info
               onTapUp: (d) => _handleTapUp(context, d.localPosition),
+
+              // LONG PRESS: Navigasi (Pindah Lantai)
+              onLongPressStart: (d) =>
+                  _handleLongPress(context, d.localPosition),
 
               // 3. KANVAS (KERTAS)
               child: Container(
