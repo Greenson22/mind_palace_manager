@@ -95,6 +95,8 @@ class PlanPainter extends CustomPainter {
             controller.multiSelectedIds.contains(shape.id);
         _drawShape(canvas, shape, isSel);
       }
+
+      // Shape Preview
       if (controller.activeTool == PlanTool.shape &&
           controller.tempStart != null &&
           controller.tempEnd != null) {
@@ -108,7 +110,8 @@ class PlanPainter extends CustomPainter {
             id: 'temp',
             rect: previewRect,
             type: controller.selectedShapeType,
-            color: controller.activeColor.withOpacity(0.5),
+            color: controller.activeColor,
+            isFilled: controller.shapeFilled, // Use shapeFilled setting
           ),
           false,
         );
@@ -234,21 +237,14 @@ class PlanPainter extends CustomPainter {
     }
   }
 
-  // --- UPDATE: DRAW GROUP WITH RECTANGLE BOUNDS ---
   void _drawGroup(Canvas canvas, PlanGroup group, bool isSelected) {
     canvas.save();
     canvas.translate(group.position.dx, group.position.dy);
     canvas.rotate(group.rotation);
 
-    // Visual Seleksi Grup (KOTAK)
     if (isSelected) {
-      // Ambil bounding box dari model
-      final bounds = group.getBounds().inflate(10.0); // Inflate untuk padding
-
-      // Draw Fill
+      final bounds = group.getBounds().inflate(10.0);
       canvas.drawRect(bounds, Paint()..color = Colors.orange.withOpacity(0.15));
-
-      // Draw Border
       canvas.drawRect(
         bounds,
         Paint()
@@ -258,7 +254,6 @@ class PlanPainter extends CustomPainter {
       );
     }
 
-    // Render isi grup (relatif terhadap 0,0 grup)
     for (var shp in group.shapes) _drawShape(canvas, shp, false);
 
     final Paint pathPaint = Paint()
@@ -352,29 +347,67 @@ class PlanPainter extends CustomPainter {
     }
   }
 
+  // --- UPDATE: Draw Shape with Fill/Outline ---
   void _drawShape(Canvas canvas, PlanShape shape, bool isSelected) {
     canvas.save();
     final center = shape.rect.center;
     canvas.translate(center.dx, center.dy);
     canvas.rotate(shape.rotation);
     canvas.translate(-center.dx, -center.dy);
-    final Paint paint = Paint()
+
+    final Paint fillPaint = Paint()
       ..color = isSelected
           ? Colors.blue.withOpacity(0.5)
-          : shape.color.withOpacity(shape.isFilled ? 0.5 : 0.0)
+          // Jika isFilled true, gunakan warna solid (opacity 1.0 atau sesuai alpha warna). Jika false, transparan (0.0).
+          : shape.color.withOpacity(
+              shape.isFilled
+                  ? (shape.color.opacity == 1.0 ? 1.0 : shape.color.opacity)
+                  : 0.0,
+            )
       ..style = PaintingStyle.fill;
-    final Paint border = Paint()
+
+    final Paint borderPaint = Paint()
       ..color = isSelected ? Colors.blue : shape.color
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
+
     if (shape.type == PlanShapeType.rectangle) {
-      canvas.drawRect(shape.rect, paint);
-      canvas.drawRect(shape.rect, border);
+      canvas.drawRect(shape.rect, fillPaint);
+      canvas.drawRect(shape.rect, borderPaint);
     } else if (shape.type == PlanShapeType.circle) {
-      canvas.drawOval(shape.rect, paint);
-      canvas.drawOval(shape.rect, border);
+      canvas.drawOval(shape.rect, fillPaint);
+      canvas.drawOval(shape.rect, borderPaint);
+    } else if (shape.type == PlanShapeType.triangle) {
+      // --- DRAW TRIANGLE ---
+      final path = Path();
+      path.moveTo(shape.rect.center.dx, shape.rect.top);
+      path.lineTo(shape.rect.right, shape.rect.bottom);
+      path.lineTo(shape.rect.left, shape.rect.bottom);
+      path.close();
+      canvas.drawPath(path, fillPaint);
+      canvas.drawPath(path, borderPaint);
+    } else if (shape.type == PlanShapeType.hexagon) {
+      // --- DRAW HEXAGON ---
+      final path = Path();
+      final width = shape.rect.width;
+      final height = shape.rect.height;
+      final centerX = shape.rect.center.dx;
+      final centerY = shape.rect.center.dy;
+
+      for (int i = 0; i < 6; i++) {
+        double angle = (60 * i - 30) * (math.pi / 180);
+        double x = centerX + width / 2 * math.cos(angle);
+        double y = centerY + height / 2 * math.sin(angle);
+        if (i == 0)
+          path.moveTo(x, y);
+        else
+          path.lineTo(x, y);
+      }
+      path.close();
+      canvas.drawPath(path, fillPaint);
+      canvas.drawPath(path, borderPaint);
     } else if (shape.type == PlanShapeType.star) {
-      _drawStar(canvas, shape.rect, paint, border);
+      _drawStar(canvas, shape.rect, fillPaint, borderPaint);
     }
     canvas.restore();
   }

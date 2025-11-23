@@ -6,8 +6,6 @@ abstract class PlanVariables extends ChangeNotifier {
   // --- DATA UTAMA ---
   List<PlanFloor> floors = [];
   int activeFloorIndex = 0;
-
-  // Diubah ke dynamic agar bisa simpan PlanPath & PlanGroup
   List<dynamic> savedCustomInteriors = [];
 
   // --- GETTERS ---
@@ -17,12 +15,15 @@ abstract class PlanVariables extends ChangeNotifier {
   List<PlanPath> get paths => activeFloor.paths;
   List<PlanLabel> get labels => activeFloor.labels;
   List<PlanShape> get shapes => activeFloor.shapes;
-  List<PlanGroup> get groups => activeFloor.groups; // Getter baru
+  List<PlanGroup> get groups => activeFloor.groups;
 
   // --- VIEW SETTINGS ---
   bool isViewMode = false;
   Color canvasColor = Colors.white;
   bool showGrid = true;
+
+  // --- NEW SETTING: ZOOM CONTROLS ---
+  bool showZoomButtons = true; // Default: Tampilkan tombol zoom (+/-)
 
   final double canvasWidth = 500.0;
   final double canvasHeight = 500.0;
@@ -54,14 +55,15 @@ abstract class PlanVariables extends ChangeNotifier {
   // --- SELECTION STATE ---
   String? selectedId;
   bool isObjectSelected = false;
-
-  // State Multi Select & Grouping
   Set<String> multiSelectedIds = {};
   bool isMultiSelectMode = false;
 
   IconData? selectedObjectIcon;
   String selectedObjectName = "Furniture";
   PlanShapeType selectedShapeType = PlanShapeType.rectangle;
+
+  // --- NEW STATE: SHAPE STYLE ---
+  bool shapeFilled = true; // Default: Solid
 
   // --- HISTORY STATE ---
   final List<String> historyStack = [];

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'dart:ui' as ui; // Diperlukan untuk tipe data ui.Image
+import 'dart:ui' as ui;
 
-enum PlanShapeType { rectangle, circle, star }
+// --- UPDATE ENUM ---
+enum PlanShapeType { rectangle, circle, triangle, hexagon, star }
 
-// --- MODEL GRUP ---
 class PlanGroup {
+  // ... (Isi class PlanGroup sama seperti sebelumnya)
   final String id;
   final Offset position;
   final double rotation;
@@ -27,7 +28,6 @@ class PlanGroup {
     this.isSavedAsset = false,
   });
 
-  // --- METHOD BARU: Hitung Bounding Box Grup ---
   Rect getBounds() {
     if (objects.isEmpty && shapes.isEmpty && paths.isEmpty && labels.isEmpty) {
       return Rect.fromCenter(center: Offset.zero, width: 40, height: 40);
@@ -46,7 +46,6 @@ class PlanGroup {
     }
 
     for (var o in objects) {
-      // Estimasi ukuran objek + padding
       double r = o.size / 2 + 2;
       check(o.position.dx - r, o.position.dy - r);
       check(o.position.dx + r, o.position.dy + r);
@@ -62,7 +61,6 @@ class PlanGroup {
     }
     for (var l in labels) {
       check(l.position.dx, l.position.dy);
-      // Estimasi lebar teks kasar
       check(
         l.position.dx + (l.text.length * l.fontSize * 0.6),
         l.position.dy + l.fontSize,
@@ -137,7 +135,7 @@ class PlanGroup {
   PlanGroup moveBy(Offset delta) => copyWith(position: position + delta);
 }
 
-// --- MODEL LANTAI ---
+// ... (PlanFloor, Wall, PlanObject, PlanLabel, PlanPath tetap sama seperti sebelumnya) ...
 class PlanFloor {
   final String id;
   final String name;
@@ -217,7 +215,6 @@ class PlanFloor {
   }
 }
 
-// --- MODEL LAINNYA (TETAP SAMA) ---
 class Wall {
   final String id;
   final Offset start;

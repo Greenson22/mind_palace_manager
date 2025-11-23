@@ -1,4 +1,3 @@
-// lib/features/plan_architect/logic/mixins/plan_view_mixin.dart
 import 'package:flutter/material.dart';
 import 'plan_variables.dart';
 import '../plan_enums.dart';
@@ -20,6 +19,12 @@ mixin PlanViewMixin on PlanVariables {
 
   void toggleGridVisibility() {
     showGrid = !showGrid;
+    notifyListeners();
+  }
+
+  // --- METHOD BARU ---
+  void toggleZoomButtonsVisibility() {
+    showZoomButtons = !showZoomButtons;
     notifyListeners();
   }
 

@@ -1,3 +1,4 @@
+// ... (Imports)
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'plan_variables.dart';
@@ -5,6 +6,9 @@ import 'plan_state_mixin.dart';
 import '../../data/plan_models.dart';
 
 mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
+  // ... (toggleMultiSelectMode, handleSelection, deleteSelected, moveSelectedItem, moveAllContent, createGroup, ungroup, duplicate, rotate TETAP SAMA) ...
+
+  // ... (KODE LAMA) ...
   void toggleMultiSelectMode() {
     isMultiSelectMode = !isMultiSelectMode;
     if (!isMultiSelectMode) {
@@ -16,10 +20,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
 
   void handleSelection(Offset pos) {
     String? hitId;
-
-    // Cek hit dengan urutan (layer atas ke bawah):
-    // Label > Object > Group > Shape > Path > Wall
-
     for (var lbl in labels.reversed) {
       if ((lbl.position - pos).distance < 20.0) {
         hitId = lbl.id;
@@ -34,30 +34,21 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
         }
       }
     }
-
-    // --- LOGIKA BARU HIT TEST UNTUK GRUP ---
     if (hitId == null) {
       for (var grp in groups.reversed) {
-        // 1. Transformasikan titik sentuh ke koordinat lokal grup
-        // (karena grup bisa diputar dan digeser)
         final offset = pos - grp.position;
         final cosA = cos(-grp.rotation);
         final sinA = sin(-grp.rotation);
         final localX = offset.dx * cosA - offset.dy * sinA;
         final localY = offset.dx * sinA + offset.dy * cosA;
         final localPos = Offset(localX, localY);
-
-        // 2. Cek apakah titik lokal ada di dalam bounding box grup
         final bounds = grp.getBounds();
-        // Inflate sedikit agar lebih mudah ditekan
         if (bounds.inflate(10).contains(localPos)) {
           hitId = grp.id;
           break;
         }
       }
     }
-    // --------------------------------------
-
     if (hitId == null) {
       for (var shp in shapes.reversed) {
         if (shp.rect.contains(pos)) {
@@ -121,11 +112,9 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
 
   void deleteSelected() {
     if (selectedId == null && multiSelectedIds.isEmpty) return;
-
     final idsToDelete = isMultiSelectMode
         ? multiSelectedIds.toList()
         : [selectedId!];
-
     updateActiveFloor(
       shapes: List.from(shapes)..removeWhere((s) => idsToDelete.contains(s.id)),
       labels: List.from(labels)..removeWhere((l) => idsToDelete.contains(l.id)),
@@ -135,7 +124,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       walls: List.from(walls)..removeWhere((w) => idsToDelete.contains(w.id)),
       groups: List.from(groups)..removeWhere((g) => idsToDelete.contains(g.id)),
     );
-
     selectedId = null;
     multiSelectedIds.clear();
     saveState();
@@ -157,38 +145,32 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
           newShapes[sIdx] = newShapes[sIdx].moveBy(delta);
           changed = true;
         }
-
         final oIdx = newObjects.indexWhere((x) => x.id == id);
         if (oIdx != -1) {
           newObjects[oIdx] = newObjects[oIdx].moveBy(delta);
           changed = true;
         }
-
         final wIdx = newWalls.indexWhere((x) => x.id == id);
         if (wIdx != -1) {
           newWalls[wIdx] = newWalls[wIdx].moveBy(delta);
           changed = true;
         }
-
         final lIdx = newLabels.indexWhere((x) => x.id == id);
         if (lIdx != -1) {
           newLabels[lIdx] = newLabels[lIdx].moveBy(delta);
           changed = true;
         }
-
         final pIdx = newPaths.indexWhere((x) => x.id == id);
         if (pIdx != -1) {
           newPaths[pIdx] = newPaths[pIdx].moveBy(delta);
           changed = true;
         }
-
         final gIdx = newGroups.indexWhere((x) => x.id == id);
         if (gIdx != -1) {
           newGroups[gIdx] = newGroups[gIdx].moveBy(delta);
           changed = true;
         }
       }
-
       if (changed) {
         updateActiveFloor(
           shapes: newShapes,
@@ -201,9 +183,7 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       }
       return;
     }
-
     if (selectedId == null) return;
-
     List<PlanGroup> newGroups = List.from(groups);
     final gIdx = newGroups.indexWhere((g) => g.id == selectedId);
     if (gIdx != -1) {
@@ -211,7 +191,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       updateActiveFloor(groups: newGroups);
       return;
     }
-
     List<PlanShape> newShapes = List.from(shapes);
     final shpIdx = newShapes.indexWhere((s) => s.id == selectedId);
     if (shpIdx != -1) {
@@ -219,7 +198,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       updateActiveFloor(shapes: newShapes);
       return;
     }
-
     List<PlanObject> newObjects = List.from(objects);
     final objIdx = newObjects.indexWhere((o) => o.id == selectedId);
     if (objIdx != -1) {
@@ -227,7 +205,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       updateActiveFloor(objects: newObjects);
       return;
     }
-
     List<Wall> newWalls = List.from(walls);
     final wIdx = newWalls.indexWhere((w) => w.id == selectedId);
     if (wIdx != -1) {
@@ -235,7 +212,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       updateActiveFloor(walls: newWalls);
       return;
     }
-
     List<PlanLabel> newLabels = List.from(labels);
     final lIdx = newLabels.indexWhere((l) => l.id == selectedId);
     if (lIdx != -1) {
@@ -243,7 +219,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       updateActiveFloor(labels: newLabels);
       return;
     }
-
     List<PlanPath> newPaths = List.from(paths);
     final pIdx = newPaths.indexWhere((p) => p.id == selectedId);
     if (pIdx != -1) {
@@ -260,7 +235,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
     final newLabels = labels.map((l) => l.moveBy(delta)).toList();
     final newShapes = shapes.map((s) => s.moveBy(delta)).toList();
     final newGroups = groups.map((g) => g.moveBy(delta)).toList();
-
     updateActiveFloor(
       walls: newWalls,
       objects: newObjects,
@@ -273,12 +247,10 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
 
   void createGroupFromSelection() {
     if (multiSelectedIds.isEmpty && selectedId == null) return;
-
     final idsToGroup = isMultiSelectMode
         ? multiSelectedIds.toList()
         : [selectedId!];
     if (idsToGroup.isEmpty) return;
-
     List<PlanObject> selObjects = objects
         .where((e) => idsToGroup.contains(e.id))
         .toList();
@@ -291,17 +263,13 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
     List<PlanLabel> selLabels = labels
         .where((e) => idsToGroup.contains(e.id))
         .toList();
-
     if (selObjects.isEmpty &&
         selShapes.isEmpty &&
         selPaths.isEmpty &&
         selLabels.isEmpty)
       return;
-
-    // Hitung Center
     double sumX = 0, sumY = 0;
     int count = 0;
-
     for (var o in selObjects) {
       sumX += o.position.dx;
       sumY += o.position.dy;
@@ -324,11 +292,8 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       sumY += l.position.dy;
       count++;
     }
-
     if (count == 0) return;
     final groupCenter = Offset(sumX / count, sumY / count);
-
-    // Relatif terhadap center
     final newObjects = selObjects
         .map((e) => e.copyWith(position: e.position - groupCenter))
         .toList();
@@ -339,7 +304,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
         .map((e) => e.copyWith(rect: e.rect.shift(-groupCenter)))
         .toList();
     final newPaths = selPaths.map((e) => e.moveBy(-groupCenter)).toList();
-
     final newGroup = PlanGroup(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       position: groupCenter,
@@ -349,7 +313,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       labels: newLabels,
       name: "Grup Baru",
     );
-
     updateActiveFloor(
       objects: objects.where((e) => !idsToGroup.contains(e.id)).toList(),
       shapes: shapes.where((e) => !idsToGroup.contains(e.id)).toList(),
@@ -357,7 +320,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       labels: labels.where((e) => !idsToGroup.contains(e.id)).toList(),
       groups: [...groups, newGroup],
     );
-
     multiSelectedIds.clear();
     isMultiSelectMode = false;
     selectedId = newGroup.id;
@@ -366,13 +328,9 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
 
   void ungroupSelected() {
     if (selectedId == null) return;
-
     int grpIdx = groups.indexWhere((g) => g.id == selectedId);
     if (grpIdx == -1) return;
-
     final group = groups[grpIdx];
-
-    // Restore posisi dunia
     final restoredObjects = group.objects
         .map((e) => e.copyWith(position: e.position + group.position))
         .toList();
@@ -385,9 +343,7 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
     final restoredPaths = group.paths
         .map((e) => e.moveBy(group.position))
         .toList();
-
     List<PlanGroup> newGroups = List.from(groups)..removeAt(grpIdx);
-
     updateActiveFloor(
       groups: newGroups,
       objects: [...objects, ...restoredObjects],
@@ -395,7 +351,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       paths: [...paths, ...restoredPaths],
       labels: [...labels, ...restoredLabels],
     );
-
     selectedId = null;
     saveState();
   }
@@ -404,7 +359,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
     if (selectedId == null) return;
     final offset = const Offset(20, 20);
     final newId = DateTime.now().millisecondsSinceEpoch.toString();
-
     try {
       final grp = groups.firstWhere((g) => g.id == selectedId);
       updateActiveFloor(
@@ -417,7 +371,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       saveState();
       return;
     } catch (_) {}
-
     try {
       final obj = objects.firstWhere((o) => o.id == selectedId);
       updateActiveFloor(
@@ -467,14 +420,12 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
         ],
       );
     } catch (_) {}
-
     selectedId = newId;
     saveState();
   }
 
   void rotateSelected() {
     if (selectedId == null) return;
-
     List<PlanGroup> newGroups = List.from(groups);
     final gIdx = newGroups.indexWhere((g) => g.id == selectedId);
     if (gIdx != -1) {
@@ -485,7 +436,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       saveState();
       return;
     }
-
     List<PlanObject> newObjs = List.from(objects);
     final objIdx = newObjs.indexWhere((o) => o.id == selectedId);
     if (objIdx != -1) {
@@ -508,12 +458,14 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
     }
   }
 
+  // --- METHOD UPDATE ATTRIBUTE ---
   void updateSelectedAttribute({
     Color? color,
     double? stroke,
     String? desc,
     String? name,
     String? navTarget,
+    bool? isFilled, // <-- TAMBAHAN: Parameter isFilled
   }) {
     if (selectedId == null) return;
 
@@ -581,6 +533,7 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       return;
     }
 
+    // --- UPDATE SHAPE (Handle Filled) ---
     List<PlanShape> newShapes = List.from(shapes);
     final sIdx = newShapes.indexWhere((s) => s.id == selectedId);
     if (sIdx != -1) {
@@ -602,6 +555,7 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
         description: desc,
         name: name,
         rect: stroke != null ? newRect : null,
+        isFilled: isFilled, // <-- Update isFilled
       );
       updateActiveFloor(shapes: newShapes);
       saveState();
@@ -609,6 +563,7 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
     }
   }
 
+  // ... (updateSelectedWallLength, updateSelectedColor, bringToFront, sendToBack, saveCurrentSelectionToLibrary, getSelectedItemData TETAP SAMA)
   void updateSelectedWallLength(double newLengthInMeters) {
     if (selectedId == null) return;
     List<Wall> newWalls = List.from(walls);
@@ -639,7 +594,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
 
   void bringToFront() {
     if (selectedId == null) return;
-
     List<PlanGroup> newGroups = List.from(groups);
     final gIdx = newGroups.indexWhere((g) => g.id == selectedId);
     if (gIdx != -1) {
@@ -648,7 +602,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       saveState();
       return;
     }
-
     List<PlanShape> newShapes = List.from(shapes);
     final shpIdx = newShapes.indexWhere((s) => s.id == selectedId);
     if (shpIdx != -1) {
@@ -669,7 +622,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
 
   void sendToBack() {
     if (selectedId == null) return;
-
     List<PlanGroup> newGroups = List.from(groups);
     final gIdx = newGroups.indexWhere((g) => g.id == selectedId);
     if (gIdx != -1) {
@@ -678,7 +630,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       saveState();
       return;
     }
-
     List<PlanShape> newShapes = List.from(shapes);
     final shpIdx = newShapes.indexWhere((s) => s.id == selectedId);
     if (shpIdx != -1) {
@@ -699,14 +650,12 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
 
   void saveCurrentSelectionToLibrary() {
     if (selectedId == null) return;
-
     final pathIdx = paths.indexWhere((p) => p.id == selectedId);
     if (pathIdx != -1) {
       savedCustomInteriors.add(paths[pathIdx].copyWith(isSavedAsset: true));
       notifyListeners();
       return;
     }
-
     final grpIdx = groups.indexWhere((g) => g.id == selectedId);
     if (grpIdx != -1) {
       savedCustomInteriors.add(groups[grpIdx].copyWith(isSavedAsset: true));
@@ -717,7 +666,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
 
   Map<String, dynamic>? getSelectedItemData() {
     if (selectedId == null) return null;
-
     try {
       final g = groups.firstWhere((x) => x.id == selectedId);
       return {
@@ -731,7 +679,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
         'nav': null,
       };
     } catch (_) {}
-
     try {
       final s = shapes.firstWhere((x) => x.id == selectedId);
       return {

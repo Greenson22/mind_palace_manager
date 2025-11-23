@@ -1,4 +1,3 @@
-// lib/features/plan_architect/logic/mixins/plan_tool_mixin.dart
 import 'package:flutter/material.dart';
 import 'package:mind_palace_manager/app_settings.dart';
 import 'plan_variables.dart';
@@ -26,15 +25,18 @@ mixin PlanToolMixin on PlanVariables {
   void selectObjectIcon(IconData icon, String name) {
     selectedObjectIcon = icon;
     selectedObjectName = name;
-
-    // Integrasi Fitur Recent
     AppSettings.addRecentInterior(name);
-
     setTool(PlanTool.object);
   }
 
+  // --- UPDATE: Set Shape Type & Style ---
   void selectShape(PlanShapeType type) {
     selectedShapeType = type;
     setTool(PlanTool.shape);
+  }
+
+  void setShapeFilled(bool isFilled) {
+    shapeFilled = isFilled;
+    notifyListeners();
   }
 }

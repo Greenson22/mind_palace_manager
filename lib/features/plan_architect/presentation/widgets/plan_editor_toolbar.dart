@@ -63,7 +63,7 @@ class PlanEditorToolbar extends StatelessWidget {
                   onTap: () => controller.setTool(PlanTool.select),
                 ),
 
-                // --- TOMBOL MULTI SELECT (BARU) ---
+                // --- TOMBOL MULTI SELECT ---
                 _buildIconButton(
                   context,
                   icon: Icons.checklist,
@@ -73,7 +73,7 @@ class PlanEditorToolbar extends StatelessWidget {
                   color: controller.isMultiSelectMode ? Colors.orange : null,
                 ),
 
-                // --- TOMBOL GROUP (BARU) ---
+                // --- TOMBOL GROUP ---
                 if (controller.isMultiSelectMode &&
                     controller.multiSelectedIds.isNotEmpty)
                   _buildIconButton(
@@ -92,7 +92,8 @@ class PlanEditorToolbar extends StatelessWidget {
                   onTap: () => controller.setTool(PlanTool.wall),
                 ),
 
-                PopupMenuButton<PlanShapeType>(
+                // --- POPUP BENTUK (UPDATE) ---
+                PopupMenuButton<dynamic>(
                   tooltip: "Pilih Bentuk",
                   offset: const Offset(0, 40),
                   shape: RoundedRectangleBorder(
@@ -105,7 +106,14 @@ class PlanEditorToolbar extends StatelessWidget {
                     isActive: controller.activeTool == PlanTool.shape,
                     onTap: null,
                   ),
-                  onSelected: (type) => controller.selectShape(type),
+                  onSelected: (val) {
+                    if (val is PlanShapeType) {
+                      controller.selectShape(val);
+                    } else if (val == 'toggle_fill') {
+                      // Logic toggle sudah dihandle di itemBuilder via StatefulBuilder tapi sebagai fallback
+                      controller.setShapeFilled(!controller.shapeFilled);
+                    }
+                  },
                   itemBuilder: (ctx) => [
                     _buildPopupItem(
                       PlanShapeType.rectangle,
@@ -118,9 +126,44 @@ class PlanEditorToolbar extends StatelessWidget {
                       "Bulat",
                     ),
                     _buildPopupItem(
+                      PlanShapeType.triangle,
+                      Icons.change_history,
+                      "Segitiga",
+                    ),
+                    _buildPopupItem(
+                      PlanShapeType.hexagon,
+                      Icons.hexagon_outlined,
+                      "Segienam",
+                    ),
+                    _buildPopupItem(
                       PlanShapeType.star,
                       Icons.star_border,
                       "Bintang",
+                    ),
+                    const PopupMenuDivider(),
+                    // Item khusus untuk toggle solid/outline
+                    PopupMenuItem(
+                      enabled:
+                          false, // Agar tidak menutup menu saat diklik (tapi kita pakai StatefulBuilder di dalam)
+                      child: StatefulBuilder(
+                        builder: (context, setState) {
+                          return SwitchListTile(
+                            title: const Text(
+                              "Isi Warna (Solid)",
+                              style: TextStyle(fontSize: 14),
+                            ),
+                            value: controller.shapeFilled,
+                            onChanged: (val) {
+                              controller.setShapeFilled(val);
+                              setState(() {});
+                              // Tutup menu manual jika diinginkan, atau biarkan terbuka
+                              Navigator.pop(ctx);
+                            },
+                            contentPadding: EdgeInsets.zero,
+                            dense: true,
+                          );
+                        },
+                      ),
                     ),
                   ],
                 ),

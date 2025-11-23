@@ -50,6 +50,17 @@ class PlanEditorDialogs {
                     setState(() {});
                   },
                 ),
+                // --- NEW SETTING: SHOW ZOOM BUTTONS ---
+                SwitchListTile(
+                  title: const Text("Tombol Zoom (+/-)"),
+                  subtitle: const Text("Sembunyikan jika mengganggu"),
+                  value: controller.showZoomButtons,
+                  onChanged: (v) {
+                    controller.toggleZoomButtonsVisibility();
+                    setState(() {});
+                  },
+                ),
+                // --------------------------------------
                 if (controller.showGrid) ...[
                   const Padding(
                     padding: EdgeInsets.only(left: 16, top: 8),
@@ -155,6 +166,7 @@ class PlanEditorDialogs {
     );
   }
 
+  // ... (showFloorManager, showEditDialog, showColorPicker, showInteriorPicker, showViewModeInfo TETAP SAMA) ...
   static void showFloorManager(
     BuildContext context,
     PlanController controller,
@@ -375,9 +387,8 @@ class PlanEditorDialogs {
                   final newLen = double.tryParse(
                     lengthCtrl.text.replaceAll(',', '.'),
                   );
-                  if (newLen != null && newLen > 0) {
+                  if (newLen != null && newLen > 0)
                     controller.updateSelectedWallLength(newLen);
-                  }
                 }
                 Navigator.pop(context);
               },
@@ -444,7 +455,6 @@ class PlanEditorDialogs {
           minChildSize: 0.5,
           maxChildSize: 0.95,
           builder: (context, scrollController) {
-            // Panggil Widget yang sudah dipisah
             return InteriorPickerSheet(
               controller: controller,
               scrollController: scrollController,

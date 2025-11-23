@@ -8,6 +8,7 @@ import '../../data/plan_models.dart';
 
 mixin PlanInputMixin
     on PlanVariables, PlanViewMixin, PlanSelectionMixin, PlanStateMixin {
+  // ... (onPanStart, onPanUpdate TETAP SAMA) ...
   void onPanStart(Offset localPos) {
     if (isViewMode) return;
     if (activeTool == PlanTool.hand) return;
@@ -95,12 +96,15 @@ mixin PlanInputMixin
     } else if (activeTool == PlanTool.shape &&
         tempStart != null &&
         tempEnd != null) {
+      // --- UPDATE: Gunakan shapeFilled ---
       final newShape = PlanShape(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         rect: Rect.fromPoints(tempStart!, tempEnd!),
         type: selectedShapeType,
         color: activeColor,
+        isFilled: shapeFilled, // <-- Gunakan properti ini
       );
+
       updateActiveFloor(shapes: [...shapes, newShape]);
       saveState();
       tempStart = null;
@@ -120,6 +124,7 @@ mixin PlanInputMixin
     notifyListeners();
   }
 
+  // ... (onTapUp, addLabel, placeSavedPath, placeSavedItem TETAP SAMA) ...
   void onTapUp(Offset localPos) {
     if (isViewMode) {
       handleSelection(localPos);
@@ -173,7 +178,6 @@ mixin PlanInputMixin
   }
 
   void placeSavedPath(PlanPath savedPath, Offset centerPos) {
-    // Helper lama (bisa dihapus jika tidak dipakai, tapi disimpan untuk kompatibilitas)
     if (savedPath.points.isEmpty) return;
     double minX = double.infinity,
         maxX = double.negativeInfinity,
@@ -199,10 +203,8 @@ mixin PlanInputMixin
     notifyListeners();
   }
 
-  // --- BARU: TEMPATKAN ITEM DARI LIBRARY ---
   void placeSavedItem(dynamic savedItem, Offset centerPos) {
     final newId = DateTime.now().millisecondsSinceEpoch.toString();
-
     if (savedItem is PlanPath) {
       placeSavedPath(savedItem, centerPos);
     } else if (savedItem is PlanGroup) {
