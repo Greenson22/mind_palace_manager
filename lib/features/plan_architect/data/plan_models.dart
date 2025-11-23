@@ -14,7 +14,7 @@ class PlanPortal {
   final PlanPortalType type;
   final Color color;
   final bool flipX;
-  final String? referenceImage; // TAMBAHAN: Gambar Referensi
+  final String? referenceImage; // TAMBAHAN
 
   PlanPortal({
     required this.id,

@@ -88,7 +88,7 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
     String? name,
     String? navTarget,
     bool? isFilled,
-    String? referenceImage,
+    String? referenceImage, // TAMBAHAN: Parameter Baru
   }) {
     if (selectedId == null) return;
 
@@ -106,7 +106,7 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
             name: name,
             navTargetFloorId: navTarget,
             size: stroke,
-            referenceImage: referenceImage,
+            referenceImage: referenceImage, // UPDATE
           ),
       );
     } else if ((idx = walls.indexWhere((w) => w.id == selectedId)) != -1) {
@@ -116,7 +116,7 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
             color: color,
             thickness: stroke,
             description: desc,
-            referenceImage: referenceImage,
+            referenceImage: referenceImage, // UPDATE
           ),
       );
     } else if ((idx = paths.indexWhere((p) => p.id == selectedId)) != -1) {
@@ -144,7 +144,7 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
           ..[idx] = portals[idx].copyWith(
             color: color,
             width: stroke,
-            referenceImage: referenceImage,
+            referenceImage: referenceImage, // UPDATE
           ),
       );
     } else if ((idx = shapes.indexWhere((s) => s.id == selectedId)) != -1) {
@@ -169,7 +169,7 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
             name: name,
             rect: stroke != null ? newRect : null,
             isFilled: isFilled,
-            referenceImage: referenceImage,
+            referenceImage: referenceImage, // UPDATE
           ),
       );
     }
@@ -221,7 +221,6 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
   void bringToFront() {
     if (selectedId == null) return;
 
-    // Cek Groups
     int gIdx = groups.indexWhere((g) => g.id == selectedId);
     if (gIdx != -1) {
       final item = groups[gIdx];
@@ -233,7 +232,6 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
       return;
     }
 
-    // Cek Objects
     int oIdx = objects.indexWhere((o) => o.id == selectedId);
     if (oIdx != -1) {
       final item = objects[oIdx];
@@ -245,7 +243,6 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
       return;
     }
 
-    // Cek Shapes
     int sIdx = shapes.indexWhere((s) => s.id == selectedId);
     if (sIdx != -1) {
       final item = shapes[sIdx];
@@ -257,7 +254,6 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
       return;
     }
 
-    // Cek Paths
     int pIdx = paths.indexWhere((p) => p.id == selectedId);
     if (pIdx != -1) {
       final item = paths[pIdx];
@@ -269,7 +265,6 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
       return;
     }
 
-    // Cek Labels
     int lIdx = labels.indexWhere((l) => l.id == selectedId);
     if (lIdx != -1) {
       final item = labels[lIdx];
@@ -281,7 +276,6 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
       return;
     }
 
-    // Cek Portals
     int portIdx = portals.indexWhere((p) => p.id == selectedId);
     if (portIdx != -1) {
       final item = portals[portIdx];
@@ -297,7 +291,6 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
   void sendToBack() {
     if (selectedId == null) return;
 
-    // Cek Groups
     int gIdx = groups.indexWhere((g) => g.id == selectedId);
     if (gIdx != -1) {
       final item = groups[gIdx];
@@ -309,7 +302,6 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
       return;
     }
 
-    // Cek Objects
     int oIdx = objects.indexWhere((o) => o.id == selectedId);
     if (oIdx != -1) {
       final item = objects[oIdx];
@@ -321,7 +313,6 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
       return;
     }
 
-    // Cek Shapes
     int sIdx = shapes.indexWhere((s) => s.id == selectedId);
     if (sIdx != -1) {
       final item = shapes[sIdx];
@@ -333,7 +324,6 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
       return;
     }
 
-    // Cek Paths
     int pIdx = paths.indexWhere((p) => p.id == selectedId);
     if (pIdx != -1) {
       final item = paths[pIdx];
@@ -345,7 +335,6 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
       return;
     }
 
-    // Cek Labels
     int lIdx = labels.indexWhere((l) => l.id == selectedId);
     if (lIdx != -1) {
       final item = labels[lIdx];
@@ -357,7 +346,6 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
       return;
     }
 
-    // Cek Portals
     int portIdx = portals.indexWhere((p) => p.id == selectedId);
     if (portIdx != -1) {
       final item = portals[portIdx];
@@ -368,5 +356,90 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
       saveState();
       return;
     }
+  }
+
+  // --- FITUR BARU: GABUNG TEMBOK ---
+  void mergeSelectedWalls() {
+    // 1. Kumpulkan tembok yang sedang dipilih
+    final selectedWallIds = <String>[];
+    if (selectedId != null) selectedWallIds.add(selectedId!);
+    selectedWallIds.addAll(multiSelectedIds);
+
+    // Filter objek yang benar-benar tembok
+    final targetWalls = walls
+        .where((w) => selectedWallIds.contains(w.id))
+        .toList();
+
+    // Kita batasi fitur ini hanya untuk menggabungkan 2 tembok sekaligus agar aman
+    if (targetWalls.length != 2) return;
+
+    final w1 = targetWalls[0];
+    final w2 = targetWalls[1];
+
+    if (_areWallsMergeable(w1, w2)) {
+      // Cari titik terluar (ujung ke ujung terjauh)
+      final points = [w1.start, w1.end, w2.start, w2.end];
+      double maxDist = -1.0;
+      Offset pStart = points[0];
+      Offset pEnd = points[0];
+
+      for (int i = 0; i < points.length; i++) {
+        for (int j = i + 1; j < points.length; j++) {
+          final dist = (points[i] - points[j]).distance;
+          if (dist > maxDist) {
+            maxDist = dist;
+            pStart = points[i];
+            pEnd = points[j];
+          }
+        }
+      }
+
+      // Buat tembok baru
+      final newWall = w1.copyWith(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        start: pStart,
+        end: pEnd,
+        // Gunakan atribut dari w1 (tebal/warna/dll)
+      );
+
+      // Update list tembok: Hapus 2 lama, tambah 1 baru
+      final newWallList = List<Wall>.from(walls)
+        ..removeWhere((w) => w.id == w1.id || w.id == w2.id)
+        ..add(newWall);
+
+      updateActiveFloor(walls: newWallList);
+
+      // Reset seleksi ke tembok baru
+      selectedId = newWall.id;
+      multiSelectedIds.clear();
+      isMultiSelectMode = false;
+
+      saveState();
+    }
+  }
+
+  bool _areWallsMergeable(Wall w1, Wall w2) {
+    // 1. Cek apakah sejajar (Cross Product mendekati 0)
+    final v1 = w1.end - w1.start;
+    final v2 = w2.end - w2.start;
+    final crossProd = v1.dx * v2.dy - v1.dy * v2.dx;
+
+    // Toleransi kesejajaran (misal 200 unit area)
+    if (crossProd.abs() > 200) return false;
+
+    // 2. Cek apakah bersentuhan (jarak antar ujung < threshold)
+    const double touchThreshold = 20.0;
+
+    bool touching = false;
+    if ((w1.start - w2.start).distance < touchThreshold)
+      touching = true;
+    else if ((w1.start - w2.end).distance < touchThreshold)
+      touching = true;
+    else if ((w1.end - w2.start).distance < touchThreshold)
+      touching = true;
+    else if ((w1.end - w2.end).distance < touchThreshold)
+      touching = true;
+
+    return touching;
   }
 }

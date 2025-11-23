@@ -11,13 +11,17 @@ class PlanSelectionBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final data = controller.getSelectedItemData();
-    if (data == null) return const SizedBox.shrink();
+    // Jika multi-select aktif tapi tidak ada selectedId utama, data bisa null.
+    // Kita tetap butuh bar ini untuk aksi grup/merge.
+    if (data == null && controller.multiSelectedIds.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     final colorScheme = Theme.of(context).colorScheme;
-    bool isGroup = data['isGroup'] ?? false;
+    bool isGroup = data != null ? (data['isGroup'] ?? false) : false;
 
     double currentSize = 2.0;
-    if (!isGroup) {
+    if (data != null && !isGroup) {
       if (data['type'] == 'Struktur') {
         try {
           final wall = controller.walls.firstWhere(
@@ -58,9 +62,19 @@ class PlanSelectionBar extends StatelessWidget {
     }
 
     // --- LOGIKA SNAP UNTUK NUDGE ---
-    // Jika Snap aktif, geser sejauh gridSize. Jika tidak, geser 2px.
     double nudgeStep = controller.enableSnap ? controller.gridSize : 2.0;
-    // -------------------------------
+
+    // --- LOGIKA CEK MERGE WALLS ---
+    bool canMerge = false;
+    if (controller.isMultiSelectMode &&
+        controller.multiSelectedIds.length == 2) {
+      final selectedWalls = controller.walls.where(
+        (w) => controller.multiSelectedIds.contains(w.id),
+      );
+      if (selectedWalls.length == 2) {
+        canMerge = true;
+      }
+    }
 
     return Container(
       constraints: const BoxConstraints(maxWidth: 600),
@@ -81,121 +95,124 @@ class PlanSelectionBar extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           // 1. Header
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: colorScheme.primaryContainer,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  isGroup ? Icons.group_work : Icons.touch_app,
-                  size: 16,
-                  color: colorScheme.onPrimaryContainer,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      data['title'] ?? "Objek",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                        color: colorScheme.onSurface,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      data['desc'] ?? data['type'] ?? "Item",
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              OutlinedButton.icon(
-                icon: const Icon(Icons.edit, size: 14),
-                label: const Text("Detail"),
-                onPressed: () =>
-                    PlanEditorDialogs.showEditDialog(context, controller),
-                style: OutlinedButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  side: BorderSide(color: colorScheme.outline),
-                  foregroundColor: colorScheme.primary,
-                ),
-              ),
-            ],
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Divider(height: 1),
-          ),
-
-          // 2. Ukuran & Warna
-          Row(
-            children: [
-              if (!isGroup)
-                _buildQuickAction(
-                  context,
-                  icon: Icons.color_lens,
-                  label: "Warna",
-                  onTap: () => PlanEditorDialogs.showColorPicker(
-                    context,
-                    (c) => controller.updateSelectedAttribute(color: c),
+          if (data != null)
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    isGroup ? Icons.group_work : Icons.touch_app,
+                    size: 16,
+                    color: colorScheme.onPrimaryContainer,
                   ),
                 ),
-              const SizedBox(width: 8),
-              if (!isGroup)
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.only(left: 8.0),
-                        child: Text(
-                          (data['type'] == 'Struktur' && currentSize > 10)
-                              ? "Lebar Objek"
-                              : "Ukuran",
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
+                      Text(
+                        data['title'] ?? "Objek",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: colorScheme.onSurface,
                         ),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      SizedBox(
-                        height: 24,
-                        child: SliderTheme(
-                          data: SliderTheme.of(context).copyWith(
-                            thumbShape: const RoundSliderThumbShape(
-                              enabledThumbRadius: 6,
-                            ),
-                            overlayShape: const RoundSliderOverlayShape(
-                              overlayRadius: 12,
-                            ),
-                            trackHeight: 2,
-                          ),
-                          child: Slider(
-                            value: currentSize.clamp(1.0, 150.0),
-                            min: 1.0,
-                            max: 150.0,
-                            divisions: 149,
-                            onChanged: (v) =>
-                                controller.updateSelectedStrokeWidth(v),
-                          ),
+                      Text(
+                        data['desc'] ?? data['type'] ?? "Item",
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
                   ),
                 ),
-            ],
-          ),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.edit, size: 14),
+                  label: const Text("Detail"),
+                  onPressed: () =>
+                      PlanEditorDialogs.showEditDialog(context, controller),
+                  style: OutlinedButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    side: BorderSide(color: colorScheme.outline),
+                    foregroundColor: colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
+          if (data != null)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Divider(height: 1),
+            ),
+
+          // 2. Ukuran & Warna
+          if (data != null)
+            Row(
+              children: [
+                if (!isGroup)
+                  _buildQuickAction(
+                    context,
+                    icon: Icons.color_lens,
+                    label: "Warna",
+                    onTap: () => PlanEditorDialogs.showColorPicker(
+                      context,
+                      (c) => controller.updateSelectedAttribute(color: c),
+                    ),
+                  ),
+                const SizedBox(width: 8),
+                if (!isGroup)
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8.0),
+                          child: Text(
+                            (data['type'] == 'Struktur' && currentSize > 10)
+                                ? "Lebar Objek"
+                                : "Ukuran",
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                        SizedBox(
+                          height: 24,
+                          child: SliderTheme(
+                            data: SliderTheme.of(context).copyWith(
+                              thumbShape: const RoundSliderThumbShape(
+                                enabledThumbRadius: 6,
+                              ),
+                              overlayShape: const RoundSliderOverlayShape(
+                                overlayRadius: 12,
+                              ),
+                              trackHeight: 2,
+                            ),
+                            child: Slider(
+                              value: currentSize.clamp(1.0, 150.0),
+                              min: 1.0,
+                              max: 150.0,
+                              divisions: 149,
+                              onChanged: (v) =>
+                                  controller.updateSelectedStrokeWidth(v),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
 
           const SizedBox(height: 8),
 
@@ -254,6 +271,22 @@ class PlanSelectionBar extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                // --- TOMBOL BARU: GABUNG TEMBOK ---
+                if (canMerge)
+                  _buildQuickAction(
+                    context,
+                    icon: Icons.merge_type,
+                    label: "Gabung",
+                    color: Colors.orange,
+                    onTap: () {
+                      controller.mergeSelectedWalls();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Tembok digabungkan!")),
+                      );
+                    },
+                  ),
+
+                // ----------------------------------
                 if (isGroup)
                   _buildQuickAction(
                     context,
@@ -285,7 +318,7 @@ class PlanSelectionBar extends StatelessWidget {
                     },
                   ),
 
-                if (isGroup || (data['isPath'] == true))
+                if (data != null && (isGroup || (data['isPath'] == true)))
                   _buildQuickAction(
                     context,
                     icon: Icons.bookmark_add,

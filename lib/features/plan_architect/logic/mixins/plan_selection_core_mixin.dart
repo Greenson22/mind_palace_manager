@@ -15,13 +15,12 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
     notifyListeners();
   }
 
-  // --- TAMBAHAN: SELECT ALL ---
+  // --- SELECT ALL ---
   void selectAll() {
     isMultiSelectMode = true;
     selectedId = null;
     multiSelectedIds.clear();
 
-    // Masukkan semua ID yang memungkinkan
     for (var w in walls) multiSelectedIds.add(w.id);
     for (var o in objects) multiSelectedIds.add(o.id);
     for (var s in shapes) multiSelectedIds.add(s.id);
@@ -33,56 +32,45 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
     notifyListeners();
   }
 
-  // --- TAMBAHAN: SELECT IN RECTANGLE (Drag Box) ---
+  // --- SELECT IN RECTANGLE (Drag Box) ---
   void selectInRect(Rect rect) {
-    // Aktifkan mode multi select jika belum
     if (!isMultiSelectMode) {
       isMultiSelectMode = true;
       selectedId = null;
-      // Jangan clear multiSelectedIds jika sudah diaktifkan di onPanStart
     }
 
-    // Gunakan Set untuk menghindari duplikasi
     final Set<String> newSelections = {};
 
-    // 1. Tembok (Cek kedua ujungnya ada di dalam rect)
     for (var w in walls) {
       if (rect.contains(w.start) && rect.contains(w.end)) {
         newSelections.add(w.id);
       }
     }
-    // 2. Objek (Cek titik tengah)
     for (var o in objects) {
       if (rect.contains(o.position)) {
         newSelections.add(o.id);
       }
     }
-    // 3. Shapes (Cek overlap bounding box)
     for (var s in shapes) {
       if (rect.overlaps(s.rect.inflate(5.0))) {
-        // Beri toleransi 5px
         newSelections.add(s.id);
       }
     }
-    // 4. Groups
     for (var g in groups) {
       if (rect.contains(g.position)) {
         newSelections.add(g.id);
       }
     }
-    // 5. Portals
     for (var p in portals) {
       if (rect.contains(p.position)) {
         newSelections.add(p.id);
       }
     }
-    // 6. Labels
     for (var l in labels) {
       if (rect.contains(l.position)) {
         newSelections.add(l.id);
       }
     }
-    // 7. Paths (Cek apakah ada titik path yang masuk)
     for (var p in paths) {
       for (var pt in p.points) {
         if (rect.contains(pt)) {
@@ -92,21 +80,20 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
       }
     }
 
-    multiSelectedIds.addAll(newSelections); // Tambahkan seleksi baru
+    multiSelectedIds.addAll(newSelections);
     notifyListeners();
   }
-  // ------------------------------------------
 
   void handleSelection(Offset pos) {
     String? hitId;
-    // 1. Cek Labels (Prioritas Tertinggi - Layer Atas)
+    // 1. Labels
     for (var lbl in labels.reversed) {
       if ((lbl.position - pos).distance < 20.0) {
         hitId = lbl.id;
         break;
       }
     }
-    // 2. Cek Portals (Pintu/Jendela)
+    // 2. Portals
     if (hitId == null) {
       for (var p in portals.reversed) {
         if ((p.position - pos).distance < (p.width / 2 + 5)) {
@@ -115,7 +102,7 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         }
       }
     }
-    // 3. Cek Objects
+    // 3. Objects
     if (hitId == null) {
       for (var obj in objects.reversed) {
         if ((obj.position - pos).distance < 25.0) {
@@ -124,7 +111,7 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         }
       }
     }
-    // 4. Cek Groups
+    // 4. Groups
     if (hitId == null) {
       for (var grp in groups.reversed) {
         final offset = pos - grp.position;
@@ -140,7 +127,7 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         }
       }
     }
-    // 5. Cek Shapes
+    // 5. Shapes
     if (hitId == null) {
       for (var shp in shapes.reversed) {
         if (shp.rect.contains(pos)) {
@@ -149,7 +136,7 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         }
       }
     }
-    // 6. Cek Paths (Garis Gambar)
+    // 6. Paths
     if (hitId == null) {
       for (var path in paths.reversed) {
         if (isPointNearPath(pos, path)) {
@@ -158,7 +145,7 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         }
       }
     }
-    // 7. Cek Walls (Prioritas Terendah - Layer Bawah)
+    // 7. Walls
     if (hitId == null) {
       for (var wall in walls) {
         if (isPointNearLine(pos, wall.start, wall.end, 15.0)) {
@@ -185,13 +172,12 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
     notifyListeners();
   }
 
-  // --- Helper Geometri ---
   bool isPointNearLine(Offset p, Offset a, Offset b, double threshold) {
     double dx = b.dx - a.dx;
     double dy = b.dy - a.dy;
     if (dx == 0 && dy == 0) return false;
     double t = ((p.dx - a.dx) * dx + (p.dy - a.dy) * dy) / (dx * dx + dy * dy);
-    t = max(0, min(1, t)); // Clamp agar tetap di dalam segmen garis
+    t = max(0, min(1, t));
     Offset closest = Offset(a.dx + t * dx, a.dy + t * dy);
     return (p - closest).distance < threshold;
   }
@@ -206,7 +192,6 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
     return false;
   }
 
-  // --- Logic Hapus ---
   void deleteSelected() {
     if (selectedId == null && multiSelectedIds.isEmpty) return;
     final idsToDelete = isMultiSelectMode
@@ -256,7 +241,6 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         'isPath': false,
         'isGroup': true,
         'nav': null,
-        // Grup sementara tidak support ref image
       };
     } catch (_) {}
     try {
