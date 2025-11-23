@@ -43,8 +43,6 @@ class PlanPainter extends CustomPainter {
       bool showDims = controller.layerDims || isDrawingWall;
 
       for (var wall in controller.walls) {
-        // --- PERBAIKAN BUG HIGHLIGHT DI SINI ---
-        // Sebelumnya ada (!controller.isObjectSelected) yang membuat tembok gagal terdeteksi
         bool isSel =
             (controller.selectedId == wall.id) ||
             controller.multiSelectedIds.contains(wall.id);
@@ -73,16 +71,28 @@ class PlanPainter extends CustomPainter {
         Paint previewPaint = Paint()
           ..color = controller.activeColor.withOpacity(0.5)
           ..strokeWidth = controller.activeStrokeWidth;
+
         canvas.drawLine(
           controller.tempStart!,
           controller.tempEnd!,
           previewPaint,
         );
+
+        // --- PERBAIKAN: Tampilkan label ukuran saat menggambar (Preview) ---
+        _drawWallLabel(
+          canvas,
+          Wall(
+            id: 'temp',
+            start: controller.tempStart!,
+            end: controller.tempEnd!,
+            thickness: controller.activeStrokeWidth,
+          ),
+        );
+        // ------------------------------------------------------------------
       }
     }
 
     // 3. Portals (Pintu/Jendela)
-    // Digambar di atas layer tembok agar menutupi
     if (controller.layerWalls) {
       for (var portal in controller.portals) {
         bool isSel =
