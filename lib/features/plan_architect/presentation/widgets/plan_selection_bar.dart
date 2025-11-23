@@ -68,7 +68,18 @@ class PlanSelectionBar extends StatelessWidget {
               .fontSize;
         } catch (_) {}
       } else if (data['type'] == 'Bentuk') {
-        currentSize = 5.0;
+        // Untuk bentuk, kita coba ambil lebar rect sebagai referensi 'size'
+        try {
+          final shape = controller.shapes.firstWhere(
+            (s) => s.id == controller.selectedId,
+          );
+          // Menggunakan lebar / 10 sebagai representasi nilai slider (karena logic di mixin dikali 10)
+          // Atau kita bisa set default jika logika slider berbeda.
+          // Di PlanEditMixin: newWidth = stroke * 10;
+          currentSize = shape.rect.width / 10.0;
+        } catch (_) {
+          currentSize = 5.0;
+        }
       }
     }
 
@@ -188,18 +199,33 @@ class PlanSelectionBar extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // --- MODIFIKASI: Tampilkan Nilai Ukuran ---
                         Padding(
-                          padding: const EdgeInsets.only(left: 8.0),
-                          child: Text(
-                            (data['type'] == 'Struktur' && currentSize > 10)
-                                ? "Lebar Objek"
-                                : "Ukuran",
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
+                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                (data['type'] == 'Struktur' && currentSize > 10)
+                                    ? "Lebar Objek"
+                                    : "Ukuran",
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              Text(
+                                currentSize.toStringAsFixed(1),
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: colorScheme.primary,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
+                        // ------------------------------------------
                         SizedBox(
                           height: 24,
                           child: SliderTheme(
@@ -327,7 +353,6 @@ class PlanSelectionBar extends StatelessWidget {
                     },
                   ),
 
-                // --- TOMBOL BARU: PINDAH DENAH ---
                 if (buildingDirectory != null && currentPlanFilename != null)
                   _buildQuickAction(
                     context,
@@ -361,7 +386,6 @@ class PlanSelectionBar extends StatelessWidget {
                     },
                   ),
 
-                // -----------------------------------
                 if (isGroup)
                   _buildQuickAction(
                     context,
