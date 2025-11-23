@@ -88,7 +88,7 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
     String? name,
     String? navTarget,
     bool? isFilled,
-    String? referenceImage, // TAMBAHAN: PARAMETER BARU
+    String? referenceImage,
   }) {
     if (selectedId == null) return;
 
@@ -106,7 +106,7 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
             name: name,
             navTargetFloorId: navTarget,
             size: stroke,
-            referenceImage: referenceImage, // UPDATE
+            referenceImage: referenceImage,
           ),
       );
     } else if ((idx = walls.indexWhere((w) => w.id == selectedId)) != -1) {
@@ -116,7 +116,7 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
             color: color,
             thickness: stroke,
             description: desc,
-            referenceImage: referenceImage, // UPDATE
+            referenceImage: referenceImage,
           ),
       );
     } else if ((idx = paths.indexWhere((p) => p.id == selectedId)) != -1) {
@@ -144,7 +144,7 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
           ..[idx] = portals[idx].copyWith(
             color: color,
             width: stroke,
-            referenceImage: referenceImage, // UPDATE
+            referenceImage: referenceImage,
           ),
       );
     } else if ((idx = shapes.indexWhere((s) => s.id == selectedId)) != -1) {
@@ -169,7 +169,7 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
             name: name,
             rect: stroke != null ? newRect : null,
             isFilled: isFilled,
-            referenceImage: referenceImage, // UPDATE
+            referenceImage: referenceImage,
           ),
       );
     }
@@ -216,12 +216,157 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
   void updateSelectedStrokeWidth(double width) =>
       updateSelectedAttribute(stroke: width);
 
+  // --- IMPLEMENTASI FUNGSI REORDER (URUTAN) ---
+
   void bringToFront() {
     if (selectedId == null) return;
-    // ... (Logika reorder list - opsional)
+
+    // Cek Groups
+    int gIdx = groups.indexWhere((g) => g.id == selectedId);
+    if (gIdx != -1) {
+      final item = groups[gIdx];
+      final newList = List<PlanGroup>.from(groups)
+        ..removeAt(gIdx)
+        ..add(item);
+      updateActiveFloor(groups: newList);
+      saveState();
+      return;
+    }
+
+    // Cek Objects
+    int oIdx = objects.indexWhere((o) => o.id == selectedId);
+    if (oIdx != -1) {
+      final item = objects[oIdx];
+      final newList = List<PlanObject>.from(objects)
+        ..removeAt(oIdx)
+        ..add(item);
+      updateActiveFloor(objects: newList);
+      saveState();
+      return;
+    }
+
+    // Cek Shapes
+    int sIdx = shapes.indexWhere((s) => s.id == selectedId);
+    if (sIdx != -1) {
+      final item = shapes[sIdx];
+      final newList = List<PlanShape>.from(shapes)
+        ..removeAt(sIdx)
+        ..add(item);
+      updateActiveFloor(shapes: newList);
+      saveState();
+      return;
+    }
+
+    // Cek Paths
+    int pIdx = paths.indexWhere((p) => p.id == selectedId);
+    if (pIdx != -1) {
+      final item = paths[pIdx];
+      final newList = List<PlanPath>.from(paths)
+        ..removeAt(pIdx)
+        ..add(item);
+      updateActiveFloor(paths: newList);
+      saveState();
+      return;
+    }
+
+    // Cek Labels
+    int lIdx = labels.indexWhere((l) => l.id == selectedId);
+    if (lIdx != -1) {
+      final item = labels[lIdx];
+      final newList = List<PlanLabel>.from(labels)
+        ..removeAt(lIdx)
+        ..add(item);
+      updateActiveFloor(labels: newList);
+      saveState();
+      return;
+    }
+
+    // Cek Portals
+    int portIdx = portals.indexWhere((p) => p.id == selectedId);
+    if (portIdx != -1) {
+      final item = portals[portIdx];
+      final newList = List<PlanPortal>.from(portals)
+        ..removeAt(portIdx)
+        ..add(item);
+      updateActiveFloor(portals: newList);
+      saveState();
+      return;
+    }
   }
 
   void sendToBack() {
-    // ... (Logika reorder list - opsional)
+    if (selectedId == null) return;
+
+    // Cek Groups
+    int gIdx = groups.indexWhere((g) => g.id == selectedId);
+    if (gIdx != -1) {
+      final item = groups[gIdx];
+      final newList = List<PlanGroup>.from(groups)
+        ..removeAt(gIdx)
+        ..insert(0, item);
+      updateActiveFloor(groups: newList);
+      saveState();
+      return;
+    }
+
+    // Cek Objects
+    int oIdx = objects.indexWhere((o) => o.id == selectedId);
+    if (oIdx != -1) {
+      final item = objects[oIdx];
+      final newList = List<PlanObject>.from(objects)
+        ..removeAt(oIdx)
+        ..insert(0, item);
+      updateActiveFloor(objects: newList);
+      saveState();
+      return;
+    }
+
+    // Cek Shapes
+    int sIdx = shapes.indexWhere((s) => s.id == selectedId);
+    if (sIdx != -1) {
+      final item = shapes[sIdx];
+      final newList = List<PlanShape>.from(shapes)
+        ..removeAt(sIdx)
+        ..insert(0, item);
+      updateActiveFloor(shapes: newList);
+      saveState();
+      return;
+    }
+
+    // Cek Paths
+    int pIdx = paths.indexWhere((p) => p.id == selectedId);
+    if (pIdx != -1) {
+      final item = paths[pIdx];
+      final newList = List<PlanPath>.from(paths)
+        ..removeAt(pIdx)
+        ..insert(0, item);
+      updateActiveFloor(paths: newList);
+      saveState();
+      return;
+    }
+
+    // Cek Labels
+    int lIdx = labels.indexWhere((l) => l.id == selectedId);
+    if (lIdx != -1) {
+      final item = labels[lIdx];
+      final newList = List<PlanLabel>.from(labels)
+        ..removeAt(lIdx)
+        ..insert(0, item);
+      updateActiveFloor(labels: newList);
+      saveState();
+      return;
+    }
+
+    // Cek Portals
+    int portIdx = portals.indexWhere((p) => p.id == selectedId);
+    if (portIdx != -1) {
+      final item = portals[portIdx];
+      final newList = List<PlanPortal>.from(portals)
+        ..removeAt(portIdx)
+        ..insert(0, item);
+      updateActiveFloor(portals: newList);
+      saveState();
+      return;
+    }
   }
 }
