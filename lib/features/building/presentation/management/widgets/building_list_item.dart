@@ -21,11 +21,9 @@ class BuildingListItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final folderName = p.basename(buildingFolder.path);
 
-    // Bungkus seluruh ListTile dengan FutureBuilder
     return FutureBuilder<Map<String, dynamic>>(
       future: iconDataFuture,
       builder: (context, snapshot) {
-        // Default values saat loading
         Widget leadingIcon = _buildIconContainer(
           const SizedBox(
             width: 20,
@@ -96,6 +94,18 @@ class BuildingListItem extends StatelessWidget {
                       ],
                     ),
                   ),
+                  // --- TAMBAHAN: Opsi Kelola Daftar Denah ---
+                  const PopupMenuItem(
+                    value: 'manage_plans',
+                    child: Row(
+                      children: [
+                        Icon(Icons.layers, color: Colors.purple),
+                        SizedBox(width: 8),
+                        Text('Kelola Daftar Denah'),
+                      ],
+                    ),
+                  ),
+                  // ------------------------------------------
                   const PopupMenuItem(
                     value: 'move',
                     child: Row(

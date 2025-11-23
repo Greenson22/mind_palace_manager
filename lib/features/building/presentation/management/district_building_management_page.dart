@@ -50,10 +50,11 @@ class _DistrictBuildingManagementPageState
   Future<void> _refreshList() async {
     setState(() => _isLoading = true);
     if (!await checkAndRequestPermissions()) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Izin ditolak')));
+      }
       setState(() => _isLoading = false);
       return;
     }
@@ -61,10 +62,11 @@ class _DistrictBuildingManagementPageState
       final list = await _logic.loadBuildings();
       setState(() => _buildingFolders = list);
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
     }
     setState(() => _isLoading = false);
   }
@@ -149,7 +151,7 @@ class _DistrictBuildingManagementPageState
         }
         await folder.rename(p.join(targetDistrict.path, newName));
         await _logic.removeBuildingFromMapData(name);
-        if (mounted)
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
@@ -157,12 +159,14 @@ class _DistrictBuildingManagementPageState
               ),
             ),
           );
+        }
         _refreshList();
       } catch (e) {
-        if (mounted)
+        if (mounted) {
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(SnackBar(content: Text('Gagal pindah: $e')));
+        }
         setState(() => _isLoading = false);
       }
     }
@@ -193,15 +197,17 @@ class _DistrictBuildingManagementPageState
       try {
         await _logic.retractToWarehouse(folder);
         _refreshList();
-        if (mounted)
+        if (mounted) {
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(const SnackBar(content: Text('Tersimpan di Bank.')));
+        }
       } catch (e) {
-        if (mounted)
+        if (mounted) {
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(SnackBar(content: Text('Gagal: $e')));
+        }
         setState(() => _isLoading = false);
       }
     }
@@ -222,15 +228,17 @@ class _DistrictBuildingManagementPageState
         'icon_${p.basename(folder.path)}_${DateTime.now().millisecondsSinceEpoch}${p.extension(f.path)}',
       );
       await f.copy(dest);
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Ikon diexport.')));
+      }
     } else {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Bukan ikon gambar.')));
+      }
     }
   }
 
@@ -332,10 +340,12 @@ class _DistrictBuildingManagementPageState
                   onTap: () => _navigateToView(folder),
                   onActionSelected: (action) {
                     if (action == 'view') _navigateToView(folder);
+
                     // Aksi khusus Edit Plan (Buka denah pertama dalam mode edit)
                     if (action == 'edit_plan') {
                       _navigateToView(folder, editMode: true);
                     }
+
                     // --- MENU BARU: KELOLA DENAH ---
                     if (action == 'manage_plans') {
                       Navigator.push(
@@ -348,6 +358,7 @@ class _DistrictBuildingManagementPageState
                         ),
                       );
                     }
+
                     // Aksi khusus Edit Ruangan (Bangunan Biasa)
                     if (action == 'edit_room') {
                       Navigator.push(
