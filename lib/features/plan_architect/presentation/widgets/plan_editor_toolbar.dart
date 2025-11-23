@@ -56,6 +56,16 @@ class PlanEditorToolbar extends StatelessWidget {
                   isActive: controller.activeTool == PlanTool.hand,
                   onTap: () => controller.setTool(PlanTool.hand),
                 ),
+
+                // --- PERUBAHAN 6: TOMBOL BARU GESER SEMUA ---
+                _buildToolBtn(
+                  icon: Icons.transform,
+                  label: "Geser Isi",
+                  isActive: controller.activeTool == PlanTool.moveAll,
+                  onTap: () => controller.setTool(PlanTool.moveAll),
+                ),
+
+                // ---------------------------------------------
                 _buildToolBtn(
                   icon: Icons.near_me, // Select cursor
                   label: "Pilih",

@@ -4,7 +4,18 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../data/plan_models.dart';
 
-enum PlanTool { select, wall, object, text, eraser, freehand, shape, hand }
+// --- PERUBAHAN 1: Tambahkan 'moveAll' ke enum ---
+enum PlanTool {
+  select,
+  wall,
+  object,
+  text,
+  eraser,
+  freehand,
+  shape,
+  hand,
+  moveAll,
+}
 
 class PlanController extends ChangeNotifier {
   List<PlanFloor> floors = [];
@@ -273,7 +284,14 @@ class PlanController extends ChangeNotifier {
         isDragging = true;
         lastDragPos = enableSnap ? _snapToGrid(localPos) : localPos;
       }
-    } else if (activeTool == PlanTool.wall || activeTool == PlanTool.shape) {
+    }
+    // --- PERUBAHAN 2: Inisialisasi drag untuk Move All ---
+    else if (activeTool == PlanTool.moveAll) {
+      isDragging = true;
+      lastDragPos = localPos;
+    }
+    // -----------------------------------------------------
+    else if (activeTool == PlanTool.wall || activeTool == PlanTool.shape) {
       Offset pos = (activeTool == PlanTool.wall)
           ? _getSmartSnapPoint(localPos)
           : localPos;
@@ -298,7 +316,17 @@ class PlanController extends ChangeNotifier {
         _moveSelectedItem(delta);
         lastDragPos = targetPos;
       }
-    } else if (activeTool == PlanTool.wall && tempStart != null) {
+    }
+    // --- PERUBAHAN 3: Logika Move All saat drag ---
+    else if (activeTool == PlanTool.moveAll &&
+        isDragging &&
+        lastDragPos != null) {
+      final delta = localPos - lastDragPos!;
+      _moveAllContent(delta);
+      lastDragPos = localPos;
+    }
+    // -----------------------------------------------
+    else if (activeTool == PlanTool.wall && tempStart != null) {
       Offset pos = _getSmartSnapPoint(localPos);
       if ((pos.dx - tempStart!.dx).abs() < 10)
         pos = Offset(tempStart!.dx, pos.dy);
@@ -320,7 +348,15 @@ class PlanController extends ChangeNotifier {
       isDragging = false;
       lastDragPos = null;
       _saveState();
-    } else if (activeTool == PlanTool.wall &&
+    }
+    // --- PERUBAHAN 4: Simpan state setelah Move All ---
+    else if (activeTool == PlanTool.moveAll && isDragging) {
+      isDragging = false;
+      lastDragPos = null;
+      _saveState();
+    }
+    // --------------------------------------------------
+    else if (activeTool == PlanTool.wall &&
         tempStart != null &&
         tempEnd != null) {
       if ((tempStart! - tempEnd!).distance > 5) {
@@ -381,7 +417,7 @@ class PlanController extends ChangeNotifier {
       return;
     }
 
-    if (activeTool == PlanTool.hand) return;
+    if (activeTool == PlanTool.hand || activeTool == PlanTool.moveAll) return;
 
     if (activeTool == PlanTool.object && selectedObjectIcon != null) {
       Offset pos = enableSnap ? _snapToGrid(localPos) : localPos;
@@ -415,7 +451,24 @@ class PlanController extends ChangeNotifier {
     _saveState();
   }
 
-  // ... (Bagian Modifiers & Hit Test SAMA, kecuali updateSelectedAttribute & duplicate) ...
+  // --- PERUBAHAN 5: Helper Function Move All Content ---
+  void _moveAllContent(Offset delta) {
+    final newWalls = walls.map((w) => w.moveBy(delta)).toList();
+    final newObjects = objects.map((o) => o.moveBy(delta)).toList();
+    final newPaths = paths.map((p) => p.moveBy(delta)).toList();
+    final newLabels = labels.map((l) => l.moveBy(delta)).toList();
+    final newShapes = shapes.map((s) => s.moveBy(delta)).toList();
+
+    _updateActiveFloor(
+      walls: newWalls,
+      objects: newObjects,
+      paths: newPaths,
+      labels: newLabels,
+      shapes: newShapes,
+    );
+  }
+  // -----------------------------------------------------
+
   void _moveSelectedItem(Offset delta) {
     List<PlanShape> newShapes = List.from(shapes);
     final shpIdx = newShapes.indexWhere((s) => s.id == selectedId);
@@ -467,10 +520,9 @@ class PlanController extends ChangeNotifier {
     _saveState();
   }
 
-  // --- PERBAIKAN UTAMA: HANDLE RESIZING UNTUK SEMUA TIPE ---
   void updateSelectedAttribute({
     Color? color,
-    double? stroke, // Ini sekarang dipakai sebagai "Size/Dimension"
+    double? stroke,
     String? desc,
     String? name,
     String? navTarget,
@@ -486,7 +538,7 @@ class PlanController extends ChangeNotifier {
         description: desc,
         name: name,
         navTargetFloorId: navTarget,
-        size: stroke, // Update size
+        size: stroke,
       );
       _updateActiveFloor(objects: newObjects);
       _saveState();
@@ -499,7 +551,7 @@ class PlanController extends ChangeNotifier {
     if (wIdx != -1) {
       newWalls[wIdx] = newWalls[wIdx].copyWith(
         color: color,
-        thickness: stroke, // Update thickness
+        thickness: stroke,
         description: desc,
       );
       _updateActiveFloor(walls: newWalls);
@@ -507,13 +559,13 @@ class PlanController extends ChangeNotifier {
       return;
     }
 
-    // 3. Paths (Images/Freehand)
+    // 3. Paths
     List<PlanPath> newPaths = List.from(paths);
     final pIdx = newPaths.indexWhere((p) => p.id == selectedId);
     if (pIdx != -1) {
       newPaths[pIdx] = newPaths[pIdx].copyWith(
         color: color,
-        strokeWidth: stroke, // Update stroke
+        strokeWidth: stroke,
         description: desc,
         name: name,
       );
@@ -529,7 +581,7 @@ class PlanController extends ChangeNotifier {
       newLabels[lIdx] = newLabels[lIdx].copyWith(
         color: color,
         text: name,
-        fontSize: stroke, // Update font size
+        fontSize: stroke,
       );
       _updateActiveFloor(labels: newLabels);
       _saveState();
@@ -541,13 +593,11 @@ class PlanController extends ChangeNotifier {
     final sIdx = newShapes.indexWhere((s) => s.id == selectedId);
     if (sIdx != -1) {
       PlanShape oldShape = newShapes[sIdx];
-      // Logic Resize Shape: Pertahankan aspect ratio
       Rect newRect = oldShape.rect;
       if (stroke != null) {
         final center = oldShape.rect.center;
         final aspectRatio = oldShape.rect.height / oldShape.rect.width;
-        final newWidth =
-            stroke * 10; // Skala diperbesar agar slider 1-20 terasa pas
+        final newWidth = stroke * 10;
         final newHeight = newWidth * aspectRatio;
         newRect = Rect.fromCenter(
           center: center,
@@ -646,7 +696,6 @@ class PlanController extends ChangeNotifier {
     updateSelectedAttribute(stroke: width);
   }
 
-  // ... (Bagian Duplicate, Rotate, BringToFront, SendToBack SAMA) ...
   void duplicateSelected() {
     if (selectedId == null) return;
     final offset = const Offset(20, 20);
