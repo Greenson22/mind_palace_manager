@@ -474,9 +474,13 @@ class PlanObject {
       (json['x'] as num).toDouble(),
       (json['y'] as num).toDouble(),
     ),
-    name: json['name'],
-    description: json['description'],
-    iconCodePoint: json['icon'],
+    // PERBAIKAN UTAMA: Tambahkan fallback string kosong jika null
+    name: json['name'] ?? 'Objek',
+    // PERBAIKAN BUG: Ubah json['description'] menjadi json['desc'] dan berikan fallback string kosong
+    description: json['desc'] ?? '',
+    // PENGAMAN: Berikan icon default jika null (misal: icon kotak/help)
+    iconCodePoint: json['icon'] ?? Icons.help_outline.codePoint,
+
     rotation: (json['rot'] as num?)?.toDouble() ?? 0.0,
     flipX: json['flpX'] ?? false,
     color: json['col'] != null ? Color(json['col']) : Colors.black87,
