@@ -44,7 +44,11 @@ class PlanPortal {
 
   factory PlanPortal.fromJson(Map<String, dynamic> json) => PlanPortal(
     id: json['id'],
-    position: Offset(json['x'], json['y']),
+    // PENGAMAN: Menggunakan (as num).toDouble() agar aman untuk Int/Double
+    position: Offset(
+      (json['x'] as num).toDouble(),
+      (json['y'] as num).toDouble(),
+    ),
     rotation: (json['rot'] as num?)?.toDouble() ?? 0.0,
     width: (json['w'] as num?)?.toDouble() ?? 40.0,
     type: PlanPortalType.values[json['type'] ?? 0],
@@ -188,7 +192,11 @@ class PlanGroup {
 
   factory PlanGroup.fromJson(Map<String, dynamic> json) => PlanGroup(
     id: json['id'],
-    position: Offset(json['x'], json['y']),
+    // PENGAMAN KOORDINAT
+    position: Offset(
+      (json['x'] as num).toDouble(),
+      (json['y'] as num).toDouble(),
+    ),
     rotation: (json['rot'] as num?)?.toDouble() ?? 0.0,
     flipX: json['flpX'] ?? false,
     name: json['name'] ?? "Grup",
@@ -346,7 +354,7 @@ class Wall {
   final String description;
   final Color color;
   final String? referenceImage;
-  final String? navTargetFloorId; // --- PROPERTI BARU ---
+  final String? navTargetFloorId;
 
   Wall({
     required this.id,
@@ -369,18 +377,22 @@ class Wall {
     'desc': description,
     'col': color.value,
     'refImg': referenceImage,
-    'nav': navTargetFloorId, // Baru
+    'nav': navTargetFloorId,
   };
 
   factory Wall.fromJson(Map<String, dynamic> json) => Wall(
     id: json['id'],
-    start: Offset(json['sx'], json['sy']),
-    end: Offset(json['ex'], json['ey']),
+    // PENGAMAN KOORDINAT
+    start: Offset(
+      (json['sx'] as num).toDouble(),
+      (json['sy'] as num).toDouble(),
+    ),
+    end: Offset((json['ex'] as num).toDouble(), (json['ey'] as num).toDouble()),
     thickness: (json['thick'] as num?)?.toDouble() ?? 2.0,
     description: json['desc'] ?? 'Tembok',
     color: json['col'] != null ? Color(json['col']) : Colors.black,
     referenceImage: json['refImg'],
-    navTargetFloorId: json['nav'], // Baru
+    navTargetFloorId: json['nav'],
   );
 
   Wall copyWith({
@@ -391,7 +403,7 @@ class Wall {
     Offset? end,
     Color? color,
     String? referenceImage,
-    String? navTargetFloorId, // Baru
+    String? navTargetFloorId,
   }) {
     return Wall(
       id: id ?? this.id,
@@ -401,7 +413,7 @@ class Wall {
       description: description ?? this.description,
       color: color ?? this.color,
       referenceImage: referenceImage ?? this.referenceImage,
-      navTargetFloorId: navTargetFloorId ?? this.navTargetFloorId, // Baru
+      navTargetFloorId: navTargetFloorId ?? this.navTargetFloorId,
     );
   }
 
@@ -449,7 +461,7 @@ class PlanObject {
     'rot': rotation,
     'flpX': flipX,
     'col': color.value,
-    'navFloor': navTargetFloorId,
+    'nav': navTargetFloorId, // KUNCI YANG KONSISTEN
     'size': size,
     'imgPath': imagePath,
     'refImg': referenceImage,
@@ -457,14 +469,19 @@ class PlanObject {
 
   factory PlanObject.fromJson(Map<String, dynamic> json) => PlanObject(
     id: json['id'],
-    position: Offset(json['x'], json['y']),
+    // PENGAMAN PENTING: Mengubah int ke double secara paksa
+    position: Offset(
+      (json['x'] as num).toDouble(),
+      (json['y'] as num).toDouble(),
+    ),
     name: json['name'],
     description: json['description'],
     iconCodePoint: json['icon'],
     rotation: (json['rot'] as num?)?.toDouble() ?? 0.0,
     flipX: json['flpX'] ?? false,
     color: json['col'] != null ? Color(json['col']) : Colors.black87,
-    navTargetFloorId: json['navFloor'],
+    // MEMBACA DUA KEMUNGKINAN KUNCI (Kompatibilitas)
+    navTargetFloorId: json['nav'] ?? json['navFloor'],
     size: (json['size'] as num?)?.toDouble() ?? 14.0,
     imagePath: json['imgPath'],
     referenceImage: json['refImg'],
@@ -530,7 +547,11 @@ class PlanLabel {
 
   factory PlanLabel.fromJson(Map<String, dynamic> json) => PlanLabel(
     id: json['id'],
-    position: Offset(json['x'], json['y']),
+    // PENGAMAN KOORDINAT
+    position: Offset(
+      (json['x'] as num).toDouble(),
+      (json['y'] as num).toDouble(),
+    ),
     text: json['text'],
     fontSize: (json['size'] as num?)?.toDouble() ?? 12.0,
     color: json['col'] != null ? Color(json['col']) : Colors.black,
@@ -587,7 +608,12 @@ class PlanPath {
   factory PlanPath.fromJson(Map<String, dynamic> json) => PlanPath(
     id: json['id'],
     points: (json['points'] as List)
-        .map((p) => Offset(p['dx'], p['dy']))
+        .map(
+          (p) => Offset(
+            (p['dx'] as num).toDouble(), // PENGAMAN
+            (p['dy'] as num).toDouble(), // PENGAMAN
+          ),
+        )
         .toList(),
     color: Color(json['color']),
     strokeWidth: (json['width'] as num).toDouble(),
@@ -663,7 +689,13 @@ class PlanShape {
 
   factory PlanShape.fromJson(Map<String, dynamic> json) => PlanShape(
     id: json['id'],
-    rect: Rect.fromLTWH(json['l'], json['t'], json['w'], json['h']),
+    // PENGAMAN KOORDINAT RECT
+    rect: Rect.fromLTWH(
+      (json['l'] as num).toDouble(),
+      (json['t'] as num).toDouble(),
+      (json['w'] as num).toDouble(),
+      (json['h'] as num).toDouble(),
+    ),
     type: PlanShapeType.values[json['type']],
     color: Color(json['color']),
     isFilled: json['filled'] ?? true,
