@@ -29,9 +29,13 @@ class PlanPainter extends CustomPainter {
     // 2. Walls (Layer Bawah)
     if (controller.layerWalls) {
       final Paint wallPaint = Paint()..strokeCap = StrokeCap.square;
-      final Paint selectedPaint = Paint()
+
+      // Paint untuk Highlight Seleksi Tembok
+      final Paint highlightPaint = Paint()
         ..color = Colors.blueAccent
-        ..strokeCap = StrokeCap.square;
+            .withOpacity(0.4) // Biru transparan
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke;
 
       bool isDrawingWall =
           controller.activeTool == PlanTool.wall &&
@@ -39,24 +43,31 @@ class PlanPainter extends CustomPainter {
       bool showDims = controller.layerDims || isDrawingWall;
 
       for (var wall in controller.walls) {
+        // --- PERBAIKAN BUG HIGHLIGHT DI SINI ---
+        // Sebelumnya ada (!controller.isObjectSelected) yang membuat tembok gagal terdeteksi
         bool isSel =
-            (!controller.isObjectSelected &&
-                controller.selectedId == wall.id) ||
+            (controller.selectedId == wall.id) ||
             controller.multiSelectedIds.contains(wall.id);
+
+        if (isSel) {
+          // Gambar garis highlight tebal di bawah tembok asli
+          highlightPaint.strokeWidth = wall.thickness + 12.0;
+          canvas.drawLine(wall.start, wall.end, highlightPaint);
+        }
+
         wallPaint.color = wall.color;
         wallPaint.strokeWidth = wall.thickness;
-        selectedPaint.strokeWidth = wall.thickness + 2.0;
-        canvas.drawLine(
-          wall.start,
-          wall.end,
-          isSel ? selectedPaint : wallPaint,
-        );
+
+        // Gambar tembok asli
+        canvas.drawLine(wall.start, wall.end, wallPaint);
 
         if (showDims) {
           _drawWallLabel(canvas, wall);
         }
       }
-      if (controller.activeTool == PlanTool.wall &&
+
+      // Preview saat menggambar tembok
+      if (isDrawingWall &&
           controller.tempStart != null &&
           controller.tempEnd != null) {
         Paint previewPaint = Paint()
@@ -70,8 +81,8 @@ class PlanPainter extends CustomPainter {
       }
     }
 
-    // --- BARU: GAMBAR PORTAL (Pintu & Jendela) ---
-    // Digambar di atas layer tembok
+    // 3. Portals (Pintu/Jendela)
+    // Digambar di atas layer tembok agar menutupi
     if (controller.layerWalls) {
       for (var portal in controller.portals) {
         bool isSel =
@@ -81,7 +92,7 @@ class PlanPainter extends CustomPainter {
       }
     }
 
-    // 3. Shapes, Objects & GROUPS (Layer Atas)
+    // 4. Shapes, Objects & GROUPS (Layer Atas)
     if (controller.layerObjects) {
       // Groups
       for (var group in controller.groups) {
@@ -199,7 +210,7 @@ class PlanPainter extends CustomPainter {
       }
     }
 
-    // 4. Labels
+    // 5. Labels
     if (controller.layerLabels) {
       TextPainter tp = TextPainter(textDirection: TextDirection.ltr);
       for (var label in controller.labels) {
@@ -246,37 +257,38 @@ class PlanPainter extends CustomPainter {
     canvas.rotate(portal.rotation);
 
     final double w = portal.width;
-    final double h = 6.0; // Visual ketebalan kusen
+    final double h = 6.0;
 
     Paint strokePaint = Paint()
       ..color = isSelected ? Colors.blue : portal.color
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0;
 
-    // Fill untuk menutupi tembok di bawahnya (simulasi lubang tembok)
     Paint maskPaint = Paint()
       ..color = controller.canvasColor
       ..style = PaintingStyle.fill;
 
-    // 1. Gambar kotak penutup untuk memotong tembok secara visual
+    if (isSelected) {
+      canvas.drawRect(
+        Rect.fromCenter(center: Offset.zero, width: w + 10, height: w + 10),
+        Paint()..color = Colors.blueAccent.withOpacity(0.2),
+      );
+    }
+
     canvas.drawRect(
       Rect.fromCenter(center: Offset.zero, width: w, height: h + 2),
       maskPaint,
     );
 
     if (portal.type == PlanPortalType.window) {
-      // --- GAMBAR JENDELA ---
       Rect rect = Rect.fromCenter(center: Offset.zero, width: w, height: h);
-      canvas.drawRect(rect, strokePaint); // Kusen
-      // Garis Kaca tengah
+      canvas.drawRect(rect, strokePaint);
       canvas.drawLine(
         Offset(-w / 2, 0),
         Offset(w / 2, 0),
         strokePaint..strokeWidth = 1.0,
       );
     } else if (portal.type == PlanPortalType.door) {
-      // --- GAMBAR PINTU ---
-      // Kusen Kiri & Kanan
       canvas.drawRect(
         Rect.fromLTWH(-w / 2, -h / 2, 4, h),
         Paint()..color = portal.color,
@@ -286,7 +298,6 @@ class PlanPainter extends CustomPainter {
         Paint()..color = portal.color,
       );
 
-      // Daun Pintu (Terbuka 90 derajat ke atas)
       Paint doorPaint = Paint()
         ..color = isSelected ? Colors.blue : portal.color
         ..strokeWidth = 3.0
@@ -294,16 +305,15 @@ class PlanPainter extends CustomPainter {
 
       canvas.drawLine(Offset(-w / 2, -h / 2), Offset(-w / 2, -w), doorPaint);
 
-      // Garis Bukaan (Arc)
       Paint arcPaint = Paint()
         ..color = (isSelected ? Colors.blue : portal.color).withOpacity(0.3)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.0; // Tipis
+        ..strokeWidth = 1.0;
 
       canvas.drawArc(
         Rect.fromCircle(center: Offset(-w / 2, -h / 2), radius: w),
-        -math.pi / 2, // Start angle (arah jam 12)
-        math.pi / 2, // Sweep angle (90 derajat)
+        -math.pi / 2,
+        math.pi / 2,
         false,
         arcPaint,
       );
@@ -312,7 +322,6 @@ class PlanPainter extends CustomPainter {
     canvas.restore();
   }
 
-  // ... (Method _drawGroup, _drawImage, _drawGrid, _drawShape, _drawStar, _drawWallLabel tetap sama) ...
   void _drawGroup(Canvas canvas, PlanGroup group, bool isSelected) {
     canvas.save();
     canvas.translate(group.position.dx, group.position.dy);
@@ -320,11 +329,14 @@ class PlanPainter extends CustomPainter {
 
     if (isSelected) {
       final bounds = group.getBounds().inflate(10.0);
-      canvas.drawRect(bounds, Paint()..color = Colors.orange.withOpacity(0.15));
+      canvas.drawRect(
+        bounds,
+        Paint()..color = Colors.blueAccent.withOpacity(0.2),
+      );
       canvas.drawRect(
         bounds,
         Paint()
-          ..color = Colors.orange
+          ..color = Colors.blueAccent
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2.0,
       );

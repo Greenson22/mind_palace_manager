@@ -1,4 +1,3 @@
-// lib/features/plan_architect/presentation/widgets/plan_selection_bar.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:mind_palace_manager/features/plan_architect/logic/plan_controller.dart';
@@ -57,6 +56,11 @@ class PlanSelectionBar extends StatelessWidget {
         currentSize = 5.0;
       }
     }
+
+    // --- LOGIKA SNAP UNTUK NUDGE ---
+    // Jika Snap aktif, geser sejauh gridSize. Jika tidak, geser 2px.
+    double nudgeStep = controller.enableSnap ? controller.gridSize : 2.0;
+    // -------------------------------
 
     return Container(
       constraints: const BoxConstraints(maxWidth: 600),
@@ -195,7 +199,7 @@ class PlanSelectionBar extends StatelessWidget {
 
           const SizedBox(height: 8),
 
-          // 3. PAD PENGGESER (DIRECTIONAL PAD)
+          // 3. PAD PENGGESER (Support Snap)
           Container(
             padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
             decoration: BoxDecoration(
@@ -214,29 +218,28 @@ class PlanSelectionBar extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Menggunakan NudgeButton yang di-update
                 _NudgeButton(
                   icon: Icons.chevron_left,
                   onPressed: () =>
-                      controller.nudgeSelection(const Offset(-2, 0)),
-                  onRelease: controller.saveState, // Simpan state saat dilepas
+                      controller.nudgeSelection(Offset(-nudgeStep, 0)),
+                  onRelease: controller.saveState,
                 ),
                 _NudgeButton(
                   icon: Icons.keyboard_arrow_up,
                   onPressed: () =>
-                      controller.nudgeSelection(const Offset(0, -2)),
+                      controller.nudgeSelection(Offset(0, -nudgeStep)),
                   onRelease: controller.saveState,
                 ),
                 _NudgeButton(
                   icon: Icons.keyboard_arrow_down,
                   onPressed: () =>
-                      controller.nudgeSelection(const Offset(0, 2)),
+                      controller.nudgeSelection(Offset(0, nudgeStep)),
                   onRelease: controller.saveState,
                 ),
                 _NudgeButton(
                   icon: Icons.chevron_right,
                   onPressed: () =>
-                      controller.nudgeSelection(const Offset(2, 0)),
+                      controller.nudgeSelection(Offset(nudgeStep, 0)),
                   onRelease: controller.saveState,
                 ),
               ],
@@ -423,11 +426,10 @@ class PlanSelectionBar extends StatelessWidget {
   }
 }
 
-// --- WIDGET TOMBOL GESER (Support Tekan Lama & Simpan State) ---
 class _NudgeButton extends StatefulWidget {
   final IconData icon;
   final VoidCallback onPressed;
-  final VoidCallback onRelease; // Callback baru
+  final VoidCallback onRelease;
 
   const _NudgeButton({
     required this.icon,
@@ -443,9 +445,7 @@ class _NudgeButtonState extends State<_NudgeButton> {
   Timer? _timer;
 
   void _handleTapDown(TapDownDetails details) {
-    // Eksekusi sekali saat ditekan
     widget.onPressed();
-    // Mulai timer untuk repeat jika ditahan
     _timer = Timer.periodic(const Duration(milliseconds: 100), (t) {
       widget.onPressed();
     });
@@ -463,7 +463,6 @@ class _NudgeButtonState extends State<_NudgeButton> {
     if (_timer != null) {
       _timer?.cancel();
       _timer = null;
-      // Panggil save state saat dilepas
       widget.onRelease();
     }
   }
