@@ -1,4 +1,3 @@
-// lib/features/plan_architect/presentation/widgets/plan_selection_bar.dart
 import 'package:flutter/material.dart';
 import 'package:mind_palace_manager/features/plan_architect/logic/plan_controller.dart';
 import 'package:mind_palace_manager/features/plan_architect/presentation/dialogs/plan_editor_dialogs.dart';
@@ -13,35 +12,36 @@ class PlanSelectionBar extends StatelessWidget {
     final data = controller.getSelectedItemData();
     if (data == null) return const SizedBox.shrink();
 
-    // Ambil warna dari tema saat ini
     final colorScheme = Theme.of(context).colorScheme;
+    bool isGroup = data['isGroup'] ?? false;
 
     double currentSize = 2.0;
-    if (data['type'] == 'Struktur') {
-      currentSize = controller.walls
-          .firstWhere((w) => w.id == controller.selectedId)
-          .thickness;
-    } else if (data['type'] == 'Gambar') {
-      currentSize = controller.paths
-          .firstWhere((p) => p.id == controller.selectedId)
-          .strokeWidth;
-    } else if (data['type'] == 'Interior') {
-      currentSize = controller.objects
-          .firstWhere((o) => o.id == controller.selectedId)
-          .size;
-    } else if (data['type'] == 'Label') {
-      currentSize = controller.labels
-          .firstWhere((l) => l.id == controller.selectedId)
-          .fontSize;
-    } else if (data['type'] == 'Bentuk') {
-      currentSize = 5.0;
+    if (!isGroup) {
+      if (data['type'] == 'Struktur') {
+        currentSize = controller.walls
+            .firstWhere((w) => w.id == controller.selectedId)
+            .thickness;
+      } else if (data['type'] == 'Gambar') {
+        currentSize = controller.paths
+            .firstWhere((p) => p.id == controller.selectedId)
+            .strokeWidth;
+      } else if (data['type'] == 'Interior') {
+        currentSize = controller.objects
+            .firstWhere((o) => o.id == controller.selectedId)
+            .size;
+      } else if (data['type'] == 'Label') {
+        currentSize = controller.labels
+            .firstWhere((l) => l.id == controller.selectedId)
+            .fontSize;
+      } else if (data['type'] == 'Bentuk') {
+        currentSize = 5.0;
+      }
     }
 
     return Container(
       constraints: const BoxConstraints(maxWidth: 600),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        // Gunakan warna Surface (putih di light, abu gelap di dark)
         color: colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
@@ -51,13 +51,11 @@ class PlanSelectionBar extends StatelessWidget {
             offset: Offset(0, 5),
           ),
         ],
-        // Border menyesuaikan dengan divider atau outline tema
         border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Header
           Row(
             children: [
               Container(
@@ -67,7 +65,7 @@ class PlanSelectionBar extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  Icons.touch_app,
+                  isGroup ? Icons.group_work : Icons.touch_app,
                   size: 16,
                   color: colorScheme.onPrimaryContainer,
                 ),
@@ -82,16 +80,14 @@ class PlanSelectionBar extends StatelessWidget {
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
-                        // Warna teks utama
                         color: colorScheme.onSurface,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
-                      data['type'] ?? "Item",
+                      data['desc'] ?? data['type'] ?? "Item",
                       style: TextStyle(
                         fontSize: 11,
-                        // Warna teks sekunder (abu-abu yang terlihat di dark mode)
                         color: colorScheme.onSurfaceVariant,
                       ),
                     ),
@@ -117,55 +113,72 @@ class PlanSelectionBar extends StatelessWidget {
             child: Divider(height: 1),
           ),
 
-          // Controls
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildQuickAction(
-                context,
-                icon: Icons.color_lens,
-                label: "Warna",
-                onTap: () => PlanEditorDialogs.showColorPicker(
+              if (!isGroup)
+                _buildQuickAction(
                   context,
-                  (c) => controller.updateSelectedAttribute(color: c),
+                  icon: Icons.color_lens,
+                  label: "Warna",
+                  onTap: () => PlanEditorDialogs.showColorPicker(
+                    context,
+                    (c) => controller.updateSelectedAttribute(color: c),
+                  ),
                 ),
-              ),
 
-              // SLIDER UKURAN
-              Expanded(
-                child: Column(
-                  children: [
-                    Text(
-                      "Ukuran",
-                      style: TextStyle(
-                        fontSize: 9,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    SizedBox(
-                      height: 20,
-                      child: SliderTheme(
-                        data: SliderTheme.of(context).copyWith(
-                          thumbShape: const RoundSliderThumbShape(
-                            enabledThumbRadius: 5,
-                          ),
-                          overlayShape: const RoundSliderOverlayShape(
-                            overlayRadius: 10,
-                          ),
-                        ),
-                        child: Slider(
-                          value: currentSize.clamp(1.0, 50.0),
-                          min: 1.0,
-                          max: 50.0,
-                          divisions: 49,
-                          onChanged: (v) =>
-                              controller.updateSelectedStrokeWidth(v),
+              if (!isGroup)
+                Expanded(
+                  child: Column(
+                    children: [
+                      Text(
+                        "Ukuran",
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: colorScheme.onSurfaceVariant,
                         ),
                       ),
-                    ),
-                  ],
+                      SizedBox(
+                        height: 20,
+                        child: SliderTheme(
+                          data: SliderTheme.of(context).copyWith(
+                            thumbShape: const RoundSliderThumbShape(
+                              enabledThumbRadius: 5,
+                            ),
+                            overlayShape: const RoundSliderOverlayShape(
+                              overlayRadius: 10,
+                            ),
+                          ),
+                          child: Slider(
+                            value: currentSize.clamp(1.0, 50.0),
+                            min: 1.0,
+                            max: 50.0,
+                            divisions: 49,
+                            onChanged: (v) =>
+                                controller.updateSelectedStrokeWidth(v),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+
+              // --- TOMBOL GROUP & SAVE ---
+              if (isGroup)
+                _buildQuickAction(
+                  context,
+                  icon: Icons.group_off,
+                  label: "Ungroup",
+                  onTap: controller.ungroupSelected,
+                ),
+
+              if (isGroup || (data['isPath'] == true))
+                _buildQuickAction(
+                  context,
+                  icon: Icons.bookmark_add,
+                  label: "Simpan",
+                  onTap: controller.saveCurrentSelectionToLibrary,
+                ),
 
               _buildQuickAction(
                 context,
@@ -249,9 +262,7 @@ class PlanSelectionBar extends StatelessWidget {
     required VoidCallback onTap,
     Color? color,
   }) {
-    // Gunakan warna teks onSurface jika warna tidak spesifik
     final finalColor = color ?? Theme.of(context).colorScheme.onSurface;
-
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),

@@ -1,4 +1,3 @@
-// lib/features/plan_architect/presentation/widgets/plan_editor_toolbar.dart
 import 'package:flutter/material.dart';
 import 'package:mind_palace_manager/features/plan_architect/logic/plan_controller.dart';
 import 'package:mind_palace_manager/features/plan_architect/data/plan_models.dart';
@@ -17,7 +16,6 @@ class PlanEditorToolbar extends StatelessWidget {
       constraints: const BoxConstraints(maxWidth: 600),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-        // Gunakan surface agar gelap di dark mode
         color: colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
@@ -31,13 +29,11 @@ class PlanEditorToolbar extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // BARIS 1: ALAT UTAMA
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Group: History
                 _buildIconButton(
                   context,
                   icon: Icons.undo,
@@ -52,39 +48,50 @@ class PlanEditorToolbar extends StatelessWidget {
                 ),
                 _buildDivider(context),
 
-                // Group: Tools
                 _buildToolBtn(
                   context,
-                  icon: Icons.pan_tool_alt, // Hand tool
+                  icon: Icons.pan_tool_alt,
                   label: "Geser",
                   isActive: controller.activeTool == PlanTool.hand,
                   onTap: () => controller.setTool(PlanTool.hand),
                 ),
-
                 _buildToolBtn(
                   context,
-                  icon: Icons.transform,
-                  label: "Geser Isi",
-                  isActive: controller.activeTool == PlanTool.moveAll,
-                  onTap: () => controller.setTool(PlanTool.moveAll),
-                ),
-
-                _buildToolBtn(
-                  context,
-                  icon: Icons.near_me, // Select cursor
+                  icon: Icons.near_me,
                   label: "Pilih",
                   isActive: controller.activeTool == PlanTool.select,
                   onTap: () => controller.setTool(PlanTool.select),
                 ),
+
+                // --- TOMBOL MULTI SELECT (BARU) ---
+                _buildIconButton(
+                  context,
+                  icon: Icons.checklist,
+                  tooltip: "Multi Select",
+                  isActive: controller.isMultiSelectMode,
+                  onTap: controller.toggleMultiSelectMode,
+                  color: controller.isMultiSelectMode ? Colors.orange : null,
+                ),
+
+                // --- TOMBOL GROUP (BARU) ---
+                if (controller.isMultiSelectMode &&
+                    controller.multiSelectedIds.isNotEmpty)
+                  _buildIconButton(
+                    context,
+                    icon: Icons.group_work,
+                    tooltip: "Buat Grup",
+                    onTap: controller.createGroupFromSelection,
+                    color: Colors.green,
+                  ),
+
                 _buildToolBtn(
                   context,
-                  icon: Icons.grid_view, // Wall tool
+                  icon: Icons.grid_view,
                   label: "Tembok",
                   isActive: controller.activeTool == PlanTool.wall,
                   onTap: () => controller.setTool(PlanTool.wall),
                 ),
 
-                // Group: Objects & Shapes
                 PopupMenuButton<PlanShapeType>(
                   tooltip: "Pilih Bentuk",
                   offset: const Offset(0, 40),
@@ -149,7 +156,6 @@ class PlanEditorToolbar extends StatelessWidget {
 
                 _buildDivider(context),
 
-                // Group: Actions
                 _buildIconButton(
                   context,
                   icon: controller.enableSnap ? Icons.grid_on : Icons.grid_off,
@@ -170,7 +176,6 @@ class PlanEditorToolbar extends StatelessWidget {
               ],
             ),
           ),
-
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 4),
             child: Divider(height: 1, thickness: 0.5),
@@ -178,7 +183,6 @@ class PlanEditorToolbar extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Color Picker Indicator
               InkWell(
                 onTap: () => PlanEditorDialogs.showColorPicker(
                   context,
@@ -219,10 +223,7 @@ class PlanEditorToolbar extends StatelessWidget {
                   ),
                 ),
               ),
-
               const SizedBox(width: 12),
-
-              // Stroke Slider
               Icon(
                 Icons.line_weight,
                 size: 16,
@@ -284,15 +285,12 @@ class PlanEditorToolbar extends StatelessWidget {
     required String tooltip,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
-    // Warna ikon: jika ada warna spesifik (misal merah untuk hapus), gunakan itu.
-    // Jika aktif, gunakan primary. Jika tidak, gunakan onSurface (abu gelap/putih).
     final iconColor =
         color ??
         (isActive ? colorScheme.primary : colorScheme.onSurfaceVariant);
     final bgColor = isActive
         ? colorScheme.primaryContainer
         : Colors.transparent;
-
     return Tooltip(
       message: tooltip,
       child: InkWell(
@@ -322,7 +320,6 @@ class PlanEditorToolbar extends StatelessWidget {
         ? colorScheme.onPrimary
         : colorScheme.onSurfaceVariant;
     final bgColor = isActive ? colorScheme.primary : Colors.transparent;
-
     return Tooltip(
       message: label,
       child: InkWell(

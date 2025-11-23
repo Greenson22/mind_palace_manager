@@ -1,4 +1,3 @@
-// lib/features/plan_architect/logic/mixins/plan_input_mixin.dart
 import 'package:flutter/material.dart';
 import 'plan_variables.dart';
 import 'plan_view_mixin.dart';
@@ -15,7 +14,8 @@ mixin PlanInputMixin
 
     if (activeTool == PlanTool.select) {
       handleSelection(localPos);
-      if (selectedId != null) {
+      if (selectedId != null ||
+          (isMultiSelectMode && multiSelectedIds.isNotEmpty)) {
         isDragging = true;
         lastDragPos = enableSnap ? snapToGrid(localPos) : localPos;
       }
@@ -37,10 +37,7 @@ mixin PlanInputMixin
   void onPanUpdate(Offset localPos) {
     if (isViewMode || activeTool == PlanTool.hand) return;
 
-    if (activeTool == PlanTool.select &&
-        isDragging &&
-        selectedId != null &&
-        lastDragPos != null) {
+    if (activeTool == PlanTool.select && isDragging && lastDragPos != null) {
       Offset targetPos = enableSnap ? snapToGrid(localPos) : localPos;
       final delta = targetPos - lastDragPos!;
       if (delta.distanceSquared > 0) {
@@ -176,6 +173,7 @@ mixin PlanInputMixin
   }
 
   void placeSavedPath(PlanPath savedPath, Offset centerPos) {
+    // Helper lama (bisa dihapus jika tidak dipakai, tapi disimpan untuk kompatibilitas)
     if (savedPath.points.isEmpty) return;
     double minX = double.infinity,
         maxX = double.negativeInfinity,
@@ -199,5 +197,19 @@ mixin PlanInputMixin
     updateActiveFloor(paths: [...paths, newPath]);
     saveState();
     notifyListeners();
+  }
+
+  // --- BARU: TEMPATKAN ITEM DARI LIBRARY ---
+  void placeSavedItem(dynamic savedItem, Offset centerPos) {
+    final newId = DateTime.now().millisecondsSinceEpoch.toString();
+
+    if (savedItem is PlanPath) {
+      placeSavedPath(savedItem, centerPos);
+    } else if (savedItem is PlanGroup) {
+      final newGroup = savedItem.copyWith(id: newId, position: centerPos);
+      updateActiveFloor(groups: [...groups, newGroup]);
+      saveState();
+      notifyListeners();
+    }
   }
 }

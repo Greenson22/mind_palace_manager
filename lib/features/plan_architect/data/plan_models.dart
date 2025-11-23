@@ -3,7 +3,94 @@ import 'dart:ui' as ui; // Diperlukan untuk tipe data ui.Image
 
 enum PlanShapeType { rectangle, circle, star }
 
-// --- MODEL LANTAI ---
+// --- MODEL GRUP (BARU) ---
+class PlanGroup {
+  final String id;
+  final Offset position;
+  final double rotation;
+  // Grup bisa berisi objek, shape, path, atau label
+  final List<PlanObject> objects;
+  final List<PlanShape> shapes;
+  final List<PlanPath> paths;
+  final List<PlanLabel> labels;
+  final String name;
+  final bool isSavedAsset; // Agar bisa disimpan sebagai aset
+
+  PlanGroup({
+    required this.id,
+    required this.position,
+    this.rotation = 0.0,
+    this.objects = const [],
+    this.shapes = const [],
+    this.paths = const [],
+    this.labels = const [],
+    this.name = "Grup",
+    this.isSavedAsset = false,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'x': position.dx,
+    'y': position.dy,
+    'rot': rotation,
+    'name': name,
+    'isSaved': isSavedAsset,
+    'objects': objects.map((e) => e.toJson()).toList(),
+    'shapes': shapes.map((e) => e.toJson()).toList(),
+    'paths': paths.map((e) => e.toJson()).toList(),
+    'labels': labels.map((e) => e.toJson()).toList(),
+  };
+
+  factory PlanGroup.fromJson(Map<String, dynamic> json) => PlanGroup(
+    id: json['id'],
+    position: Offset(json['x'], json['y']),
+    rotation: (json['rot'] as num?)?.toDouble() ?? 0.0,
+    name: json['name'] ?? "Grup",
+    isSavedAsset: json['isSaved'] ?? false,
+    objects:
+        (json['objects'] as List?)
+            ?.map((e) => PlanObject.fromJson(e))
+            .toList() ??
+        [],
+    shapes:
+        (json['shapes'] as List?)?.map((e) => PlanShape.fromJson(e)).toList() ??
+        [],
+    paths:
+        (json['paths'] as List?)?.map((e) => PlanPath.fromJson(e)).toList() ??
+        [],
+    labels:
+        (json['labels'] as List?)?.map((e) => PlanLabel.fromJson(e)).toList() ??
+        [],
+  );
+
+  PlanGroup copyWith({
+    String? id,
+    Offset? position,
+    double? rotation,
+    List<PlanObject>? objects,
+    List<PlanShape>? shapes,
+    List<PlanPath>? paths,
+    List<PlanLabel>? labels,
+    String? name,
+    bool? isSavedAsset,
+  }) {
+    return PlanGroup(
+      id: id ?? this.id,
+      position: position ?? this.position,
+      rotation: rotation ?? this.rotation,
+      objects: objects ?? this.objects,
+      shapes: shapes ?? this.shapes,
+      paths: paths ?? this.paths,
+      labels: labels ?? this.labels,
+      name: name ?? this.name,
+      isSavedAsset: isSavedAsset ?? this.isSavedAsset,
+    );
+  }
+
+  PlanGroup moveBy(Offset delta) => copyWith(position: position + delta);
+}
+
+// --- MODEL LANTAI (UPDATE) ---
 class PlanFloor {
   final String id;
   final String name;
@@ -12,6 +99,7 @@ class PlanFloor {
   final List<PlanLabel> labels;
   final List<PlanPath> paths;
   final List<PlanShape> shapes;
+  final List<PlanGroup> groups; // <--- Ditambahkan
 
   PlanFloor({
     required this.id,
@@ -21,6 +109,7 @@ class PlanFloor {
     this.labels = const [],
     this.paths = const [],
     this.shapes = const [],
+    this.groups = const [], // <--- Ditambahkan
   });
 
   Map<String, dynamic> toJson() => {
@@ -31,6 +120,7 @@ class PlanFloor {
     'labels': labels.map((e) => e.toJson()).toList(),
     'paths': paths.map((e) => e.toJson()).toList(),
     'shapes': shapes.map((e) => e.toJson()).toList(),
+    'groups': groups.map((e) => e.toJson()).toList(), // <--- Ditambahkan
   };
 
   factory PlanFloor.fromJson(Map<String, dynamic> json) => PlanFloor(
@@ -52,6 +142,9 @@ class PlanFloor {
     shapes:
         (json['shapes'] as List?)?.map((e) => PlanShape.fromJson(e)).toList() ??
         [],
+    groups:
+        (json['groups'] as List?)?.map((e) => PlanGroup.fromJson(e)).toList() ??
+        [], // <--- Ditambahkan
   );
 
   PlanFloor copyWith({
@@ -62,6 +155,7 @@ class PlanFloor {
     List<PlanLabel>? labels,
     List<PlanPath>? paths,
     List<PlanShape>? shapes,
+    List<PlanGroup>? groups, // <--- Ditambahkan
   }) {
     return PlanFloor(
       id: id ?? this.id,
@@ -71,11 +165,14 @@ class PlanFloor {
       labels: labels ?? this.labels,
       paths: paths ?? this.paths,
       shapes: shapes ?? this.shapes,
+      groups: groups ?? this.groups, // <--- Ditambahkan
     );
   }
 }
 
-// --- MODEL TEMBOK ---
+// --- MODEL LAINNYA TETAP SAMA (Wall, PlanObject, PlanLabel, PlanPath, PlanShape) ---
+// (Salin ulang bagian Wall kebawah dari file asli Anda jika perlu, atau biarkan jika sudah ada)
+// ...
 class Wall {
   final String id;
   final Offset start;
@@ -134,7 +231,6 @@ class Wall {
   Wall moveBy(Offset delta) => copyWith(start: start + delta, end: end + delta);
 }
 
-// --- MODEL INTERIOR ---
 class PlanObject {
   final String id;
   final Offset position;
@@ -145,10 +241,8 @@ class PlanObject {
   final Color color;
   final String? navTargetFloorId;
   final double size;
-
-  // --- FIELD BARU UNTUK GAMBAR ---
-  final String? imagePath; // Path lokal ke file gambar
-  final ui.Image? cachedImage; // Objek gambar runtime (tidak disimpan ke JSON)
+  final String? imagePath;
+  final ui.Image? cachedImage;
 
   PlanObject({
     required this.id,
@@ -175,7 +269,7 @@ class PlanObject {
     'col': color.value,
     'navFloor': navTargetFloorId,
     'size': size,
-    'imgPath': imagePath, // Simpan path gambar
+    'imgPath': imagePath,
   };
 
   factory PlanObject.fromJson(Map<String, dynamic> json) => PlanObject(
@@ -188,7 +282,7 @@ class PlanObject {
     color: json['col'] != null ? Color(json['col']) : Colors.black87,
     navTargetFloorId: json['navFloor'],
     size: (json['size'] as num?)?.toDouble() ?? 14.0,
-    imagePath: json['imgPath'], // Load path gambar
+    imagePath: json['imgPath'],
   );
 
   PlanObject copyWith({
@@ -221,7 +315,6 @@ class PlanObject {
   PlanObject moveBy(Offset delta) => copyWith(position: position + delta);
 }
 
-// --- MODEL LABEL ---
 class PlanLabel {
   final String id;
   final Offset position;
@@ -273,7 +366,6 @@ class PlanLabel {
   PlanLabel moveBy(Offset delta) => copyWith(position: position + delta);
 }
 
-// --- MODEL PATH (GAMBAR GARIS) ---
 class PlanPath {
   final String id;
   final List<Offset> points;
@@ -339,7 +431,6 @@ class PlanPath {
       copyWith(points: points.map((p) => p + delta).toList());
 }
 
-// --- MODEL SHAPE (BENTUK) ---
 class PlanShape {
   final String id;
   final Rect rect;

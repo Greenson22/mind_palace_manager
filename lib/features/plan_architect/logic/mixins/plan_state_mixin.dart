@@ -1,4 +1,3 @@
-// lib/features/plan_architect/logic/mixins/plan_state_mixin.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'plan_variables.dart';
@@ -49,12 +48,15 @@ mixin PlanStateMixin on PlanVariables {
     saveState();
   }
 
+  // --- PERBAIKAN UTAMA DI SINI ---
+  // Menambahkan parameter `groups` agar bisa diupdate dari Selection Mixin
   void updateActiveFloor({
     List<Wall>? walls,
     List<PlanObject>? objects,
     List<PlanLabel>? labels,
     List<PlanPath>? paths,
     List<PlanShape>? shapes,
+    List<PlanGroup>? groups, // <--- Ditambahkan
   }) {
     floors[activeFloorIndex] = activeFloor.copyWith(
       walls: walls,
@@ -62,6 +64,7 @@ mixin PlanStateMixin on PlanVariables {
       labels: labels,
       paths: paths,
       shapes: shapes,
+      groups: groups, // <--- Ditambahkan
     );
   }
 
@@ -69,11 +72,14 @@ mixin PlanStateMixin on PlanVariables {
     if (historyIndex < historyStack.length - 1) {
       historyStack.removeRange(historyIndex + 1, historyStack.length);
     }
+
+    // Simpan state ke JSON (PlanFloor.toJson sudah menghandle groups)
     final state = jsonEncode({
       'floors': floors.map((f) => f.toJson()).toList(),
       'activeIdx': activeFloorIndex,
       'cc': canvasColor.value,
     });
+
     historyStack.add(state);
     historyIndex++;
     if (historyStack.length > 30) {
@@ -102,6 +108,7 @@ mixin PlanStateMixin on PlanVariables {
 
   void loadState(String stateJson) {
     final data = jsonDecode(stateJson);
+    // PlanFloor.fromJson sudah menghandle groups
     floors = (data['floors'] as List)
         .map((e) => PlanFloor.fromJson(e))
         .toList();
@@ -120,6 +127,7 @@ mixin PlanStateMixin on PlanVariables {
       paths: [],
       labels: [],
       shapes: [],
+      groups: [], // Reset groups juga
     );
     selectedId = null;
     saveState();

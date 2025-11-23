@@ -1,6 +1,6 @@
 // lib/features/plan_architect/presentation/plan_painter.dart
 import 'package:flutter/material.dart';
-import 'dart:ui';
+import 'dart:ui' as ui; // FIX: Tambahkan 'as ui'
 import 'dart:math' as math;
 import '../logic/plan_controller.dart';
 import '../data/plan_models.dart';
@@ -27,8 +27,7 @@ class PlanPainter extends CustomPainter {
       _drawGrid(canvas, size);
     }
 
-    // --- PERBAIKAN: Walls (Tembok) dipindah ke sini (Layer Bawah) ---
-    // 2. Walls
+    // 2. Walls (Layer Bawah)
     if (controller.layerWalls) {
       final Paint wallPaint = Paint()..strokeCap = StrokeCap.square;
       final Paint selectedPaint = Paint()
@@ -42,7 +41,9 @@ class PlanPainter extends CustomPainter {
 
       for (var wall in controller.walls) {
         bool isSel =
-            (!controller.isObjectSelected && controller.selectedId == wall.id);
+            (!controller.isObjectSelected &&
+                controller.selectedId == wall.id) ||
+            controller.multiSelectedIds.contains(wall.id);
         wallPaint.color = wall.color;
         wallPaint.strokeWidth = wall.thickness;
         selectedPaint.strokeWidth = wall.thickness + 2.0;
@@ -75,23 +76,25 @@ class PlanPainter extends CustomPainter {
             end: controller.tempEnd!,
           ),
         );
-        canvas.drawCircle(
-          controller.tempStart!,
-          2,
-          Paint()..color = Colors.redAccent,
-        );
-        canvas.drawCircle(
-          controller.tempEnd!,
-          2,
-          Paint()..color = Colors.redAccent,
-        );
       }
     }
 
-    // 3. Shapes & Objects (Interior - Digambar di atas tembok)
+    // 3. Shapes, Objects & GROUPS (Layer Atas)
     if (controller.layerObjects) {
+      // --- GAMBAR GRUP ---
+      for (var group in controller.groups) {
+        bool isSel =
+            (controller.selectedId == group.id) ||
+            controller.multiSelectedIds.contains(group.id);
+        _drawGroup(canvas, group, isSel);
+      }
+
+      // Shapes
       for (var shape in controller.shapes) {
-        _drawShape(canvas, shape, controller.selectedId == shape.id);
+        bool isSel =
+            (controller.selectedId == shape.id) ||
+            controller.multiSelectedIds.contains(shape.id);
+        _drawShape(canvas, shape, isSel);
       }
       if (controller.activeTool == PlanTool.shape &&
           controller.tempStart != null &&
@@ -112,69 +115,28 @@ class PlanPainter extends CustomPainter {
         );
       }
 
+      // Objects
       TextPainter tp = TextPainter(textDirection: TextDirection.ltr);
       for (var obj in controller.objects) {
-        bool isSel = (controller.selectedId == obj.id);
+        bool isSel =
+            (controller.selectedId == obj.id) ||
+            controller.multiSelectedIds.contains(obj.id);
         canvas.save();
         canvas.translate(obj.position.dx, obj.position.dy);
         canvas.rotate(obj.rotation);
 
-        // Draw Selection
         if (isSel) {
           double selectionRadius = (obj.size / 2) + 8;
-          if (obj.cachedImage != null) {
-            selectionRadius = (obj.size / 2) + 4;
-            canvas.drawRect(
-              Rect.fromCenter(
-                center: Offset.zero,
-                width: obj.size + 8,
-                height: obj.size + 8,
-              ),
-              Paint()
-                ..color = Colors.blue.withOpacity(0.3)
-                ..style = PaintingStyle.stroke
-                ..strokeWidth = 2,
-            );
-          } else {
-            canvas.drawCircle(
-              Offset.zero,
-              selectionRadius,
-              Paint()..color = Colors.blue.withOpacity(0.3),
-            );
-          }
+          canvas.drawCircle(
+            Offset.zero,
+            selectionRadius,
+            Paint()..color = Colors.blue.withOpacity(0.3),
+          );
         }
 
-        // --- LOGIKA GAMBAR ---
         if (obj.cachedImage != null) {
-          // GAMBAR IMAGE
-          final img = obj.cachedImage!;
-          final srcRect = Rect.fromLTWH(
-            0,
-            0,
-            img.width.toDouble(),
-            img.height.toDouble(),
-          );
-
-          // Aspect ratio aware
-          double drawWidth = obj.size;
-          double drawHeight = obj.size;
-
-          final double aspectRatio = img.width / img.height;
-          if (aspectRatio > 1) {
-            drawHeight = drawWidth / aspectRatio;
-          } else {
-            drawWidth = drawHeight * aspectRatio;
-          }
-
-          final dstRect = Rect.fromCenter(
-            center: Offset.zero,
-            width: drawWidth,
-            height: drawHeight,
-          );
-
-          canvas.drawImageRect(img, srcRect, dstRect, Paint());
+          _drawImage(canvas, obj.cachedImage!, obj.size);
         } else {
-          // GAMBAR IKON
           final icon = IconData(obj.iconCodePoint, fontFamily: 'MaterialIcons');
           tp.text = TextSpan(
             text: String.fromCharCode(icon.codePoint),
@@ -190,12 +152,15 @@ class PlanPainter extends CustomPainter {
         canvas.restore();
       }
 
+      // Paths
       final Paint pathPaint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round;
       for (var path in controller.paths) {
-        bool isSel = (controller.selectedId == path.id);
+        bool isSel =
+            (controller.selectedId == path.id) ||
+            controller.multiSelectedIds.contains(path.id);
         pathPaint.color = isSel ? Colors.blue : path.color;
         pathPaint.strokeWidth = isSel
             ? path.strokeWidth + 2.0
@@ -207,9 +172,11 @@ class PlanPainter extends CustomPainter {
             p.lineTo(path.points[i].dx, path.points[i].dy);
           canvas.drawPath(p, pathPaint);
         } else if (path.points.isNotEmpty) {
-          canvas.drawPoints(PointMode.points, path.points, pathPaint);
+          // FIX: Gunakan ui.PointMode karena dart:ui dialiaskan
+          canvas.drawPoints(ui.PointMode.points, path.points, pathPaint);
         }
       }
+      // Freehand Preview
       if (controller.activeTool == PlanTool.freehand &&
           controller.currentPathPoints.isNotEmpty) {
         pathPaint.color = controller.activeColor.withOpacity(0.7);
@@ -228,11 +195,13 @@ class PlanPainter extends CustomPainter {
       }
     }
 
-    // 4. Labels (Teks - Tetap paling atas agar terbaca)
+    // 4. Labels
     if (controller.layerLabels) {
       TextPainter tp = TextPainter(textDirection: TextDirection.ltr);
       for (var label in controller.labels) {
-        bool isSel = (controller.selectedId == label.id);
+        bool isSel =
+            (controller.selectedId == label.id) ||
+            controller.multiSelectedIds.contains(label.id);
         tp.text = TextSpan(
           text: label.text,
           style: TextStyle(
@@ -262,27 +231,120 @@ class PlanPainter extends CustomPainter {
               ..color = Colors.blue.withOpacity(0.1)
               ..style = PaintingStyle.fill,
           );
-          canvas.drawRect(
-            Rect.fromCenter(
-              center: label.position,
-              width: tp.width + 10,
-              height: tp.height + 10,
-            ),
-            Paint()
-              ..color = Colors.blue
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = 1,
-          );
         }
       }
     }
+  }
+
+  // --- DRAW GROUP ---
+  void _drawGroup(Canvas canvas, PlanGroup group, bool isSelected) {
+    canvas.save();
+    canvas.translate(group.position.dx, group.position.dy);
+    canvas.rotate(group.rotation);
+
+    // Visual Seleksi Grup
+    if (isSelected) {
+      canvas.drawCircle(
+        Offset.zero,
+        30,
+        Paint()..color = Colors.orange.withOpacity(0.2),
+      );
+      canvas.drawCircle(
+        Offset.zero,
+        30,
+        Paint()
+          ..color = Colors.orange
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2,
+      );
+    }
+
+    // Render isi grup
+    for (var shp in group.shapes) _drawShape(canvas, shp, false);
+
+    final Paint pathPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    for (var path in group.paths) {
+      pathPaint.color = path.color;
+      pathPaint.strokeWidth = path.strokeWidth;
+      if (path.points.length > 1) {
+        Path p = Path();
+        p.moveTo(path.points.first.dx, path.points.first.dy);
+        for (int i = 1; i < path.points.length; i++)
+          p.lineTo(path.points[i].dx, path.points[i].dy);
+        canvas.drawPath(p, pathPaint);
+      }
+    }
+
+    TextPainter tp = TextPainter(textDirection: TextDirection.ltr);
+    for (var obj in group.objects) {
+      canvas.save();
+      canvas.translate(obj.position.dx, obj.position.dy);
+      canvas.rotate(obj.rotation);
+      if (obj.cachedImage != null) {
+        _drawImage(canvas, obj.cachedImage!, obj.size);
+      } else {
+        final icon = IconData(obj.iconCodePoint, fontFamily: 'MaterialIcons');
+        tp.text = TextSpan(
+          text: String.fromCharCode(icon.codePoint),
+          style: TextStyle(
+            fontSize: obj.size,
+            fontFamily: icon.fontFamily,
+            color: obj.color,
+          ),
+        );
+        tp.layout();
+        tp.paint(canvas, Offset(-tp.width / 2, -tp.height / 2));
+      }
+      canvas.restore();
+    }
+
+    for (var label in group.labels) {
+      tp.text = TextSpan(
+        text: label.text,
+        style: TextStyle(
+          color: label.color,
+          fontSize: label.fontSize,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+      tp.layout();
+      tp.paint(canvas, label.position - Offset(tp.width / 2, tp.height / 2));
+    }
+
+    canvas.restore();
+  }
+
+  // FIX: Gunakan ui.Image di sini
+  void _drawImage(Canvas canvas, ui.Image img, double size) {
+    final srcRect = Rect.fromLTWH(
+      0,
+      0,
+      img.width.toDouble(),
+      img.height.toDouble(),
+    );
+    double drawWidth = size;
+    double drawHeight = size;
+    final double aspectRatio = img.width / img.height;
+    if (aspectRatio > 1) {
+      drawHeight = drawWidth / aspectRatio;
+    } else {
+      drawWidth = drawHeight * aspectRatio;
+    }
+    final dstRect = Rect.fromCenter(
+      center: Offset.zero,
+      width: drawWidth,
+      height: drawHeight,
+    );
+    canvas.drawImageRect(img, srcRect, dstRect, Paint());
   }
 
   void _drawGrid(Canvas canvas, Size size) {
     Paint gridPaint = Paint()
       ..color = Colors.grey.withOpacity(0.3)
       ..strokeWidth = 1;
-
     double step = controller.gridSize;
     for (double x = 0; x <= size.width; x += step) {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
@@ -344,7 +406,6 @@ class PlanPainter extends CustomPainter {
     final lengthPx = (wall.start - wall.end).distance;
     if (lengthPx < 20) return;
     final lengthM = (lengthPx / 40).toStringAsFixed(1);
-
     final textSpan = TextSpan(
       text: "${lengthM}m",
       style: TextStyle(
@@ -363,7 +424,6 @@ class PlanPainter extends CustomPainter {
       width: textPainter.width + 4,
       height: textPainter.height + 2,
     );
-
     canvas.drawRect(
       rect,
       Paint()..color = controller.canvasColor.withOpacity(0.7),

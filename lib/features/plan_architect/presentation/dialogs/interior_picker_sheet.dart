@@ -1,10 +1,8 @@
-// lib/features/plan_architect/presentation/dialogs/interior_picker_sheet.dart
-
 import 'package:flutter/material.dart';
 import 'package:mind_palace_manager/app_settings.dart';
 import 'package:mind_palace_manager/features/plan_architect/logic/plan_controller.dart';
 import 'package:mind_palace_manager/features/plan_architect/data/interior_data.dart';
-import 'package:mind_palace_manager/features/plan_architect/data/plan_models.dart'; // Pastikan import model ada
+import 'package:mind_palace_manager/features/plan_architect/data/plan_models.dart';
 
 class InteriorPickerSheet extends StatefulWidget {
   final PlanController controller;
@@ -32,7 +30,6 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
     super.dispose();
   }
 
-  // ... (Fungsi _getFilteredItems, _getItemsByCategory, _getFavorites, _getRecents TETAP SAMA) ...
   List<Map<String, dynamic>> _getFilteredItems() {
     if (_searchQuery.isEmpty) return [];
     final query = _searchQuery.toLowerCase();
@@ -64,11 +61,10 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    // ... (Kode build TETAP SAMA sampai bagian TabBarView) ...
     final bool isSearching = _searchQuery.isNotEmpty;
     final List<String> categories = [
-      'Baru / Custom', // Tab 0
-      'Favorit', // Tab 1
+      'Baru / Custom',
+      'Favorit',
       'Furnitur',
       'Elektronik',
       'Sanitasi',
@@ -96,14 +92,12 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-
-          // SEARCH BAR
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: "Cari interior (cth: Kursi, TV)...",
+                hintText: "Cari interior...",
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: isSearching
                     ? IconButton(
@@ -124,7 +118,6 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
               onChanged: (val) => setState(() => _searchQuery = val),
             ),
           ),
-
           Expanded(
             child: isSearching
                 ? _buildSearchResults()
@@ -144,13 +137,8 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
                         Expanded(
                           child: TabBarView(
                             children: [
-                              // 1. Tab Recent / Custom (INI YANG KITA UBAH)
                               _buildRecentAndCustomTab(),
-
-                              // 2. Tab Favorites
                               _buildFavoritesTab(),
-
-                              // 3. Tabs Kategori Lain (TETAP SAMA)
                               _buildGrid(_getItemsByCategory('Furnitur')),
                               _buildGrid(_getItemsByCategory('Elektronik')),
                               _buildGrid(_getItemsByCategory('Sanitasi')),
@@ -177,18 +165,16 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
 
   Widget _buildSearchResults() {
     final results = _getFilteredItems();
-    if (results.isEmpty) {
+    if (results.isEmpty)
       return Center(
         child: Text(
           "Tidak ditemukan interior '$_searchQuery'",
           style: TextStyle(color: widget.colorScheme.onSurfaceVariant),
         ),
       );
-    }
     return _buildGrid(results);
   }
 
-  // --- BAGIAN YANG DIMODIFIKASI: Menampilkan Saved Custom Interiors ---
   Widget _buildRecentAndCustomTab() {
     final recents = _getRecents();
     final savedCustoms = widget.controller.savedCustomInteriors;
@@ -197,7 +183,6 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
       controller: widget.scrollController,
       padding: const EdgeInsets.all(16),
       children: [
-        // 1. Tombol Upload Gambar
         InkWell(
           onTap: () {
             Navigator.pop(context);
@@ -247,11 +232,10 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
           ),
         ),
 
-        // 2. Bagian Interior Gambar Tangan Sendiri (Saved)
         if (savedCustoms.isNotEmpty) ...[
           const SizedBox(height: 24),
           const Text(
-            "Interior Buatan Saya (Gambar Tangan)",
+            "Interior Buatan Saya (Custom)",
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
@@ -269,12 +253,11 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
               final customItem = savedCustoms[i];
               return InkWell(
                 onTap: () {
-                  // Tempatkan item di tengah kanvas
                   final center = Offset(
                     widget.controller.canvasWidth / 2,
                     widget.controller.canvasHeight / 2,
                   );
-                  widget.controller.placeSavedPath(customItem, center);
+                  widget.controller.placeSavedItem(customItem, center);
                   Navigator.pop(context);
                 },
                 borderRadius: BorderRadius.circular(12),
@@ -290,17 +273,18 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        Icons.draw, // Ikon pensil/gambar
+                        customItem is PlanGroup ? Icons.group : Icons.draw,
                         size: 24,
-                        color: customItem.color,
+                        color: widget.colorScheme.primary,
                       ),
                       const SizedBox(height: 8),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 4.0),
                         child: Text(
-                          customItem.name.isEmpty
-                              ? "Tanpa Nama"
-                              : customItem.name,
+                          (customItem.name != null &&
+                                  customItem.name.isNotEmpty)
+                              ? customItem.name
+                              : "Tanpa Nama",
                           style: TextStyle(
                             fontSize: 10,
                             color: widget.colorScheme.onSurface,
@@ -318,14 +302,12 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
           ),
         ],
 
-        // 3. Bagian Baru Digunakan (Recents)
         const SizedBox(height: 24),
         const Text(
           "Baru Digunakan",
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
-
         if (recents.isEmpty)
           const Padding(
             padding: EdgeInsets.all(16.0),
@@ -349,7 +331,6 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
     );
   }
 
-  // ... (Widget _buildFavoritesTab, _buildGrid, _buildGridItem TETAP SAMA) ...
   Widget _buildFavoritesTab() {
     final favs = _getFavorites();
     if (favs.isEmpty) {
@@ -389,7 +370,6 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
 
   Widget _buildGridItem(Map<String, dynamic> item) {
     final bool isFav = AppSettings.favoriteInteriors.contains(item['name']);
-
     return InkWell(
       onTap: () {
         widget.controller.selectObjectIcon(item['icon'], item['name']);

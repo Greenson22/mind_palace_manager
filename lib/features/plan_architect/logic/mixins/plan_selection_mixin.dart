@@ -1,4 +1,3 @@
-// lib/features/plan_architect/logic/mixins/plan_selection_mixin.dart
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'plan_variables.dart';
@@ -6,48 +5,82 @@ import 'plan_state_mixin.dart';
 import '../../data/plan_models.dart';
 
 mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
+  void toggleMultiSelectMode() {
+    isMultiSelectMode = !isMultiSelectMode;
+    if (!isMultiSelectMode) {
+      multiSelectedIds.clear();
+    }
+    selectedId = null; // Reset single selection
+    notifyListeners();
+  }
+
   void handleSelection(Offset pos) {
-    selectedId = null;
-    isObjectSelected = false;
+    String? hitId;
+
+    // Cek hit urutan terbalik (yang paling atas kena duluan)
+    // Prioritas: Label > Object > Group > Shape > Path > Wall
+
     for (var lbl in labels.reversed) {
       if ((lbl.position - pos).distance < 20.0) {
-        selectedId = lbl.id;
-        isObjectSelected = true;
-        notifyListeners();
-        return;
+        hitId = lbl.id;
+        break;
       }
     }
-    for (var obj in objects.reversed) {
-      if ((obj.position - pos).distance < 25.0) {
-        selectedId = obj.id;
-        isObjectSelected = true;
-        notifyListeners();
-        return;
+    if (hitId == null) {
+      for (var obj in objects.reversed) {
+        if ((obj.position - pos).distance < 25.0) {
+          hitId = obj.id;
+          break;
+        }
       }
     }
-    for (var shp in shapes.reversed) {
-      if (shp.rect.contains(pos)) {
-        selectedId = shp.id;
-        isObjectSelected = true;
-        notifyListeners();
-        return;
+    if (hitId == null) {
+      for (var grp in groups.reversed) {
+        // Deteksi hit sederhana ke pusat grup (bisa dikembangkan cek bound box)
+        if ((grp.position - pos).distance < 30.0) {
+          hitId = grp.id;
+          break;
+        }
       }
     }
-    for (var path in paths.reversed) {
-      if (isPointNearPath(pos, path)) {
-        selectedId = path.id;
-        isObjectSelected = true;
-        notifyListeners();
-        return;
+    if (hitId == null) {
+      for (var shp in shapes.reversed) {
+        if (shp.rect.contains(pos)) {
+          hitId = shp.id;
+          break;
+        }
       }
     }
-    for (var wall in walls) {
-      if (isPointNearLine(pos, wall.start, wall.end, 15.0)) {
-        selectedId = wall.id;
-        isObjectSelected = false;
-        notifyListeners();
-        return;
+    if (hitId == null) {
+      for (var path in paths.reversed) {
+        if (isPointNearPath(pos, path)) {
+          hitId = path.id;
+          break;
+        }
       }
+    }
+    if (hitId == null) {
+      for (var wall in walls) {
+        if (isPointNearLine(pos, wall.start, wall.end, 15.0)) {
+          hitId = wall.id;
+          break;
+        }
+      }
+    }
+
+    if (isMultiSelectMode) {
+      if (hitId != null) {
+        if (multiSelectedIds.contains(hitId)) {
+          multiSelectedIds.remove(hitId);
+        } else {
+          multiSelectedIds.add(hitId);
+        }
+      }
+      selectedId = null;
+    } else {
+      selectedId = hitId;
+      isObjectSelected = hitId != null;
+      multiSelectedIds.clear();
     }
     notifyListeners();
   }
@@ -72,19 +105,101 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
   }
 
   void deleteSelected() {
-    if (selectedId == null) return;
+    if (selectedId == null && multiSelectedIds.isEmpty) return;
+
+    final idsToDelete = isMultiSelectMode
+        ? multiSelectedIds.toList()
+        : [selectedId!];
+
     updateActiveFloor(
-      shapes: List.from(shapes)..removeWhere((s) => s.id == selectedId),
-      labels: List.from(labels)..removeWhere((l) => l.id == selectedId),
-      objects: List.from(objects)..removeWhere((o) => o.id == selectedId),
-      paths: List.from(paths)..removeWhere((p) => p.id == selectedId),
-      walls: List.from(walls)..removeWhere((w) => w.id == selectedId),
+      shapes: List.from(shapes)..removeWhere((s) => idsToDelete.contains(s.id)),
+      labels: List.from(labels)..removeWhere((l) => idsToDelete.contains(l.id)),
+      objects: List.from(objects)
+        ..removeWhere((o) => idsToDelete.contains(o.id)),
+      paths: List.from(paths)..removeWhere((p) => idsToDelete.contains(p.id)),
+      walls: List.from(walls)..removeWhere((w) => idsToDelete.contains(w.id)),
+      groups: List.from(groups)..removeWhere((g) => idsToDelete.contains(g.id)),
     );
+
     selectedId = null;
+    multiSelectedIds.clear();
     saveState();
   }
 
   void moveSelectedItem(Offset delta) {
+    // Handle Multi-Select Move
+    if (isMultiSelectMode) {
+      bool changed = false;
+      List<PlanShape> newShapes = List.from(shapes);
+      List<PlanObject> newObjects = List.from(objects);
+      List<Wall> newWalls = List.from(walls);
+      List<PlanLabel> newLabels = List.from(labels);
+      List<PlanPath> newPaths = List.from(paths);
+      List<PlanGroup> newGroups = List.from(groups);
+
+      for (var id in multiSelectedIds) {
+        final sIdx = newShapes.indexWhere((x) => x.id == id);
+        if (sIdx != -1) {
+          newShapes[sIdx] = newShapes[sIdx].moveBy(delta);
+          changed = true;
+        }
+
+        final oIdx = newObjects.indexWhere((x) => x.id == id);
+        if (oIdx != -1) {
+          newObjects[oIdx] = newObjects[oIdx].moveBy(delta);
+          changed = true;
+        }
+
+        final wIdx = newWalls.indexWhere((x) => x.id == id);
+        if (wIdx != -1) {
+          newWalls[wIdx] = newWalls[wIdx].moveBy(delta);
+          changed = true;
+        }
+
+        final lIdx = newLabels.indexWhere((x) => x.id == id);
+        if (lIdx != -1) {
+          newLabels[lIdx] = newLabels[lIdx].moveBy(delta);
+          changed = true;
+        }
+
+        final pIdx = newPaths.indexWhere((x) => x.id == id);
+        if (pIdx != -1) {
+          newPaths[pIdx] = newPaths[pIdx].moveBy(delta);
+          changed = true;
+        }
+
+        final gIdx = newGroups.indexWhere((x) => x.id == id);
+        if (gIdx != -1) {
+          newGroups[gIdx] = newGroups[gIdx].moveBy(delta);
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        updateActiveFloor(
+          shapes: newShapes,
+          objects: newObjects,
+          walls: newWalls,
+          labels: newLabels,
+          paths: newPaths,
+          groups: newGroups,
+        );
+      }
+      return;
+    }
+
+    // Handle Single Selection Move
+    if (selectedId == null) return;
+
+    List<PlanGroup> newGroups = List.from(groups);
+    final gIdx = newGroups.indexWhere((g) => g.id == selectedId);
+    if (gIdx != -1) {
+      newGroups[gIdx] = newGroups[gIdx].moveBy(delta);
+      updateActiveFloor(groups: newGroups);
+      return;
+    }
+
+    // ... (Kode lama untuk shape, object, wall, label, path)
     List<PlanShape> newShapes = List.from(shapes);
     final shpIdx = newShapes.indexWhere((s) => s.id == selectedId);
     if (shpIdx != -1) {
@@ -132,6 +247,7 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
     final newPaths = paths.map((p) => p.moveBy(delta)).toList();
     final newLabels = labels.map((l) => l.moveBy(delta)).toList();
     final newShapes = shapes.map((s) => s.moveBy(delta)).toList();
+    final newGroups = groups.map((g) => g.moveBy(delta)).toList();
 
     updateActiveFloor(
       walls: newWalls,
@@ -139,13 +255,160 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       paths: newPaths,
       labels: newLabels,
       shapes: newShapes,
+      groups: newGroups,
     );
   }
 
+  // --- GROUPING LOGIC ---
+
+  void createGroupFromSelection() {
+    if (multiSelectedIds.isEmpty && selectedId == null) return;
+
+    final idsToGroup = isMultiSelectMode
+        ? multiSelectedIds.toList()
+        : [selectedId!];
+    if (idsToGroup.isEmpty) return;
+
+    List<PlanObject> selObjects = objects
+        .where((e) => idsToGroup.contains(e.id))
+        .toList();
+    List<PlanShape> selShapes = shapes
+        .where((e) => idsToGroup.contains(e.id))
+        .toList();
+    List<PlanPath> selPaths = paths
+        .where((e) => idsToGroup.contains(e.id))
+        .toList();
+    List<PlanLabel> selLabels = labels
+        .where((e) => idsToGroup.contains(e.id))
+        .toList();
+
+    if (selObjects.isEmpty &&
+        selShapes.isEmpty &&
+        selPaths.isEmpty &&
+        selLabels.isEmpty)
+      return;
+
+    // Hitung Center
+    double sumX = 0, sumY = 0;
+    int count = 0;
+
+    for (var o in selObjects) {
+      sumX += o.position.dx;
+      sumY += o.position.dy;
+      count++;
+    }
+    for (var s in selShapes) {
+      sumX += s.rect.center.dx;
+      sumY += s.rect.center.dy;
+      count++;
+    }
+    for (var p in selPaths) {
+      if (p.points.isNotEmpty) {
+        sumX += p.points.first.dx;
+        sumY += p.points.first.dy;
+        count++;
+      }
+    }
+    for (var l in selLabels) {
+      sumX += l.position.dx;
+      sumY += l.position.dy;
+      count++;
+    }
+
+    if (count == 0) return;
+    final groupCenter = Offset(sumX / count, sumY / count);
+
+    // Relatif terhadap center
+    final newObjects = selObjects
+        .map((e) => e.copyWith(position: e.position - groupCenter))
+        .toList();
+    final newLabels = selLabels
+        .map((e) => e.copyWith(position: e.position - groupCenter))
+        .toList();
+    final newShapes = selShapes
+        .map((e) => e.copyWith(rect: e.rect.shift(-groupCenter)))
+        .toList();
+    final newPaths = selPaths.map((e) => e.moveBy(-groupCenter)).toList();
+
+    final newGroup = PlanGroup(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      position: groupCenter,
+      objects: newObjects,
+      shapes: newShapes,
+      paths: newPaths,
+      labels: newLabels,
+      name: "Grup Baru",
+    );
+
+    updateActiveFloor(
+      objects: objects.where((e) => !idsToGroup.contains(e.id)).toList(),
+      shapes: shapes.where((e) => !idsToGroup.contains(e.id)).toList(),
+      paths: paths.where((e) => !idsToGroup.contains(e.id)).toList(),
+      labels: labels.where((e) => !idsToGroup.contains(e.id)).toList(),
+      groups: [...groups, newGroup],
+    );
+
+    multiSelectedIds.clear();
+    isMultiSelectMode = false;
+    selectedId = newGroup.id;
+    saveState();
+  }
+
+  void ungroupSelected() {
+    if (selectedId == null) return;
+
+    int grpIdx = groups.indexWhere((g) => g.id == selectedId);
+    if (grpIdx == -1) return;
+
+    final group = groups[grpIdx];
+
+    // Restore posisi dunia
+    final restoredObjects = group.objects
+        .map((e) => e.copyWith(position: e.position + group.position))
+        .toList();
+    final restoredLabels = group.labels
+        .map((e) => e.copyWith(position: e.position + group.position))
+        .toList();
+    final restoredShapes = group.shapes
+        .map((e) => e.copyWith(rect: e.rect.shift(group.position)))
+        .toList();
+    final restoredPaths = group.paths
+        .map((e) => e.moveBy(group.position))
+        .toList();
+
+    List<PlanGroup> newGroups = List.from(groups)..removeAt(grpIdx);
+
+    updateActiveFloor(
+      groups: newGroups,
+      objects: [...objects, ...restoredObjects],
+      shapes: [...shapes, ...restoredShapes],
+      paths: [...paths, ...restoredPaths],
+      labels: [...labels, ...restoredLabels],
+    );
+
+    selectedId = null;
+    saveState();
+  }
+
   void duplicateSelected() {
+    // ... (Kode lama untuk objects, shapes, dll)
     if (selectedId == null) return;
     final offset = const Offset(20, 20);
     final newId = DateTime.now().millisecondsSinceEpoch.toString();
+
+    // Duplicate Group
+    try {
+      final grp = groups.firstWhere((g) => g.id == selectedId);
+      updateActiveFloor(
+        groups: [
+          ...groups,
+          grp.copyWith(id: newId, position: grp.position + offset),
+        ],
+      );
+      selectedId = newId;
+      saveState();
+      return;
+    } catch (_) {}
 
     try {
       final obj = objects.firstWhere((o) => o.id == selectedId);
@@ -203,6 +466,20 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
 
   void rotateSelected() {
     if (selectedId == null) return;
+
+    // Rotate Group
+    List<PlanGroup> newGroups = List.from(groups);
+    final gIdx = newGroups.indexWhere((g) => g.id == selectedId);
+    if (gIdx != -1) {
+      newGroups[gIdx] = newGroups[gIdx].copyWith(
+        rotation: newGroups[gIdx].rotation + (pi / 2),
+      );
+      updateActiveFloor(groups: newGroups);
+      saveState();
+      return;
+    }
+
+    // ... (Sisa kode rotateSelected lama)
     List<PlanObject> newObjs = List.from(objects);
     final objIdx = newObjs.indexWhere((o) => o.id == selectedId);
     if (objIdx != -1) {
@@ -234,6 +511,17 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
   }) {
     if (selectedId == null) return;
 
+    // Update Group Name
+    List<PlanGroup> newGroups = List.from(groups);
+    final gIdx = newGroups.indexWhere((g) => g.id == selectedId);
+    if (gIdx != -1) {
+      newGroups[gIdx] = newGroups[gIdx].copyWith(name: name);
+      updateActiveFloor(groups: newGroups);
+      saveState();
+      return;
+    }
+
+    // ... (Sisa kode update attribute lama)
     List<PlanObject> newObjects = List.from(objects);
     final objIdx = newObjects.indexWhere((o) => o.id == selectedId);
     if (objIdx != -1) {
@@ -317,7 +605,9 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
     }
   }
 
+  // ... (updateSelectedWallLength, updateSelectedColor, dll tetap sama)
   void updateSelectedWallLength(double newLengthInMeters) {
+    // ... (kode lama)
     if (selectedId == null) return;
     List<Wall> newWalls = List.from(walls);
     final wIdx = newWalls.indexWhere((w) => w.id == selectedId);
@@ -347,6 +637,17 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
 
   void bringToFront() {
     if (selectedId == null) return;
+
+    // Handle Group
+    List<PlanGroup> newGroups = List.from(groups);
+    final gIdx = newGroups.indexWhere((g) => g.id == selectedId);
+    if (gIdx != -1) {
+      newGroups.add(newGroups.removeAt(gIdx));
+      updateActiveFloor(groups: newGroups);
+      saveState();
+      return;
+    }
+
     List<PlanShape> newShapes = List.from(shapes);
     final shpIdx = newShapes.indexWhere((s) => s.id == selectedId);
     if (shpIdx != -1) {
@@ -367,6 +668,16 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
 
   void sendToBack() {
     if (selectedId == null) return;
+
+    List<PlanGroup> newGroups = List.from(groups);
+    final gIdx = newGroups.indexWhere((g) => g.id == selectedId);
+    if (gIdx != -1) {
+      newGroups.insert(0, newGroups.removeAt(gIdx));
+      updateActiveFloor(groups: newGroups);
+      saveState();
+      return;
+    }
+
     List<PlanShape> newShapes = List.from(shapes);
     final shpIdx = newShapes.indexWhere((s) => s.id == selectedId);
     if (shpIdx != -1) {
@@ -387,15 +698,42 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
 
   void saveCurrentSelectionToLibrary() {
     if (selectedId == null) return;
+
+    // Save Path
     final pathIdx = paths.indexWhere((p) => p.id == selectedId);
     if (pathIdx != -1) {
       savedCustomInteriors.add(paths[pathIdx].copyWith(isSavedAsset: true));
       notifyListeners();
+      return;
+    }
+
+    // Save Group (BARU)
+    final grpIdx = groups.indexWhere((g) => g.id == selectedId);
+    if (grpIdx != -1) {
+      savedCustomInteriors.add(groups[grpIdx].copyWith(isSavedAsset: true));
+      notifyListeners();
+      return;
     }
   }
 
   Map<String, dynamic>? getSelectedItemData() {
     if (selectedId == null) return null;
+
+    // Data untuk Grup
+    try {
+      final g = groups.firstWhere((x) => x.id == selectedId);
+      return {
+        'id': g.id,
+        'title': g.name,
+        'desc':
+            "Grup berisi ${g.objects.length + g.shapes.length + g.paths.length + g.labels.length} item",
+        'type': 'Grup',
+        'isPath': false,
+        'isGroup': true,
+        'nav': null,
+      };
+    } catch (_) {}
+
     try {
       final s = shapes.firstWhere((x) => x.id == selectedId);
       return {

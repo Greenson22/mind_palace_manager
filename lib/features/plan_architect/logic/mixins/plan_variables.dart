@@ -1,4 +1,3 @@
-// lib/features/plan_architect/logic/mixins/plan_variables.dart
 import 'package:flutter/material.dart';
 import '../../data/plan_models.dart';
 import '../plan_enums.dart';
@@ -7,7 +6,9 @@ abstract class PlanVariables extends ChangeNotifier {
   // --- DATA UTAMA ---
   List<PlanFloor> floors = [];
   int activeFloorIndex = 0;
-  List<PlanPath> savedCustomInteriors = [];
+
+  // Diubah ke dynamic agar bisa simpan PlanPath & PlanGroup
+  List<dynamic> savedCustomInteriors = [];
 
   // --- GETTERS ---
   PlanFloor get activeFloor => floors[activeFloorIndex];
@@ -16,6 +17,7 @@ abstract class PlanVariables extends ChangeNotifier {
   List<PlanPath> get paths => activeFloor.paths;
   List<PlanLabel> get labels => activeFloor.labels;
   List<PlanShape> get shapes => activeFloor.shapes;
+  List<PlanGroup> get groups => activeFloor.groups; // Getter baru
 
   // --- VIEW SETTINGS ---
   bool isViewMode = false;
@@ -52,6 +54,10 @@ abstract class PlanVariables extends ChangeNotifier {
   // --- SELECTION STATE ---
   String? selectedId;
   bool isObjectSelected = false;
+
+  // State Multi Select & Grouping
+  Set<String> multiSelectedIds = {};
+  bool isMultiSelectMode = false;
 
   IconData? selectedObjectIcon;
   String selectedObjectName = "Furniture";
