@@ -5,9 +5,14 @@ import 'dart:convert';
 import 'package:path/path.dart' as p;
 import 'package:file_picker/file_picker.dart';
 import 'package:mind_palace_manager/app_settings.dart';
+
+// --- Imports untuk Editor & Viewer ---
 import 'package:mind_palace_manager/features/building/presentation/editor/room_editor_page.dart';
 import 'package:mind_palace_manager/features/building/presentation/dialogs/move_building_dialog.dart';
 import 'package:mind_palace_manager/features/building/presentation/viewer/building_viewer_page.dart';
+import 'package:mind_palace_manager/features/plan_architect/presentation/plan_editor_page.dart';
+import 'package:mind_palace_manager/features/building/presentation/management/building_plan_list_page.dart';
+import 'package:mind_palace_manager/features/building/presentation/management/logic/district_building_logic.dart';
 
 class BuildingFactoryPage extends StatefulWidget {
   const BuildingFactoryPage({super.key});
@@ -21,11 +26,17 @@ class _BuildingFactoryPageState extends State<BuildingFactoryPage> {
   List<Directory> _bankBuildings = [];
   bool _isLoading = false;
 
+  // Logic helper (diinisialisasi saat warehouse siap)
+  DistrictBuildingLogic? _logic;
+
   final TextEditingController _buildingNameController = TextEditingController();
   final TextEditingController _buildingIconTextController =
       TextEditingController();
+
+  // State Dialog
   String _buildingIconType = 'Default';
   String? _buildingIconImagePath;
+  String _selectedBuildingType = 'standard'; // 'standard' atau 'plan'
 
   @override
   void initState() {
@@ -49,6 +60,10 @@ class _BuildingFactoryPageState extends State<BuildingFactoryPage> {
     if (!await _warehouseDir!.exists()) {
       await _warehouseDir!.create();
     }
+
+    // Inisialisasi logic dengan direktori gudang sebagai "distrik" semu
+    _logic = DistrictBuildingLogic(_warehouseDir!);
+
     _loadBuildings();
   }
 
@@ -66,31 +81,35 @@ class _BuildingFactoryPageState extends State<BuildingFactoryPage> {
     setState(() => _isLoading = false);
   }
 
-  Future<Map<String, dynamic>> _getBuildingIconData(
-    Directory buildingDir,
-  ) async {
+  Future<Map<String, dynamic>> _getBuildingData(Directory buildingDir) async {
     try {
       final jsonFile = File(p.join(buildingDir.path, 'data.json'));
       if (!await jsonFile.exists()) {
-        return {'type': null, 'data': null};
+        return {'type': null, 'data': null, 'buildingType': 'standard'};
       }
       final content = await jsonFile.readAsString();
       final data = json.decode(content);
 
       final iconType = data.containsKey('icon_type') ? data['icon_type'] : null;
       final iconData = data.containsKey('icon_data') ? data['icon_data'] : null;
+      final buildingType = data['type'] ?? 'standard';
 
       if (iconType == 'image' && iconData != null) {
         final imageFile = File(p.join(buildingDir.path, iconData.toString()));
         if (await imageFile.exists()) {
-          return {'type': 'image', 'data': iconData, 'file': imageFile};
+          return {
+            'type': 'image',
+            'data': iconData,
+            'file': imageFile,
+            'buildingType': buildingType,
+          };
         } else {
-          return {'type': null, 'data': null};
+          return {'type': null, 'data': null, 'buildingType': buildingType};
         }
       }
-      return {'type': iconType, 'data': iconData};
+      return {'type': iconType, 'data': iconData, 'buildingType': buildingType};
     } catch (e) {
-      return {'type': null, 'data': null};
+      return {'type': null, 'data': null, 'buildingType': 'standard'};
     }
   }
 
@@ -150,13 +169,16 @@ class _BuildingFactoryPageState extends State<BuildingFactoryPage> {
     _buildingIconType = 'Default';
     _buildingIconTextController.clear();
     _buildingIconImagePath = null;
+    _selectedBuildingType = 'standard';
 
     String? oldType;
     dynamic oldData;
+
     if (isEdit) {
-      final iconData = await _getBuildingIconData(buildingToEdit);
-      oldType = iconData['type'];
-      oldData = iconData['data'];
+      final bData = await _getBuildingData(buildingToEdit);
+      oldType = bData['type'];
+      oldData = bData['data'];
+      _selectedBuildingType = bData['buildingType'] ?? 'standard';
 
       if (oldType == 'text') {
         _buildingIconType = 'Teks';
@@ -186,6 +208,7 @@ class _BuildingFactoryPageState extends State<BuildingFactoryPage> {
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   TextField(
                     controller: _buildingNameController,
@@ -195,6 +218,42 @@ class _BuildingFactoryPageState extends State<BuildingFactoryPage> {
                     autofocus: !isEdit,
                   ),
                   const SizedBox(height: 16),
+
+                  // --- PILIHAN TIPE BANGUNAN ---
+                  const Text(
+                    "Tipe Bangunan:",
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                  RadioListTile<String>(
+                    title: const Text("Biasa (Ruangan)"),
+                    value: 'standard',
+                    groupValue: _selectedBuildingType,
+                    onChanged: isEdit
+                        ? null
+                        : (val) => setDialogState(
+                            () => _selectedBuildingType = val!,
+                          ), // Disable change on edit
+                    contentPadding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  RadioListTile<String>(
+                    title: const Text("Denah (Arsitek)"),
+                    value: 'plan',
+                    groupValue: _selectedBuildingType,
+                    onChanged: isEdit
+                        ? null
+                        : (val) => setDialogState(
+                            () => _selectedBuildingType = val!,
+                          ),
+                    contentPadding: EdgeInsets.zero,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  const Divider(),
+
+                  const Text(
+                    "Ikon:",
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
                   DropdownButton<String>(
                     value: _buildingIconType,
                     isExpanded: true,
@@ -326,7 +385,10 @@ class _BuildingFactoryPageState extends State<BuildingFactoryPage> {
     }
 
     final jsonFile = File(p.join(targetDir.path, 'data.json'));
-    Map<String, dynamic> jsonData = {"rooms": []};
+    Map<String, dynamic> jsonData = {
+      "rooms": [],
+      "plans": [],
+    }; // Init plans array
     if (await jsonFile.exists()) {
       try {
         jsonData = json.decode(await jsonFile.readAsString());
@@ -334,6 +396,7 @@ class _BuildingFactoryPageState extends State<BuildingFactoryPage> {
     }
     jsonData['icon_type'] = iconType;
     jsonData['icon_data'] = iconData;
+    jsonData['type'] = _selectedBuildingType; // Simpan Tipe Bangunan
 
     await jsonFile.writeAsString(json.encode(jsonData));
     _loadBuildings();
@@ -465,9 +528,9 @@ class _BuildingFactoryPageState extends State<BuildingFactoryPage> {
       );
       return;
     }
-    final iconData = await _getBuildingIconData(buildingDir);
-    if (iconData['type'] == 'image' && iconData['file'] != null) {
-      final File img = iconData['file'];
+    final bData = await _getBuildingData(buildingDir);
+    if (bData['type'] == 'image' && bData['file'] != null) {
+      final File img = bData['file'];
       final ext = p.extension(img.path);
       final dest = p.join(
         AppSettings.exportPath!,
@@ -490,13 +553,57 @@ class _BuildingFactoryPageState extends State<BuildingFactoryPage> {
     }
   }
 
-  void _viewBuilding(Directory dir) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (c) => BuildingViewerPage(buildingDirectory: dir),
-      ),
-    );
+  // --- NAVIGASI SESUAI TIPE BANGUNAN ---
+  Future<void> _navigateToView(
+    Directory dir,
+    String type, {
+    bool editMode = false,
+  }) async {
+    if (type == 'plan') {
+      // Mode Denah
+      if (_logic == null) return;
+
+      // Cek daftar rencana
+      final plans = await _logic!.getBuildingPlans(dir);
+
+      if (!mounted) return;
+
+      if (plans.isEmpty) {
+        // Jika belum ada plan, buka list manager untuk buat baru
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (c) => BuildingPlanListPage(
+              buildingDirectory: dir,
+              buildingName: p.basename(dir.path),
+            ),
+          ),
+        );
+      } else {
+        // Buka plan pertama
+        final firstPlan = plans[0];
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PlanEditorPage(
+              buildingDirectory: dir,
+              initialViewMode:
+                  !editMode, // Kalau editMode true -> viewMode false (Editor aktif)
+              planFilename: firstPlan['filename'],
+              planName: firstPlan['name'],
+            ),
+          ),
+        );
+      }
+    } else {
+      // Mode Ruangan Biasa
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (c) => BuildingViewerPage(buildingDirectory: dir),
+        ),
+      );
+    }
   }
 
   void _editRoom(Directory dir) {
@@ -508,12 +615,8 @@ class _BuildingFactoryPageState extends State<BuildingFactoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    // --- LOGIKA WARNA APPBAR ADAPTIF ---
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final appBarColor = isDarkMode
-        ? null
-        : Colors.indigo.shade50; // Null = default dark surface
-    // -----------------------------------
+    final appBarColor = isDarkMode ? null : Colors.indigo.shade50;
 
     return Scaffold(
       appBar: AppBar(
@@ -534,107 +637,189 @@ class _BuildingFactoryPageState extends State<BuildingFactoryPage> {
               itemCount: _bankBuildings.length,
               itemBuilder: (c, i) {
                 final dir = _bankBuildings[i];
-                return ListTile(
-                  leading: FutureBuilder<Map<String, dynamic>>(
-                    future: _getBuildingIconData(dir),
-                    builder: (c, s) {
-                      if (!s.hasData)
-                        return const SizedBox(
+                return FutureBuilder<Map<String, dynamic>>(
+                  future: _getBuildingData(dir),
+                  builder: (c, s) {
+                    if (!s.hasData) {
+                      return const ListTile(
+                        leading: SizedBox(
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
-                        );
-                      final d = s.data!;
-                      Widget? child;
-                      File? img;
-                      if (d['type'] == 'text')
-                        child = Text(
-                          d['data'],
-                          style: const TextStyle(fontSize: 20),
-                        );
-                      if (d['type'] == 'image') img = d['file'];
-                      if (d['type'] == null)
-                        child = const Icon(Icons.apartment);
-                      return _buildIconContainer(child, imageFile: img);
-                    },
-                  ),
-                  title: Text(p.basename(dir.path)),
-                  subtitle: const Text('Status: Tersimpan di Bank'),
-                  trailing: PopupMenuButton<String>(
-                    onSelected: (v) {
-                      if (v == 'deploy') _deployBuilding(dir);
-                      if (v == 'view') _viewBuilding(dir);
-                      if (v == 'edit_room') _editRoom(dir);
-                      if (v == 'edit_info')
-                        _showBuildingDialog(buildingToEdit: dir);
-                      if (v == 'export') _exportIcon(dir);
-                      if (v == 'delete') _deleteBuilding(dir);
-                    },
-                    itemBuilder: (c) => [
-                      const PopupMenuItem(
-                        value: 'deploy',
-                        child: Row(
-                          children: [
-                            Icon(Icons.ios_share, color: Colors.green),
-                            SizedBox(width: 8),
-                            Text('Tempatkan (Deploy)'),
-                          ],
                         ),
+                      );
+                    }
+                    final d = s.data!;
+                    final String buildingType = d['buildingType'] ?? 'standard';
+                    final String? typeStr = buildingType == 'plan'
+                        ? 'Denah'
+                        : 'Ruangan';
+
+                    Widget? child;
+                    File? img;
+                    if (d['type'] == 'text') {
+                      child = Text(
+                        d['data'],
+                        style: const TextStyle(fontSize: 20),
+                      );
+                    }
+                    if (d['type'] == 'image') img = d['file'];
+                    if (d['type'] == null) {
+                      child = Icon(
+                        buildingType == 'plan'
+                            ? Icons.architecture
+                            : Icons.apartment,
+                      );
+                    }
+
+                    return ListTile(
+                      leading: _buildIconContainer(child, imageFile: img),
+                      title: Text(p.basename(dir.path)),
+                      subtitle: Text(
+                        'Status: Tersimpan di Bank\nTipe: $typeStr',
+                        style: const TextStyle(fontSize: 11),
                       ),
-                      const PopupMenuItem(
-                        value: 'view',
-                        child: Row(
-                          children: [
-                            Icon(Icons.visibility),
-                            SizedBox(width: 8),
-                            Text('Lihat'),
-                          ],
-                        ),
+                      trailing: PopupMenuButton<String>(
+                        onSelected: (v) {
+                          if (v == 'deploy') _deployBuilding(dir);
+                          if (v == 'view') _navigateToView(dir, buildingType);
+                          if (v == 'edit_room') _editRoom(dir);
+                          if (v == 'edit_plan')
+                            _navigateToView(dir, buildingType, editMode: true);
+                          if (v == 'manage_plans') {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (c) => BuildingPlanListPage(
+                                  buildingDirectory: dir,
+                                  buildingName: p.basename(dir.path),
+                                ),
+                              ),
+                            );
+                          }
+                          if (v == 'edit_info')
+                            _showBuildingDialog(buildingToEdit: dir);
+                          if (v == 'export') _exportIcon(dir);
+                          if (v == 'delete') _deleteBuilding(dir);
+                        },
+                        itemBuilder: (c) {
+                          // Menu Umum
+                          List<PopupMenuEntry<String>> menuItems = [
+                            const PopupMenuItem(
+                              value: 'deploy',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.ios_share, color: Colors.green),
+                                  SizedBox(width: 8),
+                                  Text('Tempatkan (Deploy)'),
+                                ],
+                              ),
+                            ),
+                          ];
+
+                          // Menu Spesifik Tipe
+                          if (buildingType == 'plan') {
+                            menuItems.addAll([
+                              const PopupMenuItem(
+                                value: 'view',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.visibility, color: Colors.teal),
+                                    SizedBox(width: 8),
+                                    Text('Lihat Denah'),
+                                  ],
+                                ),
+                              ),
+                              const PopupMenuItem(
+                                value: 'edit_plan',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.design_services),
+                                    SizedBox(width: 8),
+                                    Text('Edit Arsitektur'),
+                                  ],
+                                ),
+                              ),
+                              const PopupMenuItem(
+                                value: 'manage_plans',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.layers, color: Colors.purple),
+                                    SizedBox(width: 8),
+                                    Text('Kelola Daftar Denah'),
+                                  ],
+                                ),
+                              ),
+                            ]);
+                          } else {
+                            menuItems.addAll([
+                              const PopupMenuItem(
+                                value: 'view',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.visibility),
+                                    SizedBox(width: 8),
+                                    Text('Lihat Ruangan'),
+                                  ],
+                                ),
+                              ),
+                              const PopupMenuItem(
+                                value: 'edit_room',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.edit),
+                                    SizedBox(width: 8),
+                                    Text('Edit Ruangan'),
+                                  ],
+                                ),
+                              ),
+                            ]);
+                          }
+
+                          // Menu Umum Lanjutan
+                          menuItems.addAll([
+                            const PopupMenuItem(
+                              value: 'edit_info',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.palette_outlined,
+                                    color: Colors.blue,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text('Ubah Info'),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuItem(
+                              value: 'export',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.download, color: Colors.indigo),
+                                  SizedBox(width: 8),
+                                  Text('Export Ikon'),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuDivider(),
+                            const PopupMenuItem(
+                              value: 'delete',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.delete, color: Colors.red),
+                                  SizedBox(width: 8),
+                                  Text('Hapus'),
+                                ],
+                              ),
+                            ),
+                          ]);
+
+                          return menuItems;
+                        },
                       ),
-                      const PopupMenuItem(
-                        value: 'edit_room',
-                        child: Row(
-                          children: [
-                            Icon(Icons.edit),
-                            SizedBox(width: 8),
-                            Text('Edit Ruangan'),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'edit_info',
-                        child: Row(
-                          children: [
-                            Icon(Icons.palette_outlined, color: Colors.blue),
-                            SizedBox(width: 8),
-                            Text('Ubah Info'),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'export',
-                        child: Row(
-                          children: [
-                            Icon(Icons.download, color: Colors.indigo),
-                            SizedBox(width: 8),
-                            Text('Export Ikon'),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuDivider(),
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete, color: Colors.red),
-                            SizedBox(width: 8),
-                            Text('Hapus'),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  onTap: () => _viewBuilding(dir),
+                      onTap: () => _navigateToView(dir, buildingType),
+                    );
+                  },
                 );
               },
             ),
