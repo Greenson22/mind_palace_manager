@@ -13,7 +13,9 @@ class PlanSelectionBar extends StatelessWidget {
     final data = controller.getSelectedItemData();
     if (data == null) return const SizedBox.shrink();
 
-    // Helper untuk mendapatkan nilai ukuran saat ini
+    // Ambil warna dari tema saat ini
+    final colorScheme = Theme.of(context).colorScheme;
+
     double currentSize = 2.0;
     if (data['type'] == 'Struktur') {
       currentSize = controller.walls
@@ -32,14 +34,15 @@ class PlanSelectionBar extends StatelessWidget {
           .firstWhere((l) => l.id == controller.selectedId)
           .fontSize;
     } else if (data['type'] == 'Bentuk') {
-      currentSize = 5.0; // Nilai tengah default untuk slider
+      currentSize = 5.0;
     }
 
     return Container(
       constraints: const BoxConstraints(maxWidth: 600),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white, // Background Putih
+        // Gunakan warna Surface (putih di light, abu gelap di dark)
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(
@@ -48,7 +51,8 @@ class PlanSelectionBar extends StatelessWidget {
             offset: Offset(0, 5),
           ),
         ],
-        border: Border.all(color: Colors.blue.shade100),
+        // Border menyesuaikan dengan divider atau outline tema
+        border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -59,13 +63,13 @@ class PlanSelectionBar extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
+                  color: colorScheme.primaryContainer,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.touch_app,
                   size: 16,
-                  color: Colors.blue,
+                  color: colorScheme.onPrimaryContainer,
                 ),
               ),
               const SizedBox(width: 12),
@@ -75,11 +79,11 @@ class PlanSelectionBar extends StatelessWidget {
                   children: [
                     Text(
                       data['title'] ?? "Objek",
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
-                        // --- PERUBAHAN: Paksa warna hitam agar terlihat di bg putih ---
-                        color: Colors.black87,
+                        // Warna teks utama
+                        color: colorScheme.onSurface,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -87,8 +91,8 @@ class PlanSelectionBar extends StatelessWidget {
                       data['type'] ?? "Item",
                       style: TextStyle(
                         fontSize: 11,
-                        // Warna abu-abu gelap
-                        color: Colors.grey.shade600,
+                        // Warna teks sekunder (abu-abu yang terlihat di dark mode)
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -102,9 +106,8 @@ class PlanSelectionBar extends StatelessWidget {
                 style: OutlinedButton.styleFrom(
                   visualDensity: VisualDensity.compact,
                   padding: const EdgeInsets.symmetric(horizontal: 12),
-                  side: BorderSide(color: Colors.blue.shade200),
-                  // --- PERUBAHAN: Warna teks tombol biru ---
-                  foregroundColor: Colors.blue,
+                  side: BorderSide(color: colorScheme.outline),
+                  foregroundColor: colorScheme.primary,
                 ),
               ),
             ],
@@ -119,6 +122,7 @@ class PlanSelectionBar extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildQuickAction(
+                context,
                 icon: Icons.color_lens,
                 label: "Warna",
                 onTap: () => PlanEditorDialogs.showColorPicker(
@@ -131,10 +135,12 @@ class PlanSelectionBar extends StatelessWidget {
               Expanded(
                 child: Column(
                   children: [
-                    const Text(
+                    Text(
                       "Ukuran",
-                      // Text caption ukuran
-                      style: TextStyle(fontSize: 9, color: Colors.grey),
+                      style: TextStyle(
+                        fontSize: 9,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
                     SizedBox(
                       height: 20,
@@ -148,7 +154,7 @@ class PlanSelectionBar extends StatelessWidget {
                           ),
                         ),
                         child: Slider(
-                          value: currentSize.clamp(1.0, 50.0), // Batas aman
+                          value: currentSize.clamp(1.0, 50.0),
                           min: 1.0,
                           max: 50.0,
                           divisions: 49,
@@ -162,24 +168,28 @@ class PlanSelectionBar extends StatelessWidget {
               ),
 
               _buildQuickAction(
+                context,
                 icon: Icons.copy,
                 label: "Salin",
                 onTap: controller.duplicateSelected,
               ),
               _buildQuickAction(
+                context,
                 icon: Icons.rotate_right,
                 label: "Putar",
                 onTap: controller.rotateSelected,
               ),
               _buildQuickAction(
+                context,
                 icon: Icons.layers,
                 label: "Urutan",
                 onTap: () => _showOrderMenu(context, controller),
               ),
               _buildQuickAction(
+                context,
                 icon: Icons.delete_outline,
                 label: "Hapus",
-                color: Colors.red,
+                color: colorScheme.error,
                 onTap: controller.deleteSelected,
               ),
             ],
@@ -232,12 +242,16 @@ class PlanSelectionBar extends StatelessWidget {
     );
   }
 
-  Widget _buildQuickAction({
+  Widget _buildQuickAction(
+    BuildContext context, {
     required IconData icon,
     required String label,
     required VoidCallback onTap,
-    Color color = Colors.black87, // Default hitam
+    Color? color,
   }) {
+    // Gunakan warna teks onSurface jika warna tidak spesifik
+    final finalColor = color ?? Theme.of(context).colorScheme.onSurface;
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -246,9 +260,9 @@ class PlanSelectionBar extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 20, color: color),
+            Icon(icon, size: 20, color: finalColor),
             const SizedBox(height: 2),
-            Text(label, style: TextStyle(fontSize: 9, color: color)),
+            Text(label, style: TextStyle(fontSize: 9, color: finalColor)),
           ],
         ),
       ),

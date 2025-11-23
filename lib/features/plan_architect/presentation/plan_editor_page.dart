@@ -36,7 +36,6 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
     }
     try {
       final recorder = ui.PictureRecorder();
-      // Gunakan ukuran canvas dari controller (Fixed 5000x5000)
       final exportSize = Size(
         _controller.canvasWidth,
         _controller.canvasHeight,
@@ -94,6 +93,7 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
       listenable: _controller,
       builder: (context, _) {
         final bool isView = _controller.isViewMode;
+        final colorScheme = Theme.of(context).colorScheme;
 
         return Scaffold(
           appBar: AppBar(
@@ -108,15 +108,21 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
                 ),
                 Text(
                   _controller.activeFloor.name,
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                  style: TextStyle(
+                    fontSize: 11,
+                    // Gunakan onSurfaceVariant untuk teks sekunder agar terlihat di dark mode
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
             centerTitle: true,
-            backgroundColor: Colors.white,
+            // Hapus background putih paksa, gunakan default tema (atau surface)
+            backgroundColor: colorScheme.surface,
             elevation: 1,
             shadowColor: Colors.black12,
-            iconTheme: const IconThemeData(color: Colors.black87),
+            // Ikon menyesuaikan warna teks di atas surface
+            iconTheme: IconThemeData(color: colorScheme.onSurface),
             actions: [
               IconButton(
                 icon: const Icon(Icons.layers_outlined),
@@ -183,10 +189,10 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
               // 1. CANVAS (LAYER PALING BAWAH)
               Positioned.fill(child: PlanCanvasView(controller: _controller)),
 
-              // 2. SELECTION BAR (DIKEATASKAN SEDIKIT)
+              // 2. SELECTION BAR (MUNCUL DI ATAS TOOLBAR UTAMA)
               if (!isView && _controller.selectedId != null)
                 Positioned(
-                  // --- PERUBAHAN: Naikkan dari 100 ke 140 ---
+                  // Posisi bottom disesuaikan agar tidak tertutup toolbar
                   bottom: 140,
                   left: 16,
                   right: 16,

@@ -26,14 +26,14 @@ class PlanEditorDialogs {
     Colors.orange,
     Colors.deepOrange,
     Colors.brown,
+    Colors.white, // Tambahkan putih untuk opsi
   ];
-
-  // FUNGSI showCanvasResizer DIHAPUS KARENA CANVAS SUDAH INFINITE/FIXED
 
   static void showLayerSettings(
     BuildContext context,
     PlanController controller,
   ) {
+    final colorScheme = Theme.of(context).colorScheme;
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -84,8 +84,6 @@ class PlanEditorDialogs {
                     setState(() {});
                   },
                 ),
-
-                // --- BAGIAN RESIZE CANVAS DIHAPUS DI SINI ---
                 const Divider(),
                 const Text(
                   "Warna Latar Kanvas",
@@ -101,6 +99,7 @@ class PlanEditorDialogs {
                             Colors.grey.shade200,
                             const Color(0xFFFFF3E0),
                             Colors.black,
+                            const Color(0xFF121212), // Dark gray
                           ]
                           .map(
                             (c) => InkWell(
@@ -113,7 +112,9 @@ class PlanEditorDialogs {
                                 height: 36,
                                 decoration: BoxDecoration(
                                   color: c,
-                                  border: Border.all(color: Colors.grey),
+                                  border: Border.all(
+                                    color: colorScheme.outlineVariant,
+                                  ),
                                   shape: BoxShape.circle,
                                 ),
                               ),
@@ -139,6 +140,7 @@ class PlanEditorDialogs {
     BuildContext context,
     PlanController controller,
   ) {
+    final colorScheme = Theme.of(context).colorScheme;
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -158,7 +160,9 @@ class PlanEditorDialogs {
                       isActive
                           ? Icons.radio_button_checked
                           : Icons.radio_button_unchecked,
-                      color: isActive ? Colors.blue : Colors.grey,
+                      color: isActive
+                          ? colorScheme.primary
+                          : colorScheme.onSurfaceVariant,
                     ),
                     title: Text(
                       floor.name,
@@ -206,7 +210,9 @@ class PlanEditorDialogs {
                     controller.removeActiveFloor();
                     Navigator.pop(ctx);
                   },
-                  style: TextButton.styleFrom(foregroundColor: Colors.red),
+                  style: TextButton.styleFrom(
+                    foregroundColor: colorScheme.error,
+                  ),
                   child: const Text("Hapus Lantai Ini"),
                 ),
               ElevatedButton.icon(
@@ -309,7 +315,9 @@ class PlanEditorDialogs {
                 controller.deleteSelected();
                 Navigator.pop(context);
               },
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              style: TextButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.error,
+              ),
               child: const Text('Hapus'),
             ),
             ElevatedButton(
@@ -355,7 +363,7 @@ class PlanEditorDialogs {
                         color: color,
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: Colors.grey.shade300,
+                          color: Theme.of(context).colorScheme.outlineVariant,
                           width: 2,
                         ),
                       ),
@@ -369,10 +377,13 @@ class PlanEditorDialogs {
     );
   }
 
+  // --- PERBAIKAN UTAMA: INTERIOR PICKER DARK MODE ---
   static void showInteriorPicker(
     BuildContext context,
     PlanController controller,
   ) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -384,19 +395,35 @@ class PlanEditorDialogs {
           maxChildSize: 0.9,
           builder: (context, scrollController) {
             return Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              decoration: BoxDecoration(
+                // Gunakan surface color dari tema agar dinamis (Putih di Light, Abu Gelap di Dark)
+                color: colorScheme.surface,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20),
+                ),
               ),
               child: DefaultTabController(
                 length: 6,
                 child: Column(
                   children: [
                     const SizedBox(height: 8),
-                    const TabBar(
+                    // Indikator Drag
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: colorScheme.onSurfaceVariant.withOpacity(0.4),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TabBar(
                       isScrollable: true,
-                      labelColor: Colors.black,
-                      tabs: [
+                      // Warna label mengikuti tema
+                      labelColor: colorScheme.primary,
+                      unselectedLabelColor: colorScheme.onSurfaceVariant,
+                      indicatorColor: colorScheme.primary,
+                      tabs: const [
                         Tab(text: "Furnitur"),
                         Tab(text: "Elektronik"),
                         Tab(text: "Sanitasi"),
@@ -431,8 +458,13 @@ class PlanEditorDialogs {
                             {'icon': Icons.light, 'name': 'Lampu'},
                           ]),
                           controller.savedCustomInteriors.isEmpty
-                              ? const Center(
-                                  child: Text("Belum ada interior tersimpan."),
+                              ? Center(
+                                  child: Text(
+                                    "Belum ada interior tersimpan.",
+                                    style: TextStyle(
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
                                 )
                               : ListView.builder(
                                   itemCount:
@@ -441,8 +473,16 @@ class PlanEditorDialogs {
                                     final path =
                                         controller.savedCustomInteriors[index];
                                     return ListTile(
-                                      leading: const Icon(Icons.brush),
-                                      title: Text(path.name),
+                                      leading: Icon(
+                                        Icons.brush,
+                                        color: colorScheme.onSurface,
+                                      ),
+                                      title: Text(
+                                        path.name,
+                                        style: TextStyle(
+                                          color: colorScheme.onSurface,
+                                        ),
+                                      ),
                                       onTap: () {
                                         final center = Offset(
                                           MediaQuery.of(context).size.width / 2,
@@ -473,6 +513,8 @@ class PlanEditorDialogs {
     PlanController controller,
     List<Map<String, dynamic>> items,
   ) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return GridView.builder(
       padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -487,13 +529,24 @@ class PlanEditorDialogs {
             controller.selectObjectIcon(item['icon'], item['name']);
             Navigator.pop(context);
           },
+          borderRadius: BorderRadius.circular(12),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(item['icon'], size: 28),
+              Icon(
+                item['icon'],
+                size: 28,
+                // Warna ikon mengikuti tema
+                color: colorScheme.onSurface,
+              ),
+              const SizedBox(height: 4),
               Text(
                 item['name'],
-                style: const TextStyle(fontSize: 11),
+                style: TextStyle(
+                  fontSize: 11,
+                  // Warna teks mengikuti tema
+                  color: colorScheme.onSurface,
+                ),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -507,8 +560,11 @@ class PlanEditorDialogs {
     BuildContext context,
     Map<String, dynamic> data,
   ) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     showModalBottomSheet(
       context: context,
+      backgroundColor: colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -520,17 +576,25 @@ class PlanEditorDialogs {
           children: [
             Text(
               data['title'],
-              style: Theme.of(context).textTheme.headlineSmall,
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(color: colorScheme.onSurface),
             ),
+            const SizedBox(height: 8),
             Chip(
-              label: Text(data['type']),
-              backgroundColor: Colors.blue.shade50,
+              label: Text(
+                data['type'],
+                style: TextStyle(color: colorScheme.onPrimaryContainer),
+              ),
+              backgroundColor: colorScheme.primaryContainer,
+              side: BorderSide.none,
             ),
             const Divider(height: 24),
             Text(
               (data['desc'] != null && data['desc'].isNotEmpty)
                   ? data['desc']
                   : "Tidak ada deskripsi.",
+              style: TextStyle(color: colorScheme.onSurfaceVariant),
             ),
             const SizedBox(height: 20),
           ],
