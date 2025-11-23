@@ -27,7 +27,68 @@ class PlanPainter extends CustomPainter {
       _drawGrid(canvas, size);
     }
 
-    // 2. Shapes & Objects
+    // --- PERBAIKAN: Walls (Tembok) dipindah ke sini (Layer Bawah) ---
+    // 2. Walls
+    if (controller.layerWalls) {
+      final Paint wallPaint = Paint()..strokeCap = StrokeCap.square;
+      final Paint selectedPaint = Paint()
+        ..color = Colors.blueAccent
+        ..strokeCap = StrokeCap.square;
+
+      bool isDrawingWall =
+          controller.activeTool == PlanTool.wall &&
+          controller.tempStart != null;
+      bool showDims = controller.layerDims || isDrawingWall;
+
+      for (var wall in controller.walls) {
+        bool isSel =
+            (!controller.isObjectSelected && controller.selectedId == wall.id);
+        wallPaint.color = wall.color;
+        wallPaint.strokeWidth = wall.thickness;
+        selectedPaint.strokeWidth = wall.thickness + 2.0;
+        canvas.drawLine(
+          wall.start,
+          wall.end,
+          isSel ? selectedPaint : wallPaint,
+        );
+
+        if (showDims) {
+          _drawWallLabel(canvas, wall);
+        }
+      }
+      if (controller.activeTool == PlanTool.wall &&
+          controller.tempStart != null &&
+          controller.tempEnd != null) {
+        Paint previewPaint = Paint()
+          ..color = controller.activeColor.withOpacity(0.5)
+          ..strokeWidth = controller.activeStrokeWidth;
+        canvas.drawLine(
+          controller.tempStart!,
+          controller.tempEnd!,
+          previewPaint,
+        );
+        _drawWallLabel(
+          canvas,
+          Wall(
+            id: 'temp',
+            start: controller.tempStart!,
+            end: controller.tempEnd!,
+          ),
+        );
+        canvas.drawCircle(
+          controller.tempStart!,
+          2,
+          Paint()..color = Colors.redAccent,
+        );
+        canvas.drawCircle(
+          controller.tempEnd!,
+          2,
+          Paint()..color = Colors.redAccent,
+        );
+      }
+    }
+
+    // 3. Shapes & Objects (Interior - Digambar di atas tembok)
     if (controller.layerObjects) {
       for (var shape in controller.shapes) {
         _drawShape(canvas, shape, controller.selectedId == shape.id);
@@ -167,7 +228,7 @@ class PlanPainter extends CustomPainter {
       }
     }
 
-    // 3. Labels
+    // 4. Labels (Teks - Tetap paling atas agar terbaca)
     if (controller.layerLabels) {
       TextPainter tp = TextPainter(textDirection: TextDirection.ltr);
       for (var label in controller.labels) {
@@ -213,66 +274,6 @@ class PlanPainter extends CustomPainter {
               ..strokeWidth = 1,
           );
         }
-      }
-    }
-
-    // 4. Walls
-    if (controller.layerWalls) {
-      final Paint wallPaint = Paint()..strokeCap = StrokeCap.square;
-      final Paint selectedPaint = Paint()
-        ..color = Colors.blueAccent
-        ..strokeCap = StrokeCap.square;
-
-      bool isDrawingWall =
-          controller.activeTool == PlanTool.wall &&
-          controller.tempStart != null;
-      bool showDims = controller.layerDims || isDrawingWall;
-
-      for (var wall in controller.walls) {
-        bool isSel =
-            (!controller.isObjectSelected && controller.selectedId == wall.id);
-        wallPaint.color = wall.color;
-        wallPaint.strokeWidth = wall.thickness;
-        selectedPaint.strokeWidth = wall.thickness + 2.0;
-        canvas.drawLine(
-          wall.start,
-          wall.end,
-          isSel ? selectedPaint : wallPaint,
-        );
-
-        if (showDims) {
-          _drawWallLabel(canvas, wall);
-        }
-      }
-      if (controller.activeTool == PlanTool.wall &&
-          controller.tempStart != null &&
-          controller.tempEnd != null) {
-        Paint previewPaint = Paint()
-          ..color = controller.activeColor.withOpacity(0.5)
-          ..strokeWidth = controller.activeStrokeWidth;
-        canvas.drawLine(
-          controller.tempStart!,
-          controller.tempEnd!,
-          previewPaint,
-        );
-        _drawWallLabel(
-          canvas,
-          Wall(
-            id: 'temp',
-            start: controller.tempStart!,
-            end: controller.tempEnd!,
-          ),
-        );
-        canvas.drawCircle(
-          controller.tempStart!,
-          2,
-          Paint()..color = Colors.redAccent,
-        );
-        canvas.drawCircle(
-          controller.tempEnd!,
-          2,
-          Paint()..color = Colors.redAccent,
-        );
       }
     }
   }
