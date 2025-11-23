@@ -29,6 +29,93 @@ class PlanEditorDialogs {
     Colors.white,
   ];
 
+  // --- DATABASE INTERIOR ---
+  static final List<Map<String, dynamic>> _allInteriors = [
+    // Furnitur
+    {'icon': Icons.chair, 'name': 'Kursi', 'cat': 'Furnitur'},
+    {'icon': Icons.chair_alt, 'name': 'Kursi Kayu', 'cat': 'Furnitur'},
+    {'icon': Icons.table_bar, 'name': 'Meja', 'cat': 'Furnitur'},
+    {'icon': Icons.table_restaurant, 'name': 'Meja Makan', 'cat': 'Furnitur'},
+    {'icon': Icons.desk, 'name': 'Meja Kerja', 'cat': 'Furnitur'},
+    {'icon': Icons.bed, 'name': 'Kasur', 'cat': 'Furnitur'},
+    {'icon': Icons.single_bed, 'name': 'Kasur Single', 'cat': 'Furnitur'},
+    {'icon': Icons.king_bed, 'name': 'Kasur King', 'cat': 'Furnitur'},
+    {'icon': Icons.weekend, 'name': 'Sofa', 'cat': 'Furnitur'},
+    {'icon': Icons.chair_outlined, 'name': 'Sofa 1', 'cat': 'Furnitur'},
+    {'icon': Icons.shelves, 'name': 'Rak Buku', 'cat': 'Furnitur'},
+    {'icon': Icons.kitchen, 'name': 'Lemari', 'cat': 'Furnitur'},
+    {'icon': Icons.door_sliding, 'name': 'Lemari Geser', 'cat': 'Furnitur'},
+    {'icon': Icons.inventory_2, 'name': 'Laci', 'cat': 'Furnitur'},
+    {'icon': Icons.event_seat, 'name': 'Bangku', 'cat': 'Furnitur'},
+
+    // Elektronik
+    {'icon': Icons.tv, 'name': 'TV', 'cat': 'Elektronik'},
+    {'icon': Icons.desktop_windows, 'name': 'PC', 'cat': 'Elektronik'},
+    {'icon': Icons.laptop, 'name': 'Laptop', 'cat': 'Elektronik'},
+    {'icon': Icons.kitchen, 'name': 'Kulkas', 'cat': 'Elektronik'},
+    {'icon': Icons.microwave, 'name': 'Microwave', 'cat': 'Elektronik'},
+    {
+      'icon': Icons.local_laundry_service,
+      'name': 'Mesin Cuci',
+      'cat': 'Elektronik',
+    },
+    {'icon': Icons.ac_unit, 'name': 'AC', 'cat': 'Elektronik'},
+    {'icon': Icons.mode_fan_off, 'name': 'Kipas', 'cat': 'Elektronik'},
+    {'icon': Icons.speaker, 'name': 'Speaker', 'cat': 'Elektronik'},
+    {'icon': Icons.router, 'name': 'Router', 'cat': 'Elektronik'},
+    {'icon': Icons.print, 'name': 'Printer', 'cat': 'Elektronik'},
+    {'icon': Icons.phone_android, 'name': 'HP', 'cat': 'Elektronik'},
+    {'icon': Icons.camera_alt, 'name': 'Kamera', 'cat': 'Elektronik'},
+
+    // Sanitasi
+    {'icon': Icons.bathtub, 'name': 'Bathtub', 'cat': 'Sanitasi'},
+    {'icon': Icons.wc, 'name': 'Toilet', 'cat': 'Sanitasi'},
+    {'icon': Icons.wash, 'name': 'Wastafel', 'cat': 'Sanitasi'},
+    {'icon': Icons.shower, 'name': 'Shower', 'cat': 'Sanitasi'},
+    {'icon': Icons.water_drop, 'name': 'Keran', 'cat': 'Sanitasi'},
+    {'icon': Icons.soap, 'name': 'Sabun', 'cat': 'Sanitasi'},
+    {'icon': Icons.cleaning_services, 'name': 'Alat Pel', 'cat': 'Sanitasi'},
+
+    // Struktur
+    {'icon': Icons.door_front_door, 'name': 'Pintu', 'cat': 'Struktur'},
+    {'icon': Icons.sensor_door, 'name': 'Pintu Masuk', 'cat': 'Struktur'},
+    {'icon': Icons.window, 'name': 'Jendela', 'cat': 'Struktur'},
+    {'icon': Icons.stairs, 'name': 'Tangga', 'cat': 'Struktur'},
+    {'icon': Icons.elevator, 'name': 'Lift', 'cat': 'Struktur'},
+    {'icon': Icons.fence, 'name': 'Pagar', 'cat': 'Struktur'},
+    {'icon': Icons.garage, 'name': 'Garasi', 'cat': 'Struktur'},
+    {'icon': Icons.view_column, 'name': 'Pilar', 'cat': 'Struktur'},
+    {'icon': Icons.roofing, 'name': 'Atap', 'cat': 'Struktur'},
+    {'icon': Icons.foundation, 'name': 'Fondasi', 'cat': 'Struktur'},
+
+    // Dekorasi
+    {'icon': Icons.local_florist, 'name': 'Tanaman', 'cat': 'Dekorasi'},
+    {'icon': Icons.yard, 'name': 'Pot Bunga', 'cat': 'Dekorasi'},
+    {'icon': Icons.light, 'name': 'Lampu', 'cat': 'Dekorasi'},
+    {'icon': Icons.lightbulb, 'name': 'Bohlam', 'cat': 'Dekorasi'},
+    {'icon': Icons.image, 'name': 'Lukisan', 'cat': 'Dekorasi'},
+    {'icon': Icons.access_time, 'name': 'Jam', 'cat': 'Dekorasi'},
+    {
+      'icon': Icons.local_fire_department,
+      'name': 'Perapian',
+      'cat': 'Dekorasi',
+    },
+    {'icon': Icons.curtains, 'name': 'Gorden', 'cat': 'Dekorasi'},
+    {'icon': Icons.palette, 'name': 'Palet Seni', 'cat': 'Dekorasi'},
+    {'icon': Icons.music_note, 'name': 'Instrumen', 'cat': 'Dekorasi'},
+
+    // Lainnya
+    {'icon': Icons.directions_car, 'name': 'Mobil', 'cat': 'Lainnya'},
+    {'icon': Icons.pedal_bike, 'name': 'Sepeda', 'cat': 'Lainnya'},
+    {'icon': Icons.motorcycle, 'name': 'Motor', 'cat': 'Lainnya'},
+    {'icon': Icons.fitness_center, 'name': 'Gym', 'cat': 'Lainnya'},
+    {'icon': Icons.restaurant_menu, 'name': 'Alat Makan', 'cat': 'Lainnya'},
+    {'icon': Icons.build, 'name': 'Perkakas', 'cat': 'Lainnya'},
+    {'icon': Icons.shopping_cart, 'name': 'Belanjaan', 'cat': 'Lainnya'},
+    {'icon': Icons.pets, 'name': 'Hewan', 'cat': 'Lainnya'},
+    {'icon': Icons.coffee, 'name': 'Kopi', 'cat': 'Lainnya'},
+  ];
+
   static void showLayerSettings(
     BuildContext context,
     PlanController controller,
@@ -51,7 +138,6 @@ class PlanEditorDialogs {
                     setState(() {});
                   },
                 ),
-                // --- PERUBAHAN 2: Slider Ukuran Grid ---
                 if (controller.showGrid) ...[
                   const Padding(
                     padding: EdgeInsets.only(left: 16, top: 8),
@@ -72,7 +158,6 @@ class PlanEditorDialogs {
                     },
                   ),
                 ],
-                // ---------------------------------------
                 const Divider(),
                 CheckboxListTile(
                   title: const Text("Layer Tembok"),
@@ -158,7 +243,6 @@ class PlanEditorDialogs {
     );
   }
 
-  // ... (showFloorManager SAMA) ...
   static void showFloorManager(
     BuildContext context,
     PlanController controller,
@@ -253,7 +337,6 @@ class PlanEditorDialogs {
     );
   }
 
-  // --- PERUBAHAN 4: Input Panjang Tembok di Dialog Edit ---
   static void showEditDialog(BuildContext context, PlanController controller) {
     final data = controller.getSelectedItemData();
     if (data == null) return;
@@ -262,16 +345,15 @@ class PlanEditorDialogs {
     final descCtrl = TextEditingController(text: data['desc']);
     final bool isPath = data['isPath'] ?? false;
     final bool isLabel = data['type'] == 'Label';
-    final bool isWall = data['type'] == 'Struktur'; // Tembok
+    final bool isWall = data['type'] == 'Struktur';
     String? selectedNavFloorId = data['nav'];
 
-    // Jika tembok, hitung panjang saat ini dalam meter
     TextEditingController? lengthCtrl;
     if (isWall) {
       try {
         final wall = controller.walls.firstWhere((w) => w.id == data['id']);
         final lenPx = (wall.end - wall.start).distance;
-        final lenM = (lenPx / 40.0).toStringAsFixed(2); // 1m = 40px
+        final lenM = (lenPx / 40.0).toStringAsFixed(2);
         lengthCtrl = TextEditingController(text: lenM);
       } catch (_) {}
     }
@@ -303,7 +385,6 @@ class PlanEditorDialogs {
                     maxLines: 3,
                   ),
 
-                // Input Panjang Tembok
                 if (isWall && lengthCtrl != null) ...[
                   const SizedBox(height: 16),
                   TextField(
@@ -375,14 +456,12 @@ class PlanEditorDialogs {
             ),
             ElevatedButton(
               onPressed: () {
-                // Simpan perubahan umum
                 controller.updateSelectedAttribute(
                   desc: descCtrl.text,
                   name: titleCtrl.text,
                   navTarget: selectedNavFloorId,
                 );
 
-                // Simpan perubahan panjang tembok
                 if (isWall && lengthCtrl != null) {
                   final newLen = double.tryParse(
                     lengthCtrl.text.replaceAll(',', '.'),
@@ -402,7 +481,6 @@ class PlanEditorDialogs {
     );
   }
 
-  // ... (showColorPicker, showInteriorPicker, _buildIconGrid, showViewModeInfo SAMA) ...
   static void showColorPicker(
     BuildContext context,
     Function(Color) onColorSelected,
@@ -443,6 +521,7 @@ class PlanEditorDialogs {
     );
   }
 
+  // --- PERBAIKAN UTAMA: FITUR PENCARIAN INTERIOR ---
   static void showInteriorPicker(
     BuildContext context,
     PlanController controller,
@@ -455,114 +534,14 @@ class PlanEditorDialogs {
       backgroundColor: Colors.transparent,
       builder: (context) {
         return DraggableScrollableSheet(
-          initialChildSize: 0.6,
-          minChildSize: 0.4,
-          maxChildSize: 0.9,
+          initialChildSize: 0.7,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
           builder: (context, scrollController) {
-            return Container(
-              decoration: BoxDecoration(
-                color: colorScheme.surface,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(20),
-                ),
-              ),
-              child: DefaultTabController(
-                length: 6,
-                child: Column(
-                  children: [
-                    const SizedBox(height: 8),
-                    Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: colorScheme.onSurfaceVariant.withOpacity(0.4),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TabBar(
-                      isScrollable: true,
-                      labelColor: colorScheme.primary,
-                      unselectedLabelColor: colorScheme.onSurfaceVariant,
-                      indicatorColor: colorScheme.primary,
-                      tabs: const [
-                        Tab(text: "Furnitur"),
-                        Tab(text: "Elektronik"),
-                        Tab(text: "Sanitasi"),
-                        Tab(text: "Struktur"),
-                        Tab(text: "Dekorasi"),
-                        Tab(text: "Pustaka Saya"),
-                      ],
-                    ),
-                    Expanded(
-                      child: TabBarView(
-                        children: [
-                          _buildIconGrid(context, controller, [
-                            {'icon': Icons.chair, 'name': 'Kursi'},
-                            {'icon': Icons.table_bar, 'name': 'Meja'},
-                            {'icon': Icons.bed, 'name': 'Kasur'},
-                            {'icon': Icons.weekend, 'name': 'Sofa'},
-                          ]),
-                          _buildIconGrid(context, controller, [
-                            {'icon': Icons.tv, 'name': 'TV'},
-                            {'icon': Icons.computer, 'name': 'PC'},
-                          ]),
-                          _buildIconGrid(context, controller, [
-                            {'icon': Icons.bathtub, 'name': 'Bathtub'},
-                            {'icon': Icons.wc, 'name': 'Toilet'},
-                          ]),
-                          _buildIconGrid(context, controller, [
-                            {'icon': Icons.door_front_door, 'name': 'Pintu'},
-                            {'icon': Icons.window, 'name': 'Jendela'},
-                          ]),
-                          _buildIconGrid(context, controller, [
-                            {'icon': Icons.local_florist, 'name': 'Tanaman'},
-                            {'icon': Icons.light, 'name': 'Lampu'},
-                          ]),
-                          controller.savedCustomInteriors.isEmpty
-                              ? Center(
-                                  child: Text(
-                                    "Belum ada interior tersimpan.",
-                                    style: TextStyle(
-                                      color: colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                )
-                              : ListView.builder(
-                                  itemCount:
-                                      controller.savedCustomInteriors.length,
-                                  itemBuilder: (context, index) {
-                                    final path =
-                                        controller.savedCustomInteriors[index];
-                                    return ListTile(
-                                      leading: Icon(
-                                        Icons.brush,
-                                        color: colorScheme.onSurface,
-                                      ),
-                                      title: Text(
-                                        path.name,
-                                        style: TextStyle(
-                                          color: colorScheme.onSurface,
-                                        ),
-                                      ),
-                                      onTap: () {
-                                        final center = Offset(
-                                          MediaQuery.of(context).size.width / 2,
-                                          MediaQuery.of(context).size.height /
-                                              3,
-                                        );
-                                        controller.placeSavedPath(path, center);
-                                        Navigator.pop(context);
-                                      },
-                                    );
-                                  },
-                                ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            return _InteriorPickerSheet(
+              controller: controller,
+              scrollController: scrollController,
+              colorScheme: colorScheme,
             );
           },
         );
@@ -570,44 +549,7 @@ class PlanEditorDialogs {
     );
   }
 
-  static Widget _buildIconGrid(
-    BuildContext context,
-    PlanController controller,
-    List<Map<String, dynamic>> items,
-  ) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        childAspectRatio: 0.8,
-      ),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final item = items[index];
-        return InkWell(
-          onTap: () {
-            controller.selectObjectIcon(item['icon'], item['name']);
-            Navigator.pop(context);
-          },
-          borderRadius: BorderRadius.circular(12),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(item['icon'], size: 28, color: colorScheme.onSurface),
-              const SizedBox(height: 4),
-              Text(
-                item['name'],
-                style: TextStyle(fontSize: 11, color: colorScheme.onSurface),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+  // ... (Helper icon grid moved into _InteriorPickerSheet logic)
 
   static void showViewModeInfo(
     BuildContext context,
@@ -653,6 +595,195 @@ class PlanEditorDialogs {
           ],
         ),
       ),
+    );
+  }
+}
+
+// --- INTERNAL WIDGET UNTUK PENCARIAN INTERIOR ---
+class _InteriorPickerSheet extends StatefulWidget {
+  final PlanController controller;
+  final ScrollController scrollController;
+  final ColorScheme colorScheme;
+
+  const _InteriorPickerSheet({
+    required this.controller,
+    required this.scrollController,
+    required this.colorScheme,
+  });
+
+  @override
+  State<_InteriorPickerSheet> createState() => _InteriorPickerSheetState();
+}
+
+class _InteriorPickerSheetState extends State<_InteriorPickerSheet> {
+  String _searchQuery = "";
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<Map<String, dynamic>> _getFilteredItems() {
+    if (_searchQuery.isEmpty) return [];
+    final query = _searchQuery.toLowerCase();
+    return PlanEditorDialogs._allInteriors
+        .where((item) => item['name'].toLowerCase().contains(query))
+        .toList();
+  }
+
+  List<Map<String, dynamic>> _getItemsByCategory(String category) {
+    return PlanEditorDialogs._allInteriors
+        .where((item) => item['cat'] == category)
+        .toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isSearching = _searchQuery.isNotEmpty;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: widget.colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 8),
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: widget.colorScheme.onSurfaceVariant.withOpacity(0.4),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+
+          // SEARCH BAR
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: "Cari interior (cth: Kursi, TV)...",
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: isSearching
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = "");
+                        },
+                      )
+                    : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                filled: true,
+                fillColor: widget.colorScheme.surfaceContainerHighest,
+              ),
+              onChanged: (val) {
+                setState(() => _searchQuery = val);
+              },
+            ),
+          ),
+
+          Expanded(
+            child: isSearching
+                ? _buildSearchResults()
+                : DefaultTabController(
+                    length: 6,
+                    child: Column(
+                      children: [
+                        TabBar(
+                          isScrollable: true,
+                          labelColor: widget.colorScheme.primary,
+                          unselectedLabelColor:
+                              widget.colorScheme.onSurfaceVariant,
+                          indicatorColor: widget.colorScheme.primary,
+                          tabs: const [
+                            Tab(text: "Furnitur"),
+                            Tab(text: "Elektronik"),
+                            Tab(text: "Sanitasi"),
+                            Tab(text: "Struktur"),
+                            Tab(text: "Dekorasi"),
+                            Tab(text: "Lainnya"),
+                          ],
+                        ),
+                        Expanded(
+                          child: TabBarView(
+                            children: [
+                              _buildGrid(_getItemsByCategory('Furnitur')),
+                              _buildGrid(_getItemsByCategory('Elektronik')),
+                              _buildGrid(_getItemsByCategory('Sanitasi')),
+                              _buildGrid(_getItemsByCategory('Struktur')),
+                              _buildGrid(_getItemsByCategory('Dekorasi')),
+                              _buildGrid(_getItemsByCategory('Lainnya')),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchResults() {
+    final results = _getFilteredItems();
+    if (results.isEmpty) {
+      return Center(
+        child: Text(
+          "Tidak ditemukan interior '$originalQuery'",
+          style: TextStyle(color: widget.colorScheme.onSurfaceVariant),
+        ),
+      );
+    }
+    return _buildGrid(results);
+  }
+
+  String get originalQuery => _searchController.text;
+
+  Widget _buildGrid(List<Map<String, dynamic>> items) {
+    return GridView.builder(
+      controller:
+          widget.scrollController, // Agar scroll smooth dengan bottom sheet
+      padding: const EdgeInsets.all(16),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        childAspectRatio: 0.8,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final item = items[index];
+        return InkWell(
+          onTap: () {
+            widget.controller.selectObjectIcon(item['icon'], item['name']);
+            Navigator.pop(context);
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(item['icon'], size: 28, color: widget.colorScheme.onSurface),
+              const SizedBox(height: 4),
+              Text(
+                item['name'],
+                style: TextStyle(
+                  fontSize: 11,
+                  color: widget.colorScheme.onSurface,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
