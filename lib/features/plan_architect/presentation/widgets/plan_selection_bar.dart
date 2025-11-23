@@ -32,8 +32,6 @@ class PlanSelectionBar extends StatelessWidget {
           .firstWhere((l) => l.id == controller.selectedId)
           .fontSize;
     } else if (data['type'] == 'Bentuk') {
-      // Untuk bentuk, kita pakai ukuran relatif dari slider
-      // (Di controller sudah di-handle logika konversi ke Rect)
       currentSize = 5.0; // Nilai tengah default untuk slider
     }
 
@@ -41,7 +39,7 @@ class PlanSelectionBar extends StatelessWidget {
       constraints: const BoxConstraints(maxWidth: 600),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.white, // Background Putih
         borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(
@@ -80,6 +78,8 @@ class PlanSelectionBar extends StatelessWidget {
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
+                        // --- PERUBAHAN: Paksa warna hitam agar terlihat di bg putih ---
+                        color: Colors.black87,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -87,6 +87,7 @@ class PlanSelectionBar extends StatelessWidget {
                       data['type'] ?? "Item",
                       style: TextStyle(
                         fontSize: 11,
+                        // Warna abu-abu gelap
                         color: Colors.grey.shade600,
                       ),
                     ),
@@ -102,6 +103,8 @@ class PlanSelectionBar extends StatelessWidget {
                   visualDensity: VisualDensity.compact,
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   side: BorderSide(color: Colors.blue.shade200),
+                  // --- PERUBAHAN: Warna teks tombol biru ---
+                  foregroundColor: Colors.blue,
                 ),
               ),
             ],
@@ -124,12 +127,13 @@ class PlanSelectionBar extends StatelessWidget {
                 ),
               ),
 
-              // SLIDER UKURAN UNTUK SEMUA TIPE
+              // SLIDER UKURAN
               Expanded(
                 child: Column(
                   children: [
                     const Text(
                       "Ukuran",
+                      // Text caption ukuran
                       style: TextStyle(fontSize: 9, color: Colors.grey),
                     ),
                     SizedBox(
@@ -232,7 +236,7 @@ class PlanSelectionBar extends StatelessWidget {
     required IconData icon,
     required String label,
     required VoidCallback onTap,
-    Color color = Colors.black87,
+    Color color = Colors.black87, // Default hitam
   }) {
     return InkWell(
       onTap: onTap,

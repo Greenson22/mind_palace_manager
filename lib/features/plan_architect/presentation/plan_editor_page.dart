@@ -181,13 +181,13 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
           body: Stack(
             children: [
               // 1. CANVAS (LAYER PALING BAWAH)
-              // Catatan: Tombol Zoom sudah ada di dalam widget PlanCanvasView
               Positioned.fill(child: PlanCanvasView(controller: _controller)),
 
-              // 2. SELECTION BAR (MUNCUL DI ATAS TOOLBAR UTAMA)
+              // 2. SELECTION BAR (DIKEATASKAN SEDIKIT)
               if (!isView && _controller.selectedId != null)
                 Positioned(
-                  bottom: 100, // Di atas toolbar utama (32 + 60 + padding)
+                  // --- PERUBAHAN: Naikkan dari 100 ke 140 ---
+                  bottom: 140,
                   left: 16,
                   right: 16,
                   child: PlanSelectionBar(controller: _controller),
