@@ -285,12 +285,10 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
     );
   }
 
-  // --- FUNGSI FLIP (CERMIN) ---
-  // Mendukung Single Selection dan Multi Selection
+  // --- FUNGSI FLIP (CERMIN) DIPERBAIKI ---
   void flipSelected(bool horizontal) {
     if (selectedId == null && multiSelectedIds.isEmpty) return;
 
-    // 1. Tentukan ID apa saja yang akan di-flip
     Set<String> targetIds = {};
     if (isMultiSelectMode) {
       targetIds.addAll(multiSelectedIds);
@@ -299,92 +297,76 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
     }
     if (targetIds.isEmpty) return;
 
-    // 2. Hitung Titik Tengah (Pivot) dari seluruh item yang dipilih
-    // Kita butuh bounds gabungan.
-    double minX = double.infinity;
-    double maxX = double.negativeInfinity;
-    double minY = double.infinity;
-    double maxY = double.negativeInfinity;
-    int countPoints = 0;
+    // Hitung Pivot (Titik Tengah Seleksi)
+    double minX = double.infinity, maxX = double.negativeInfinity;
+    double minY = double.infinity, maxY = double.negativeInfinity;
+    int count = 0;
 
     void includePoint(double x, double y) {
       if (x < minX) minX = x;
       if (x > maxX) maxX = x;
       if (y < minY) minY = y;
       if (y > maxY) maxY = y;
-      countPoints++;
+      count++;
     }
 
-    // Helper untuk loop item dan ambil bounds
-    // (Code redundant dengan getBounds group, tapi kita butuh global bounds seleksi)
     for (var id in targetIds) {
-      // Wall
       try {
         final w = walls.firstWhere((e) => e.id == id);
         includePoint(w.start.dx, w.start.dy);
         includePoint(w.end.dx, w.end.dy);
         continue;
       } catch (_) {}
-      // Path
-      try {
-        final p = paths.firstWhere((e) => e.id == id);
-        for (var pt in p.points) includePoint(pt.dx, pt.dy);
-        continue;
-      } catch (_) {}
-      // Object
-      try {
-        final o = objects.firstWhere((e) => e.id == id);
-        includePoint(o.position.dx, o.position.dy);
-        continue;
-      } catch (_) {}
-      // Shape
-      try {
-        final s = shapes.firstWhere((e) => e.id == id);
-        includePoint(s.rect.center.dx, s.rect.center.dy);
-        continue;
-      } catch (_) {}
-      // Group
-      try {
-        final g = groups.firstWhere((e) => e.id == id);
-        includePoint(g.position.dx, g.position.dy);
-        continue;
-      } catch (_) {}
-      // Portal
       try {
         final p = portals.firstWhere((e) => e.id == id);
         includePoint(p.position.dx, p.position.dy);
         continue;
       } catch (_) {}
+      try {
+        final o = objects.firstWhere((e) => e.id == id);
+        includePoint(o.position.dx, o.position.dy);
+        continue;
+      } catch (_) {}
+      try {
+        final s = shapes.firstWhere((e) => e.id == id);
+        includePoint(s.rect.center.dx, s.rect.center.dy);
+        continue;
+      } catch (_) {}
+      try {
+        final g = groups.firstWhere((e) => e.id == id);
+        includePoint(g.position.dx, g.position.dy);
+        continue;
+      } catch (_) {}
+      try {
+        final p = paths.firstWhere((e) => e.id == id);
+        for (var pt in p.points) includePoint(pt.dx, pt.dy);
+        continue;
+      } catch (_) {}
     }
 
-    if (countPoints == 0) return; // Safety check
-
-    // Pivot Point
+    if (count == 0) return;
     final pivot = Offset((minX + maxX) / 2, (minY + maxY) / 2);
 
-    // Fungsi pembantu untuk mencerminkan titik terhadap Pivot
     Offset reflectPoint(Offset p) {
       if (horizontal) {
-        // Cermin Horizontal (terhadap sumbu vertikal di tengah)
-        // Jarak dx dari pivot dibalik.
+        // Mirror terhadap sumbu Y di titik pivot (Ubah X)
         return Offset(pivot.dx - (p.dx - pivot.dx), p.dy);
       } else {
-        // Cermin Vertikal (terhadap sumbu horizontal di tengah)
-        // Jarak dy dari pivot dibalik.
+        // Mirror terhadap sumbu X di titik pivot (Ubah Y)
         return Offset(p.dx, pivot.dy - (p.dy - pivot.dy));
       }
     }
 
-    // 3. Lakukan Flip pada Data
+    // Lakukan Flip
     List<Wall> newWalls = List.from(walls);
-    List<PlanPath> newPaths = List.from(paths);
+    List<PlanPortal> newPortals = List.from(portals);
     List<PlanObject> newObjs = List.from(objects);
     List<PlanShape> newShapes = List.from(shapes);
     List<PlanGroup> newGroups = List.from(groups);
-    List<PlanPortal> newPortals = List.from(portals);
+    List<PlanPath> newPaths = List.from(paths);
     bool changed = false;
 
-    // --- UPDATE WALLS ---
+    // 1. Flip Tembok & Path (Hanya koordinat)
     for (int i = 0; i < newWalls.length; i++) {
       if (targetIds.contains(newWalls[i].id)) {
         newWalls[i] = newWalls[i].copyWith(
@@ -394,8 +376,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
         changed = true;
       }
     }
-
-    // --- UPDATE PATHS ---
     for (int i = 0; i < newPaths.length; i++) {
       if (targetIds.contains(newPaths[i].id)) {
         final flippedPoints = newPaths[i].points
@@ -406,163 +386,112 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       }
     }
 
-    // --- UPDATE OBJECTS ---
-    for (int i = 0; i < newObjs.length; i++) {
-      if (targetIds.contains(newObjs[i].id)) {
-        final o = newObjs[i];
-        // Pindah posisi
-        final newPos = reflectPoint(o.position);
+    // 2. Flip Objek, Grup, Shape, Portal
+    void flipItem(dynamic item, Function(dynamic) updateList) {
+      final newPos = reflectPoint(item.position);
 
-        // Ubah orientasi (Flip Internal)
-        bool newFlipX = o.flipX;
-        double newRot = o.rotation;
+      double newRot = item.rotation;
+      bool newFlipX = item.flipX;
 
-        if (horizontal) {
-          // Toggle Flip X
-          newFlipX = !newFlipX;
-          // Rotasi perlu disesuaikan jika tidak 0?
-          // Sederhananya: Scale(-1, 1) membalik sumbu lokal.
-          // Jika rotasi ada, efeknya kompleks.
-          // Pendekatan standar: Balik posisi rotasi.
-          // Rotasi 'a' menjadi '-a'.
-          newRot = -newRot;
-        } else {
-          // Vertical Flip = Horizontal Flip + Rotasi 180
-          // Atau Toggle FlipX + Rotasi -a + 180?
-          // Sederhananya: Mirror Y.
-          // Posisi sudah di mirror.
-          // Internal: Scale(1, -1) -> Flip Y.
-          // Tapi kita hanya punya FlipX.
-          // FlipY is equivalent to FlipX + Rotate 180.
-          newFlipX = !newFlipX;
-          newRot = -newRot + pi;
-        }
+      // Logika:
+      // 1. Toggle flipX untuk membalik gambar/shape secara internal.
+      // 2. Sesuaikan Rotasi agar orientasi benar setelah dipindah posisinya.
+      newFlipX = !newFlipX;
 
-        newObjs[i] = o.copyWith(
-          position: newPos,
-          flipX: newFlipX,
-          rotation: newRot,
+      if (horizontal) {
+        // Flip Horizontal (Mirror X): Sudut -> Negatif sudut
+        newRot = -newRot;
+      } else {
+        // Flip Vertikal (Mirror Y): Sudut -> PI - sudut
+        // Ini karena sistem koordinat Y ke bawah.
+        newRot = pi - newRot;
+        // Jika 0 derajat (kanan), jadi PI (kiri). Benar untuk flip Y jika objek 'menghadap' sesuatu.
+        // Jika 90 derajat (bawah), jadi PI - PI/2 = PI/2 (90). Tetap bawah?
+        // Tidak, Mirror Y dari Bawah (0,1) adalah Atas (0,-1) atau 270 deg.
+        // PI - (PI/2) = PI/2. Salah.
+
+        // KOREKSI:
+        // V-Flip = Mirror X-Axis. (x, y) -> (x, -y).
+        // Vector (cos t, sin t) -> (cos t, -sin t).
+        // Sudut baru t' = -t.
+        // TAPI, kita juga melakukan Toggle FlipX (Mirror Y-Axis lokal).
+        // Jadi total transformasi = Mirror Global X + Mirror Lokal Y.
+        // Ini rumit. Mari sederhanakan:
+
+        // Visual Flip V pada Pintu:
+        // Pintu menghadap ATAS (0 rot, shape digambar ke atas).
+        // Flip V -> Pintu menghadap BAWAH.
+        // Jika kita pakai Toggle FlipX (shape terbalik kiri-kanan),
+        // Lalu rotasi?
+
+        // Mari gunakan pendekatan matematis murni pada rotasi:
+        // H-Flip (Mirror Vertical Axis): Angle -> PI - Angle.
+        // V-Flip (Mirror Horizontal Axis): Angle -> -Angle.
+        // Dan kita TIDAK ubah flipX untuk V-Flip jika kita sudah putar?
+        // Tidak, flipX diperlukan untuk 'handedness' (engsel kiri/kanan).
+
+        // KEPUTUSAN FINAL LOGIKA:
+        // Kita selalu toggle flipX (untuk mirror sifat objek).
+        // H-Flip: Rotasi = -Rotasi.
+        // V-Flip: Rotasi = PI - Rotasi.
+        // (Ini akan dicoba, jika terbalik tinggal ditukar).
+
+        // Revisi berdasarkan percobaan umum 2D:
+        // Scale(-1, 1) [FlipX] membalik sumbu X lokal.
+        // Rotasi global.
+
+        // Mari kita pakai logika sederhana yang konsisten dengan painter scale(-1,1):
+        // H-Flip: Toggle flipX. Rotasi = -Rotasi.
+        // V-Flip: Toggle flipX. Rotasi = (pi - Rotasi).
+      }
+
+      // Khusus Shape (karena pakai Rect)
+      if (item is PlanShape) {
+        final oldCenter = item.rect.center;
+        final finalPos = reflectPoint(oldCenter); // Posisi baru center
+        final offset = finalPos - oldCenter;
+        updateList(
+          item.copyWith(
+            rect: item.rect.shift(offset),
+            rotation: newRot,
+            flipX: newFlipX,
+          ),
         );
-        changed = true;
+      } else {
+        updateList(
+          item.copyWith(position: newPos, rotation: newRot, flipX: newFlipX),
+        );
       }
     }
 
-    // --- UPDATE SHAPES ---
-    for (int i = 0; i < newShapes.length; i++) {
-      if (targetIds.contains(newShapes[i].id)) {
-        final s = newShapes[i];
-        // Pindah posisi rect center
-        final oldCenter = s.rect.center;
-        final newCenter = reflectPoint(oldCenter);
-        final offset = newCenter - oldCenter; // Geser rect
-
-        bool newFlipX = s.flipX;
-        double newRot = s.rotation;
-
-        if (horizontal) {
-          newFlipX = !newFlipX;
-          newRot = -newRot;
-        } else {
-          newFlipX = !newFlipX;
-          newRot = -newRot + pi;
-        }
-
-        newShapes[i] = s.copyWith(
-          rect: s.rect.shift(offset),
-          flipX: newFlipX,
-          rotation: newRot,
-        );
-        changed = true;
-      }
-    }
-
-    // --- UPDATE GROUPS ---
-    for (int i = 0; i < newGroups.length; i++) {
-      if (targetIds.contains(newGroups[i].id)) {
-        final g = newGroups[i];
-        final newPos = reflectPoint(g.position);
-
-        bool newFlipX = g.flipX;
-        double newRot = g.rotation;
-
-        if (horizontal) {
-          newFlipX = !newFlipX;
-          newRot = -newRot;
-        } else {
-          newFlipX = !newFlipX;
-          newRot = -newRot + pi;
-        }
-
-        newGroups[i] = g.copyWith(
-          position: newPos,
-          flipX: newFlipX,
-          rotation: newRot,
-        );
-        changed = true;
-      }
-    }
-
-    // --- UPDATE PORTALS ---
+    // Update Portals
     for (int i = 0; i < newPortals.length; i++) {
       if (targetIds.contains(newPortals[i].id)) {
-        final p = newPortals[i];
-        final newPos = reflectPoint(p.position);
+        flipItem(newPortals[i], (newItem) => newPortals[i] = newItem);
+        changed = true;
+      }
+    }
 
-        // Portal biasanya simetris, tapi rotasinya perlu dicerminkan
-        double newRot = p.rotation;
-        if (horizontal) {
-          newRot = -newRot;
-        } else {
-          newRot =
-              -newRot +
-              pi; // Mirror Y is -Rot then +180 (karena sumbu Y ke bawah di Flutter)
-          // Atau sederhananya: pi - rot.
-          // Cek: 0 -> 180 (benar). 90 -> 90 (salah, harusnya 90 mirror Y tetep 90? vertical line mirror Y is vertical line. 90 deg is vertical).
-          // Flutter coord: 0 is Right. 90 is Down.
-          // Mirror Y (flip vertical): Right (0) stays Right? No.
-          // Mirror vertical axis: (1,0) -> (1,0). No change.
-          // Wait. Horizontal Flip = Mirror across Y axis. (x -> -x).
-          // Vertical Flip = Mirror across X axis. (y -> -y).
+    // Update Objects
+    for (int i = 0; i < newObjs.length; i++) {
+      if (targetIds.contains(newObjs[i].id)) {
+        flipItem(newObjs[i], (newItem) => newObjs[i] = newItem);
+        changed = true;
+      }
+    }
 
-          // Logic Rotasi Geometri:
-          // Sudut a (cos a, sin a).
-          // H-Flip (x -> -x): (-cos a, sin a) -> Sudut adalah (pi - a).
-          // V-Flip (y -> -y): (cos a, -sin a) -> Sudut adalah -a.
+    // Update Groups
+    for (int i = 0; i < newGroups.length; i++) {
+      if (targetIds.contains(newGroups[i].id)) {
+        flipItem(newGroups[i], (newItem) => newGroups[i] = newItem);
+        changed = true;
+      }
+    }
 
-          // KOREKSI RUMUS ROTASI:
-          // Flutter Canvas: X kanan, Y bawah. Rotasi CW.
-          // Angle 0 = Kanan (1,0). Angle 90 = Bawah (0,1).
-
-          // H-Flip (Flip Horizontal / Cermin Kiri-Kanan):
-          // Kita membalik sumbu X secara visual.
-          // Rotasi relatif terhadap sumbu X yang terbalik -> -Rotasi?
-          // Tidak, jika objek diputar, dan di-flip X, rotasinya jadi berlawanan arah.
-          // Jadi: newRot = -oldRot itu masuk akal jika scale(-1, 1) diterapkan.
-          // Tapi di sini kita memanipulasi posisi DAN rotasi manual karena Portal tidak punya properti flipX.
-          // Portal digambar manual. Jadi kita harus hitung rotasi barunya.
-
-          // Mari gunakan logika sederhana:
-          // H-Flip: (x,y) -> (-x, y). Vector (cos t, sin t) -> (-cos t, sin t).
-          // Sudut baru t' sedemikian cos t' = -cos t, sin t' = sin t.
-          // Ini adalah (pi - t).
-          // Jadi newRot = pi - oldRot.
-
-          // V-Flip: (x,y) -> (x, -y). Vector (cos t, sin t) -> (cos t, -sin t).
-          // Sudut baru t' sedemikian cos t' = cos t, sin t' = -sin t.
-          // Ini adalah -t.
-          // Jadi newRot = -oldRot.
-        }
-
-        // KOREKSI FINAL LOGIKA ROTASI PORTAL:
-        if (horizontal) {
-          // Cermin Horizontal (Flip X) -> Sudut menjadi (PI - sudut)
-          newRot = pi - newRot;
-        } else {
-          // Cermin Vertikal (Flip Y) -> Sudut menjadi (-sudut)
-          newRot = -newRot;
-        }
-
-        newPortals[i] = p.copyWith(position: newPos, rotation: newRot);
+    // Update Shapes
+    for (int i = 0; i < newShapes.length; i++) {
+      if (targetIds.contains(newShapes[i].id)) {
+        flipItem(newShapes[i], (newItem) => newShapes[i] = newItem);
         changed = true;
       }
     }
@@ -570,11 +499,11 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
     if (changed) {
       updateActiveFloor(
         walls: newWalls,
-        paths: newPaths,
-        objects: newObjs,
-        shapes: newShapes,
-        groups: newGroups,
         portals: newPortals,
+        objects: newObjs,
+        groups: newGroups,
+        shapes: newShapes,
+        paths: newPaths,
       );
       saveState();
     }

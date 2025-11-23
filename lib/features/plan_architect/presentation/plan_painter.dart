@@ -271,6 +271,12 @@ class PlanPainter extends CustomPainter {
     canvas.translate(portal.position.dx, portal.position.dy);
     canvas.rotate(portal.rotation);
 
+    // --- TAMBAHAN LOGIKA FLIP PADA PINTU ---
+    if (portal.flipX) {
+      canvas.scale(-1.0, 1.0);
+    }
+    // --------------------------------------
+
     final double w = portal.width;
     final double h = 6.0;
 

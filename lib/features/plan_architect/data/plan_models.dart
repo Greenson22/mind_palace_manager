@@ -5,7 +5,7 @@ import '../logic/plan_enums.dart';
 // --- UPDATE ENUM ---
 enum PlanShapeType { rectangle, circle, triangle, hexagon, star }
 
-// --- KELAS BARU: PLAN PORTAL (Pintu & Jendela) ---
+// --- KELAS PLAN PORTAL (Pintu & Jendela) ---
 class PlanPortal {
   final String id;
   final Offset position;
@@ -13,6 +13,7 @@ class PlanPortal {
   final double width;
   final PlanPortalType type;
   final Color color;
+  final bool flipX; // TAMBAHAN: Properti Flip
 
   PlanPortal({
     required this.id,
@@ -21,6 +22,7 @@ class PlanPortal {
     this.width = 40.0,
     required this.type,
     this.color = Colors.blueGrey,
+    this.flipX = false, // Default false
   });
 
   Map<String, dynamic> toJson() => {
@@ -31,6 +33,7 @@ class PlanPortal {
     'w': width,
     'type': type.index,
     'col': color.value,
+    'flpX': flipX, // Simpan
   };
 
   factory PlanPortal.fromJson(Map<String, dynamic> json) => PlanPortal(
@@ -40,6 +43,7 @@ class PlanPortal {
     width: (json['w'] as num?)?.toDouble() ?? 40.0,
     type: PlanPortalType.values[json['type'] ?? 0],
     color: json['col'] != null ? Color(json['col']) : Colors.blueGrey,
+    flipX: json['flpX'] ?? false, // Baca
   );
 
   PlanPortal copyWith({
@@ -49,6 +53,7 @@ class PlanPortal {
     double? width,
     PlanPortalType? type,
     Color? color,
+    bool? flipX,
   }) {
     return PlanPortal(
       id: id ?? this.id,
@@ -57,6 +62,7 @@ class PlanPortal {
       width: width ?? this.width,
       type: type ?? this.type,
       color: color ?? this.color,
+      flipX: flipX ?? this.flipX,
     );
   }
 
@@ -67,7 +73,7 @@ class PlanGroup {
   final String id;
   final Offset position;
   final double rotation;
-  final bool flipX; // PROPERTI FLIP
+  final bool flipX;
   final List<PlanObject> objects;
   final List<PlanShape> shapes;
   final List<PlanPath> paths;
@@ -353,7 +359,7 @@ class PlanObject {
   final String description;
   final int iconCodePoint;
   final double rotation;
-  final bool flipX; // PROPERTI FLIP
+  final bool flipX;
   final Color color;
   final String? navTargetFloorId;
   final double size;
@@ -559,7 +565,7 @@ class PlanShape {
   final Color color;
   final bool isFilled;
   final double rotation;
-  final bool flipX; // PROPERTI FLIP
+  final bool flipX;
   final String name;
   final String description;
 
