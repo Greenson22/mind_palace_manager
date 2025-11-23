@@ -1,11 +1,69 @@
 import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
+import '../logic/plan_enums.dart'; // Pastikan import ini ada
 
 // --- UPDATE ENUM ---
 enum PlanShapeType { rectangle, circle, triangle, hexagon, star }
 
+// --- KELAS BARU: PLAN PORTAL (Pintu & Jendela) ---
+class PlanPortal {
+  final String id;
+  final Offset position;
+  final double rotation;
+  final double width;
+  final PlanPortalType type;
+  final Color color;
+
+  PlanPortal({
+    required this.id,
+    required this.position,
+    this.rotation = 0.0,
+    this.width = 40.0, // Lebar standar
+    required this.type,
+    this.color = Colors.blueGrey,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'x': position.dx,
+    'y': position.dy,
+    'rot': rotation,
+    'w': width,
+    'type': type.index,
+    'col': color.value,
+  };
+
+  factory PlanPortal.fromJson(Map<String, dynamic> json) => PlanPortal(
+    id: json['id'],
+    position: Offset(json['x'], json['y']),
+    rotation: (json['rot'] as num?)?.toDouble() ?? 0.0,
+    width: (json['w'] as num?)?.toDouble() ?? 40.0,
+    type: PlanPortalType.values[json['type'] ?? 0],
+    color: json['col'] != null ? Color(json['col']) : Colors.blueGrey,
+  );
+
+  PlanPortal copyWith({
+    String? id,
+    Offset? position,
+    double? rotation,
+    double? width,
+    PlanPortalType? type,
+    Color? color,
+  }) {
+    return PlanPortal(
+      id: id ?? this.id,
+      position: position ?? this.position,
+      rotation: rotation ?? this.rotation,
+      width: width ?? this.width,
+      type: type ?? this.type,
+      color: color ?? this.color,
+    );
+  }
+
+  PlanPortal moveBy(Offset delta) => copyWith(position: position + delta);
+}
+
 class PlanGroup {
-  // ... (Isi class PlanGroup sama seperti sebelumnya)
   final String id;
   final Offset position;
   final double rotation;
@@ -135,7 +193,6 @@ class PlanGroup {
   PlanGroup moveBy(Offset delta) => copyWith(position: position + delta);
 }
 
-// ... (PlanFloor, Wall, PlanObject, PlanLabel, PlanPath tetap sama seperti sebelumnya) ...
 class PlanFloor {
   final String id;
   final String name;
@@ -145,6 +202,7 @@ class PlanFloor {
   final List<PlanPath> paths;
   final List<PlanShape> shapes;
   final List<PlanGroup> groups;
+  final List<PlanPortal> portals; // BARU: List untuk Pintu & Jendela
 
   PlanFloor({
     required this.id,
@@ -155,6 +213,7 @@ class PlanFloor {
     this.paths = const [],
     this.shapes = const [],
     this.groups = const [],
+    this.portals = const [], // BARU
   });
 
   Map<String, dynamic> toJson() => {
@@ -166,6 +225,7 @@ class PlanFloor {
     'paths': paths.map((e) => e.toJson()).toList(),
     'shapes': shapes.map((e) => e.toJson()).toList(),
     'groups': groups.map((e) => e.toJson()).toList(),
+    'portals': portals.map((e) => e.toJson()).toList(), // BARU
   };
 
   factory PlanFloor.fromJson(Map<String, dynamic> json) => PlanFloor(
@@ -190,6 +250,12 @@ class PlanFloor {
     groups:
         (json['groups'] as List?)?.map((e) => PlanGroup.fromJson(e)).toList() ??
         [],
+    // BARU
+    portals:
+        (json['portals'] as List?)
+            ?.map((e) => PlanPortal.fromJson(e))
+            .toList() ??
+        [],
   );
 
   PlanFloor copyWith({
@@ -201,6 +267,7 @@ class PlanFloor {
     List<PlanPath>? paths,
     List<PlanShape>? shapes,
     List<PlanGroup>? groups,
+    List<PlanPortal>? portals, // BARU
   }) {
     return PlanFloor(
       id: id ?? this.id,
@@ -211,6 +278,7 @@ class PlanFloor {
       paths: paths ?? this.paths,
       shapes: shapes ?? this.shapes,
       groups: groups ?? this.groups,
+      portals: portals ?? this.portals, // BARU
     );
   }
 }

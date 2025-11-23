@@ -16,6 +16,7 @@ abstract class PlanVariables extends ChangeNotifier {
   List<PlanLabel> get labels => activeFloor.labels;
   List<PlanShape> get shapes => activeFloor.shapes;
   List<PlanGroup> get groups => activeFloor.groups;
+  List<PlanPortal> get portals => activeFloor.portals; // BARU
 
   // --- VIEW SETTINGS ---
   bool isViewMode = false;

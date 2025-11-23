@@ -67,20 +67,23 @@ class PlanPainter extends CustomPainter {
           controller.tempEnd!,
           previewPaint,
         );
-        _drawWallLabel(
-          canvas,
-          Wall(
-            id: 'temp',
-            start: controller.tempStart!,
-            end: controller.tempEnd!,
-          ),
-        );
+      }
+    }
+
+    // --- BARU: GAMBAR PORTAL (Pintu & Jendela) ---
+    // Digambar di atas layer tembok
+    if (controller.layerWalls) {
+      for (var portal in controller.portals) {
+        bool isSel =
+            (controller.selectedId == portal.id) ||
+            controller.multiSelectedIds.contains(portal.id);
+        _drawPortal(canvas, portal, isSel);
       }
     }
 
     // 3. Shapes, Objects & GROUPS (Layer Atas)
     if (controller.layerObjects) {
-      // --- GAMBAR GRUP ---
+      // Groups
       for (var group in controller.groups) {
         bool isSel =
             (controller.selectedId == group.id) ||
@@ -111,7 +114,7 @@ class PlanPainter extends CustomPainter {
             rect: previewRect,
             type: controller.selectedShapeType,
             color: controller.activeColor,
-            isFilled: controller.shapeFilled, // Use shapeFilled setting
+            isFilled: controller.shapeFilled,
           ),
           false,
         );
@@ -237,6 +240,79 @@ class PlanPainter extends CustomPainter {
     }
   }
 
+  void _drawPortal(Canvas canvas, PlanPortal portal, bool isSelected) {
+    canvas.save();
+    canvas.translate(portal.position.dx, portal.position.dy);
+    canvas.rotate(portal.rotation);
+
+    final double w = portal.width;
+    final double h = 6.0; // Visual ketebalan kusen
+
+    Paint strokePaint = Paint()
+      ..color = isSelected ? Colors.blue : portal.color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+
+    // Fill untuk menutupi tembok di bawahnya (simulasi lubang tembok)
+    Paint maskPaint = Paint()
+      ..color = controller.canvasColor
+      ..style = PaintingStyle.fill;
+
+    // 1. Gambar kotak penutup untuk memotong tembok secara visual
+    canvas.drawRect(
+      Rect.fromCenter(center: Offset.zero, width: w, height: h + 2),
+      maskPaint,
+    );
+
+    if (portal.type == PlanPortalType.window) {
+      // --- GAMBAR JENDELA ---
+      Rect rect = Rect.fromCenter(center: Offset.zero, width: w, height: h);
+      canvas.drawRect(rect, strokePaint); // Kusen
+      // Garis Kaca tengah
+      canvas.drawLine(
+        Offset(-w / 2, 0),
+        Offset(w / 2, 0),
+        strokePaint..strokeWidth = 1.0,
+      );
+    } else if (portal.type == PlanPortalType.door) {
+      // --- GAMBAR PINTU ---
+      // Kusen Kiri & Kanan
+      canvas.drawRect(
+        Rect.fromLTWH(-w / 2, -h / 2, 4, h),
+        Paint()..color = portal.color,
+      );
+      canvas.drawRect(
+        Rect.fromLTWH(w / 2 - 4, -h / 2, 4, h),
+        Paint()..color = portal.color,
+      );
+
+      // Daun Pintu (Terbuka 90 derajat ke atas)
+      Paint doorPaint = Paint()
+        ..color = isSelected ? Colors.blue : portal.color
+        ..strokeWidth = 3.0
+        ..style = PaintingStyle.stroke;
+
+      canvas.drawLine(Offset(-w / 2, -h / 2), Offset(-w / 2, -w), doorPaint);
+
+      // Garis Bukaan (Arc)
+      Paint arcPaint = Paint()
+        ..color = (isSelected ? Colors.blue : portal.color).withOpacity(0.3)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0; // Tipis
+
+      canvas.drawArc(
+        Rect.fromCircle(center: Offset(-w / 2, -h / 2), radius: w),
+        -math.pi / 2, // Start angle (arah jam 12)
+        math.pi / 2, // Sweep angle (90 derajat)
+        false,
+        arcPaint,
+      );
+    }
+
+    canvas.restore();
+  }
+
+  // ... (Method _drawGroup, _drawImage, _drawGrid, _drawShape, _drawStar, _drawWallLabel tetap sama) ...
   void _drawGroup(Canvas canvas, PlanGroup group, bool isSelected) {
     canvas.save();
     canvas.translate(group.position.dx, group.position.dy);
@@ -307,7 +383,6 @@ class PlanPainter extends CustomPainter {
       tp.layout();
       tp.paint(canvas, label.position - Offset(tp.width / 2, tp.height / 2));
     }
-
     canvas.restore();
   }
 
@@ -339,15 +414,12 @@ class PlanPainter extends CustomPainter {
       ..color = Colors.grey.withOpacity(0.3)
       ..strokeWidth = 1;
     double step = controller.gridSize;
-    for (double x = 0; x <= size.width; x += step) {
+    for (double x = 0; x <= size.width; x += step)
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
-    }
-    for (double y = 0; y <= size.height; y += step) {
+    for (double y = 0; y <= size.height; y += step)
       canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
-    }
   }
 
-  // --- UPDATE: Draw Shape with Fill/Outline ---
   void _drawShape(Canvas canvas, PlanShape shape, bool isSelected) {
     canvas.save();
     final center = shape.rect.center;
@@ -358,7 +430,6 @@ class PlanPainter extends CustomPainter {
     final Paint fillPaint = Paint()
       ..color = isSelected
           ? Colors.blue.withOpacity(0.5)
-          // Jika isFilled true, gunakan warna solid (opacity 1.0 atau sesuai alpha warna). Jika false, transparan (0.0).
           : shape.color.withOpacity(
               shape.isFilled
                   ? (shape.color.opacity == 1.0 ? 1.0 : shape.color.opacity)
@@ -378,7 +449,6 @@ class PlanPainter extends CustomPainter {
       canvas.drawOval(shape.rect, fillPaint);
       canvas.drawOval(shape.rect, borderPaint);
     } else if (shape.type == PlanShapeType.triangle) {
-      // --- DRAW TRIANGLE ---
       final path = Path();
       path.moveTo(shape.rect.center.dx, shape.rect.top);
       path.lineTo(shape.rect.right, shape.rect.bottom);
@@ -387,13 +457,11 @@ class PlanPainter extends CustomPainter {
       canvas.drawPath(path, fillPaint);
       canvas.drawPath(path, borderPaint);
     } else if (shape.type == PlanShapeType.hexagon) {
-      // --- DRAW HEXAGON ---
       final path = Path();
       final width = shape.rect.width;
       final height = shape.rect.height;
       final centerX = shape.rect.center.dx;
       final centerY = shape.rect.center.dy;
-
       for (int i = 0; i < 6; i++) {
         double angle = (60 * i - 30) * (math.pi / 180);
         double x = centerX + width / 2 * math.cos(angle);

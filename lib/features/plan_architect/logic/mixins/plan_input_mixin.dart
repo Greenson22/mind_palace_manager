@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math'; // Penting untuk perhitungan sudut
 import 'plan_variables.dart';
 import 'plan_view_mixin.dart';
 import 'plan_selection_mixin.dart';
@@ -8,7 +9,32 @@ import '../../data/plan_models.dart';
 
 mixin PlanInputMixin
     on PlanVariables, PlanViewMixin, PlanSelectionMixin, PlanStateMixin {
-  // ... (onPanStart, onPanUpdate TETAP SAMA) ...
+  // Helper: Mencari Tembok Terdekat & Sudutnya
+  Map<String, dynamic>? _getNearestWallInfo(Offset pos) {
+    for (var wall in walls) {
+      double dx = wall.end.dx - wall.start.dx;
+      double dy = wall.end.dy - wall.start.dy;
+      if (dx == 0 && dy == 0) continue;
+
+      // Proyeksi titik ke garis
+      double t =
+          ((pos.dx - wall.start.dx) * dx + (pos.dy - wall.start.dy) * dy) /
+          (dx * dx + dy * dy);
+      t = max(0, min(1, t)); // Clamp agar tetap di dalam segmen garis
+
+      Offset closest = Offset(wall.start.dx + t * dx, wall.start.dy + t * dy);
+
+      // Jika jarak < 20, anggap menempel (snap)
+      if ((pos - closest).distance < 20.0) {
+        return {
+          'pos': closest,
+          'rotation': atan2(dy, dx), // Ambil sudut tembok
+        };
+      }
+    }
+    return null;
+  }
+
   void onPanStart(Offset localPos) {
     if (isViewMode) return;
     if (activeTool == PlanTool.hand) return;
@@ -53,6 +79,7 @@ mixin PlanInputMixin
       lastDragPos = localPos;
     } else if (activeTool == PlanTool.wall && tempStart != null) {
       Offset pos = getSmartSnapPoint(localPos);
+      // Fitur Lurus Otomatis (Ortho)
       if ((pos.dx - tempStart!.dx).abs() < 10)
         pos = Offset(tempStart!.dx, pos.dy);
       if ((pos.dy - tempStart!.dy).abs() < 10)
@@ -96,13 +123,12 @@ mixin PlanInputMixin
     } else if (activeTool == PlanTool.shape &&
         tempStart != null &&
         tempEnd != null) {
-      // --- UPDATE: Gunakan shapeFilled ---
       final newShape = PlanShape(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         rect: Rect.fromPoints(tempStart!, tempEnd!),
         type: selectedShapeType,
         color: activeColor,
-        isFilled: shapeFilled, // <-- Gunakan properti ini
+        isFilled: shapeFilled,
       );
 
       updateActiveFloor(shapes: [...shapes, newShape]);
@@ -124,9 +150,9 @@ mixin PlanInputMixin
     notifyListeners();
   }
 
-  // ... (onTapUp, addLabel, placeSavedPath, placeSavedItem TETAP SAMA) ...
   void onTapUp(Offset localPos) {
     if (isViewMode) {
+      // View mode selection logic...
       handleSelection(localPos);
       if (selectedId != null) {
         try {
@@ -141,6 +167,43 @@ mixin PlanInputMixin
       }
       return;
     }
+
+    // --- BARU: LOGIKA LETAKKAN PINTU / JENDELA ---
+    if (activeTool == PlanTool.door || activeTool == PlanTool.window) {
+      // Cari tembok terdekat untuk snapping
+      final wallInfo = _getNearestWallInfo(localPos);
+
+      Offset finalPos = localPos;
+      double finalRotation = 0.0;
+
+      if (wallInfo != null) {
+        finalPos = wallInfo['pos'];
+        finalRotation = wallInfo['rotation'];
+      } else if (enableSnap) {
+        finalPos = snapToGrid(localPos);
+      }
+
+      final newPortal = PlanPortal(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        position: finalPos,
+        rotation: finalRotation,
+        type: activeTool == PlanTool.door
+            ? PlanPortalType.door
+            : PlanPortalType.window,
+        width: 40.0, // Lebar default
+        color: activeColor,
+      );
+
+      updateActiveFloor(portals: [...portals, newPortal]);
+      saveState();
+
+      // Auto switch kembali ke select agar tidak spamming pintu
+      activeTool = PlanTool.select;
+      selectedId = newPortal.id;
+      notifyListeners();
+      return;
+    }
+    // ---------------------------------------------
 
     if (activeTool == PlanTool.hand || activeTool == PlanTool.moveAll) return;
 

@@ -48,15 +48,14 @@ mixin PlanStateMixin on PlanVariables {
     saveState();
   }
 
-  // --- PERBAIKAN UTAMA DI SINI ---
-  // Menambahkan parameter `groups` agar bisa diupdate dari Selection Mixin
   void updateActiveFloor({
     List<Wall>? walls,
     List<PlanObject>? objects,
     List<PlanLabel>? labels,
     List<PlanPath>? paths,
     List<PlanShape>? shapes,
-    List<PlanGroup>? groups, // <--- Ditambahkan
+    List<PlanGroup>? groups,
+    List<PlanPortal>? portals, // BARU
   }) {
     floors[activeFloorIndex] = activeFloor.copyWith(
       walls: walls,
@@ -64,7 +63,8 @@ mixin PlanStateMixin on PlanVariables {
       labels: labels,
       paths: paths,
       shapes: shapes,
-      groups: groups, // <--- Ditambahkan
+      groups: groups,
+      portals: portals, // BARU
     );
   }
 
@@ -73,7 +73,7 @@ mixin PlanStateMixin on PlanVariables {
       historyStack.removeRange(historyIndex + 1, historyStack.length);
     }
 
-    // Simpan state ke JSON (PlanFloor.toJson sudah menghandle groups)
+    // Simpan state ke JSON (PlanFloor.toJson sudah menghandle groups & portals)
     final state = jsonEncode({
       'floors': floors.map((f) => f.toJson()).toList(),
       'activeIdx': activeFloorIndex,
@@ -108,7 +108,6 @@ mixin PlanStateMixin on PlanVariables {
 
   void loadState(String stateJson) {
     final data = jsonDecode(stateJson);
-    // PlanFloor.fromJson sudah menghandle groups
     floors = (data['floors'] as List)
         .map((e) => PlanFloor.fromJson(e))
         .toList();
@@ -127,7 +126,8 @@ mixin PlanStateMixin on PlanVariables {
       paths: [],
       labels: [],
       shapes: [],
-      groups: [], // Reset groups juga
+      groups: [],
+      portals: [], // Reset portal juga
     );
     selectedId = null;
     saveState();

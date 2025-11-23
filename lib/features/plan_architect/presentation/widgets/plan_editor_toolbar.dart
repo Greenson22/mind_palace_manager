@@ -63,7 +63,6 @@ class PlanEditorToolbar extends StatelessWidget {
                   onTap: () => controller.setTool(PlanTool.select),
                 ),
 
-                // --- TOMBOL MULTI SELECT ---
                 _buildIconButton(
                   context,
                   icon: Icons.checklist,
@@ -73,7 +72,6 @@ class PlanEditorToolbar extends StatelessWidget {
                   color: controller.isMultiSelectMode ? Colors.orange : null,
                 ),
 
-                // --- TOMBOL GROUP ---
                 if (controller.isMultiSelectMode &&
                     controller.multiSelectedIds.isNotEmpty)
                   _buildIconButton(
@@ -84,6 +82,7 @@ class PlanEditorToolbar extends StatelessWidget {
                     color: Colors.green,
                   ),
 
+                // --- STRUKTUR ---
                 _buildToolBtn(
                   context,
                   icon: Icons.grid_view,
@@ -92,7 +91,23 @@ class PlanEditorToolbar extends StatelessWidget {
                   onTap: () => controller.setTool(PlanTool.wall),
                 ),
 
-                // --- POPUP BENTUK (UPDATE) ---
+                // --- TOMBOL BARU: PINTU & JENDELA ---
+                _buildToolBtn(
+                  context,
+                  icon: Icons.door_sliding_outlined,
+                  label: "Pintu",
+                  isActive: controller.activeTool == PlanTool.door,
+                  onTap: () => controller.setTool(PlanTool.door),
+                ),
+                _buildToolBtn(
+                  context,
+                  icon: Icons.window_outlined,
+                  label: "Jendela",
+                  isActive: controller.activeTool == PlanTool.window,
+                  onTap: () => controller.setTool(PlanTool.window),
+                ),
+
+                // -------------------------------------
                 PopupMenuButton<dynamic>(
                   tooltip: "Pilih Bentuk",
                   offset: const Offset(0, 40),
@@ -110,7 +125,6 @@ class PlanEditorToolbar extends StatelessWidget {
                     if (val is PlanShapeType) {
                       controller.selectShape(val);
                     } else if (val == 'toggle_fill') {
-                      // Logic toggle sudah dihandle di itemBuilder via StatefulBuilder tapi sebagai fallback
                       controller.setShapeFilled(!controller.shapeFilled);
                     }
                   },
@@ -141,10 +155,8 @@ class PlanEditorToolbar extends StatelessWidget {
                       "Bintang",
                     ),
                     const PopupMenuDivider(),
-                    // Item khusus untuk toggle solid/outline
                     PopupMenuItem(
-                      enabled:
-                          false, // Agar tidak menutup menu saat diklik (tapi kita pakai StatefulBuilder di dalam)
+                      enabled: false,
                       child: StatefulBuilder(
                         builder: (context, setState) {
                           return SwitchListTile(
@@ -156,7 +168,6 @@ class PlanEditorToolbar extends StatelessWidget {
                             onChanged: (val) {
                               controller.setShapeFilled(val);
                               setState(() {});
-                              // Tutup menu manual jika diinginkan, atau biarkan terbuka
                               Navigator.pop(ctx);
                             },
                             contentPadding: EdgeInsets.zero,

@@ -9,4 +9,9 @@ enum PlanTool {
   shape,
   hand,
   moveAll,
+  door, // BARU: Alat Pintu
+  window, // BARU: Alat Jendela
 }
+
+// BARU: Tipe Portal Struktural
+enum PlanPortalType { door, window }
