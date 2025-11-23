@@ -65,9 +65,15 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
   }
 
   Future<void> _saveBuildingPlan() async {
+    // --- PERUBAHAN: Cek apakah ada perubahan sebelum menyimpan ---
+    // Jika tidak ada perubahan (hanya lihat), return langsung (tidak save & tidak notif)
+    if (!_controller.hasUnsavedChanges) return;
+
     if (widget.buildingDirectory != null) {
       final planFile = p.join(widget.buildingDirectory!.path, _currentFilename);
       await _controller.saveToPath(planFile);
+
+      // Notifikasi Save hanya muncul jika benar-benar ada yang disimpan
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -91,8 +97,7 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
     try {
       final targetPlan = plans.firstWhere((p) => p['id'] == targetPlanId);
 
-      // 2. Jika ada perubahan belum disimpan, simpan dulu atau tanya user?
-      // Disini kita auto-save saja demi kelancaran
+      // 2. Simpan perubahan secara otomatis (jika ada edit) sebelum pindah
       await _saveBuildingPlan();
 
       // 3. Load plan baru
@@ -103,15 +108,8 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
 
       await _loadBuildingPlan(_currentFilename);
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Berpindah ke: ${targetPlan['name']}"),
-            backgroundColor: Colors.blue,
-            duration: const Duration(seconds: 1),
-          ),
-        );
-      }
+      // --- PERUBAHAN: Notifikasi "Berpindah ke..." DIHILANGKAN ---
+      // Tidak ada ScaffoldMessenger di sini.
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -128,7 +126,6 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
   }
 
   Future<void> _exportImage() async {
-    // ... (Kode export tetap sama) ...
     if (AppSettings.exportPath == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Atur folder export di Pengaturan dulu.")),
