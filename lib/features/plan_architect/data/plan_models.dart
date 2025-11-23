@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
 import '../logic/plan_enums.dart';
 
-// --- UPDATE ENUM ---
+// --- ENUM ---
 enum PlanShapeType { rectangle, circle, triangle, hexagon, star }
 
 // --- KELAS PLAN PORTAL (Pintu & Jendela) ---
@@ -14,7 +14,7 @@ class PlanPortal {
   final PlanPortalType type;
   final Color color;
   final bool flipX;
-  final String? referenceImage; // TAMBAHAN
+  final String? referenceImage;
 
   PlanPortal({
     required this.id,
@@ -24,7 +24,7 @@ class PlanPortal {
     required this.type,
     this.color = Colors.blueGrey,
     this.flipX = false,
-    this.referenceImage, // TAMBAHAN
+    this.referenceImage,
   });
 
   Map<String, dynamic> toJson() => {
@@ -36,7 +36,7 @@ class PlanPortal {
     'type': type.index,
     'col': color.value,
     'flpX': flipX,
-    'refImg': referenceImage, // SIMPAN
+    'refImg': referenceImage,
   };
 
   factory PlanPortal.fromJson(Map<String, dynamic> json) => PlanPortal(
@@ -47,7 +47,7 @@ class PlanPortal {
     type: PlanPortalType.values[json['type'] ?? 0],
     color: json['col'] != null ? Color(json['col']) : Colors.blueGrey,
     flipX: json['flpX'] ?? false,
-    referenceImage: json['refImg'], // BACA
+    referenceImage: json['refImg'],
   );
 
   PlanPortal copyWith({
@@ -58,7 +58,7 @@ class PlanPortal {
     PlanPortalType? type,
     Color? color,
     bool? flipX,
-    String? referenceImage, // TAMBAHAN
+    String? referenceImage,
   }) {
     return PlanPortal(
       id: id ?? this.id,
@@ -68,7 +68,7 @@ class PlanPortal {
       type: type ?? this.type,
       color: color ?? this.color,
       flipX: flipX ?? this.flipX,
-      referenceImage: referenceImage ?? this.referenceImage, // TAMBAHAN
+      referenceImage: referenceImage ?? this.referenceImage,
     );
   }
 
@@ -84,6 +84,10 @@ class PlanGroup {
   final List<PlanShape> shapes;
   final List<PlanPath> paths;
   final List<PlanLabel> labels;
+  // --- TAMBAHAN: DUKUNGAN TEMBOK & PORTAL ---
+  final List<Wall> walls;
+  final List<PlanPortal> portals;
+  // ------------------------------------------
   final String name;
   final bool isSavedAsset;
 
@@ -96,12 +100,19 @@ class PlanGroup {
     this.shapes = const [],
     this.paths = const [],
     this.labels = const [],
+    this.walls = const [], // Baru
+    this.portals = const [], // Baru
     this.name = "Grup",
     this.isSavedAsset = false,
   });
 
   Rect getBounds() {
-    if (objects.isEmpty && shapes.isEmpty && paths.isEmpty && labels.isEmpty) {
+    if (objects.isEmpty &&
+        shapes.isEmpty &&
+        paths.isEmpty &&
+        labels.isEmpty &&
+        walls.isEmpty &&
+        portals.isEmpty) {
       return Rect.fromCenter(center: Offset.zero, width: 40, height: 40);
     }
 
@@ -138,6 +149,17 @@ class PlanGroup {
         l.position.dy + l.fontSize,
       );
     }
+    // Cek bounds Tembok
+    for (var w in walls) {
+      check(w.start.dx, w.start.dy);
+      check(w.end.dx, w.end.dy);
+    }
+    // Cek bounds Portal
+    for (var p in portals) {
+      double r = p.width / 2;
+      check(p.position.dx - r, p.position.dy - r);
+      check(p.position.dx + r, p.position.dy + r);
+    }
 
     if (minX == double.infinity) {
       return Rect.fromCenter(center: Offset.zero, width: 40, height: 40);
@@ -158,6 +180,8 @@ class PlanGroup {
     'shapes': shapes.map((e) => e.toJson()).toList(),
     'paths': paths.map((e) => e.toJson()).toList(),
     'labels': labels.map((e) => e.toJson()).toList(),
+    'walls': walls.map((e) => e.toJson()).toList(),
+    'portals': portals.map((e) => e.toJson()).toList(),
   };
 
   factory PlanGroup.fromJson(Map<String, dynamic> json) => PlanGroup(
@@ -181,6 +205,13 @@ class PlanGroup {
     labels:
         (json['labels'] as List?)?.map((e) => PlanLabel.fromJson(e)).toList() ??
         [],
+    walls:
+        (json['walls'] as List?)?.map((e) => Wall.fromJson(e)).toList() ?? [],
+    portals:
+        (json['portals'] as List?)
+            ?.map((e) => PlanPortal.fromJson(e))
+            .toList() ??
+        [],
   );
 
   PlanGroup copyWith({
@@ -192,6 +223,8 @@ class PlanGroup {
     List<PlanShape>? shapes,
     List<PlanPath>? paths,
     List<PlanLabel>? labels,
+    List<Wall>? walls,
+    List<PlanPortal>? portals,
     String? name,
     bool? isSavedAsset,
   }) {
@@ -204,6 +237,8 @@ class PlanGroup {
       shapes: shapes ?? this.shapes,
       paths: paths ?? this.paths,
       labels: labels ?? this.labels,
+      walls: walls ?? this.walls,
+      portals: portals ?? this.portals,
       name: name ?? this.name,
       isSavedAsset: isSavedAsset ?? this.isSavedAsset,
     );
@@ -308,7 +343,7 @@ class Wall {
   final double thickness;
   final String description;
   final Color color;
-  final String? referenceImage; // TAMBAHAN
+  final String? referenceImage;
 
   Wall({
     required this.id,
@@ -317,7 +352,7 @@ class Wall {
     this.thickness = 2.0,
     this.description = 'Tembok',
     this.color = Colors.black,
-    this.referenceImage, // TAMBAHAN
+    this.referenceImage,
   });
 
   Map<String, dynamic> toJson() => {
@@ -329,7 +364,7 @@ class Wall {
     'thick': thickness,
     'desc': description,
     'col': color.value,
-    'refImg': referenceImage, // SIMPAN
+    'refImg': referenceImage,
   };
 
   factory Wall.fromJson(Map<String, dynamic> json) => Wall(
@@ -339,7 +374,7 @@ class Wall {
     thickness: (json['thick'] as num?)?.toDouble() ?? 2.0,
     description: json['desc'] ?? 'Tembok',
     color: json['col'] != null ? Color(json['col']) : Colors.black,
-    referenceImage: json['refImg'], // BACA
+    referenceImage: json['refImg'],
   );
 
   Wall copyWith({
@@ -349,7 +384,7 @@ class Wall {
     Offset? start,
     Offset? end,
     Color? color,
-    String? referenceImage, // TAMBAHAN
+    String? referenceImage,
   }) {
     return Wall(
       id: id ?? this.id,
@@ -358,7 +393,7 @@ class Wall {
       thickness: thickness ?? this.thickness,
       description: description ?? this.description,
       color: color ?? this.color,
-      referenceImage: referenceImage ?? this.referenceImage, // TAMBAHAN
+      referenceImage: referenceImage ?? this.referenceImage,
     );
   }
 
@@ -378,7 +413,7 @@ class PlanObject {
   final double size;
   final String? imagePath;
   final ui.Image? cachedImage;
-  final String? referenceImage; // TAMBAHAN
+  final String? referenceImage;
 
   PlanObject({
     required this.id,
@@ -393,7 +428,7 @@ class PlanObject {
     this.size = 14.0,
     this.imagePath,
     this.cachedImage,
-    this.referenceImage, // TAMBAHAN
+    this.referenceImage,
   });
 
   Map<String, dynamic> toJson() => {
@@ -409,7 +444,7 @@ class PlanObject {
     'navFloor': navTargetFloorId,
     'size': size,
     'imgPath': imagePath,
-    'refImg': referenceImage, // SIMPAN
+    'refImg': referenceImage,
   };
 
   factory PlanObject.fromJson(Map<String, dynamic> json) => PlanObject(
@@ -424,7 +459,7 @@ class PlanObject {
     navTargetFloorId: json['navFloor'],
     size: (json['size'] as num?)?.toDouble() ?? 14.0,
     imagePath: json['imgPath'],
-    referenceImage: json['refImg'], // BACA
+    referenceImage: json['refImg'],
   );
 
   PlanObject copyWith({
@@ -439,7 +474,7 @@ class PlanObject {
     double? size,
     String? imagePath,
     ui.Image? cachedImage,
-    String? referenceImage, // TAMBAHAN
+    String? referenceImage,
   }) {
     return PlanObject(
       id: id ?? this.id,
@@ -454,7 +489,7 @@ class PlanObject {
       size: size ?? this.size,
       imagePath: imagePath ?? this.imagePath,
       cachedImage: cachedImage ?? this.cachedImage,
-      referenceImage: referenceImage ?? this.referenceImage, // TAMBAHAN
+      referenceImage: referenceImage ?? this.referenceImage,
     );
   }
 
@@ -587,7 +622,7 @@ class PlanShape {
   final bool flipX;
   final String name;
   final String description;
-  final String? referenceImage; // TAMBAHAN
+  final String? referenceImage;
 
   PlanShape({
     required this.id,
@@ -599,7 +634,7 @@ class PlanShape {
     this.flipX = false,
     this.name = "Bentuk",
     this.description = "",
-    this.referenceImage, // TAMBAHAN
+    this.referenceImage,
   });
 
   Map<String, dynamic> toJson() => {
@@ -615,7 +650,7 @@ class PlanShape {
     'flpX': flipX,
     'name': name,
     'desc': description,
-    'refImg': referenceImage, // SIMPAN
+    'refImg': referenceImage,
   };
 
   factory PlanShape.fromJson(Map<String, dynamic> json) => PlanShape(
@@ -628,7 +663,7 @@ class PlanShape {
     flipX: json['flpX'] ?? false,
     name: json['name'] ?? 'Bentuk',
     description: json['desc'] ?? '',
-    referenceImage: json['refImg'], // BACA
+    referenceImage: json['refImg'],
   );
 
   PlanShape copyWith({
@@ -640,7 +675,7 @@ class PlanShape {
     bool? flipX,
     String? name,
     String? description,
-    String? referenceImage, // TAMBAHAN
+    String? referenceImage,
   }) {
     return PlanShape(
       id: id ?? this.id,
@@ -652,7 +687,7 @@ class PlanShape {
       flipX: flipX ?? this.flipX,
       name: name ?? this.name,
       description: description ?? this.description,
-      referenceImage: referenceImage ?? this.referenceImage, // TAMBAHAN
+      referenceImage: referenceImage ?? this.referenceImage,
     );
   }
 

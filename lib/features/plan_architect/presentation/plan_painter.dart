@@ -78,7 +78,6 @@ class PlanPainter extends CustomPainter {
           previewPaint,
         );
 
-        // Tampilkan label ukuran saat menggambar (Preview)
         _drawWallLabel(
           canvas,
           Wall(
@@ -150,11 +149,9 @@ class PlanPainter extends CustomPainter {
         canvas.translate(obj.position.dx, obj.position.dy);
         canvas.rotate(obj.rotation);
 
-        // --- LOGIKA FLIP OBJEK ---
         if (obj.flipX) {
           canvas.scale(-1.0, 1.0);
         }
-        // -------------------------
 
         if (isSel) {
           double selectionRadius = (obj.size / 2) + 8;
@@ -265,7 +262,7 @@ class PlanPainter extends CustomPainter {
       }
     }
 
-    // --- TAMBAHAN: DRAW SELECTION BOX ---
+    // SELECTION BOX
     if (controller.isBoxSelecting &&
         controller.selectionBoxStart != null &&
         controller.selectionBoxEnd != null) {
@@ -274,12 +271,10 @@ class PlanPainter extends CustomPainter {
         controller.selectionBoxEnd!,
       );
 
-      // Isi kotak (Biru transparan)
       final Paint fillPaint = Paint()
         ..color = Colors.blue.withOpacity(0.2)
         ..style = PaintingStyle.fill;
 
-      // Garis pinggir (Biru solid)
       final Paint borderPaint = Paint()
         ..color = Colors.blue
         ..style = PaintingStyle.stroke
@@ -295,11 +290,9 @@ class PlanPainter extends CustomPainter {
     canvas.translate(portal.position.dx, portal.position.dy);
     canvas.rotate(portal.rotation);
 
-    // --- TAMBAHAN LOGIKA FLIP PADA PINTU ---
     if (portal.flipX) {
       canvas.scale(-1.0, 1.0);
     }
-    // --------------------------------------
 
     final double w = portal.width;
     final double h = 6.0;
@@ -372,11 +365,9 @@ class PlanPainter extends CustomPainter {
     canvas.translate(group.position.dx, group.position.dy);
     canvas.rotate(group.rotation);
 
-    // --- LOGIKA FLIP GRUP ---
     if (group.flipX) {
       canvas.scale(-1.0, 1.0);
     }
-    // ------------------------
 
     if (isSelected) {
       final bounds = group.getBounds().inflate(10.0);
@@ -391,6 +382,23 @@ class PlanPainter extends CustomPainter {
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2.0,
       );
+    }
+
+    // --- DRAW WALLS IN GROUP ---
+    final Paint wallPaint = Paint()..strokeCap = StrokeCap.square;
+    for (var wall in group.walls) {
+      wallPaint.color = wall.color;
+      wallPaint.strokeWidth = wall.thickness;
+      canvas.drawLine(wall.start, wall.end, wallPaint);
+    }
+
+    // --- DRAW PORTALS IN GROUP ---
+    for (var portal in group.portals) {
+      _drawPortal(
+        canvas,
+        portal,
+        false,
+      ); // false karena highlight grup sudah ada
     }
 
     for (var shp in group.shapes) _drawShape(canvas, shp, false);
@@ -416,6 +424,8 @@ class PlanPainter extends CustomPainter {
       canvas.save();
       canvas.translate(obj.position.dx, obj.position.dy);
       canvas.rotate(obj.rotation);
+      if (obj.flipX) canvas.scale(-1.0, 1.0);
+
       if (obj.cachedImage != null) {
         _drawImage(canvas, obj.cachedImage!, obj.size);
       } else {
@@ -489,11 +499,9 @@ class PlanPainter extends CustomPainter {
     canvas.translate(center.dx, center.dy);
     canvas.rotate(shape.rotation);
 
-    // --- LOGIKA FLIP SHAPE ---
     if (shape.flipX) {
       canvas.scale(-1.0, 1.0);
     }
-    // -------------------------
 
     canvas.translate(-center.dx, -center.dy);
 
