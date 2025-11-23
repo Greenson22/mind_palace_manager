@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:mind_palace_manager/features/plan_architect/logic/plan_controller.dart';
 import 'package:mind_palace_manager/features/plan_architect/data/plan_models.dart';
 import 'package:mind_palace_manager/features/plan_architect/presentation/dialogs/interior_picker_sheet.dart';
+import 'package:mind_palace_manager/features/building/presentation/management/logic/district_building_logic.dart';
 
 class PlanEditorDialogs {
   static final List<Color> _colors = [
@@ -34,6 +35,7 @@ class PlanEditorDialogs {
     BuildContext context,
     PlanController controller,
   ) {
+    // ... (Kode showLayerSettings tetap sama, disalin untuk kelengkapan) ...
     final colorScheme = Theme.of(context).colorScheme;
     showDialog(
       context: context,
@@ -166,9 +168,12 @@ class PlanEditorDialogs {
     );
   }
 
-  // Method showFloorManager telah dihapus.
-
-  static void showEditDialog(BuildContext context, PlanController controller) {
+  // --- UPDATE: TERIMA BUILDING DIRECTORY UNTUK LOAD PLANS ---
+  static void showEditDialog(
+    BuildContext context,
+    PlanController controller, {
+    Directory? buildingDirectory,
+  }) {
     final data = controller.getSelectedItemData();
     if (data == null) return;
 
@@ -180,10 +185,12 @@ class PlanEditorDialogs {
 
     final bool isPath = data['isPath'] ?? false;
     final bool isLabel = data['type'] == 'Label';
-    final bool isWall = data['type'] == 'Struktur';
+    final bool isWall = data['title'] == 'Tembok'; // Perbaikan deteksi tembok
+    final bool canNavigate =
+        data['type'] == 'Interior' ||
+        data['type'] == 'Struktur'; // Objek & Pintu bisa navigasi
 
-    // Navigasi dihapus, jadi kita set null
-    String? selectedNavFloorId = null;
+    String? selectedNavFloorId = data['nav']; // ID Denah Tujuan (bukan nama)
 
     TextEditingController? lengthCtrl;
     if (isWall) {
@@ -195,164 +202,259 @@ class PlanEditorDialogs {
       } catch (_) {}
     }
 
+    // Load daftar plans jika buildingDirectory ada
+    List<Map<String, dynamic>> availablePlans = [];
+
+    // Menggunakan StatefulBuilder agar bisa update state saat plans dimuat
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: Text('Edit ${data['type']}'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (!isLabel && !isPath) ...[
-                  const Text(
-                    "Wujud Asli / Referensi:",
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  GestureDetector(
-                    onTap: () async {
-                      FilePickerResult? result = await FilePicker.platform
-                          .pickFiles(type: FileType.image);
-                      if (result != null && result.files.single.path != null) {
-                        setState(() {
-                          newRefImage = result.files.single.path;
-                        });
-                      }
-                    },
-                    child: Container(
-                      height: 150,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade200,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade400),
-                        image: newRefImage != null
-                            ? DecorationImage(
-                                image: FileImage(File(newRefImage!)),
-                                fit: BoxFit.cover,
-                              )
-                            : null,
+      builder: (dialogContext) {
+        // Load plans asynchronous
+        if (buildingDirectory != null && canNavigate) {
+          DistrictBuildingLogic(
+            buildingDirectory.parent,
+          ).getBuildingPlans(buildingDirectory).then((plans) {
+            // Kita tidak bisa panggil setState di luar builder secara langsung
+            // Tapi karena kita akan rebuild dropdown, FutureBuilder lebih tepat
+            // atau biarkan user menunggu sebentar.
+            // Disini kita pakai hack sedikit: list diisi, lalu UI direbuild saat interaksi
+            // Agar proper, kita load dulu di luar, atau pakai FutureBuilder di dalam.
+            availablePlans = plans;
+          });
+        }
+
+        return StatefulBuilder(
+          builder: (context, setState) {
+            // Widget Dropdown Navigasi
+            Widget buildNavDropdown() {
+              if (!canNavigate || buildingDirectory == null) {
+                return const SizedBox.shrink();
+              }
+
+              return FutureBuilder<List<Map<String, dynamic>>>(
+                future: DistrictBuildingLogic(
+                  buildingDirectory.parent,
+                ).getBuildingPlans(buildingDirectory),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const Padding(
+                      padding: EdgeInsets.only(top: 16),
+                      child: Text(
+                        "Memuat daftar denah...",
+                        style: TextStyle(color: Colors.grey, fontSize: 12),
                       ),
-                      child: newRefImage == null
-                          ? const Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.add_a_photo, color: Colors.grey),
-                                Text(
-                                  "Tambah Foto",
-                                  style: TextStyle(color: Colors.grey),
-                                ),
-                              ],
-                            )
-                          : null,
+                    );
+                  }
+
+                  final plans = snapshot.data!;
+                  // Tambahkan opsi "Tidak Ada"
+                  final List<DropdownMenuItem<String?>> items = [
+                    const DropdownMenuItem(
+                      value: null,
+                      child: Text("Tidak Ada (Diam)"),
                     ),
-                  ),
-                  if (newRefImage != null)
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton.icon(
-                        icon: const Icon(
-                          Icons.delete,
-                          size: 16,
-                          color: Colors.red,
+                  ];
+
+                  items.addAll(
+                    plans.map(
+                      (p) => DropdownMenuItem(
+                        value: p['id'], // Simpan ID plan
+                        child: Text("Pindah ke: ${p['name']}"),
+                      ),
+                    ),
+                  );
+
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "Aksi Saat Ditekan (View Mode):",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
                         ),
-                        label: const Text(
-                          "Hapus Foto",
-                          style: TextStyle(color: Colors.red, fontSize: 12),
+                        DropdownButton<String?>(
+                          value: selectedNavFloorId,
+                          isExpanded: true,
+                          items: items,
+                          onChanged: (val) {
+                            setState(() => selectedNavFloorId = val);
+                          },
                         ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            }
+
+            return AlertDialog(
+              title: Text('Edit ${data['type']}'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (!isLabel && !isPath) ...[
+                      const Text(
+                        "Wujud Asli / Referensi:",
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      GestureDetector(
+                        onTap: () async {
+                          FilePickerResult? result = await FilePicker.platform
+                              .pickFiles(type: FileType.image);
+                          if (result != null &&
+                              result.files.single.path != null) {
+                            setState(() {
+                              newRefImage = result.files.single.path;
+                            });
+                          }
+                        },
+                        child: Container(
+                          height: 150,
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey.shade400),
+                            image: newRefImage != null
+                                ? DecorationImage(
+                                    image: FileImage(File(newRefImage!)),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
+                          ),
+                          child: newRefImage == null
+                              ? const Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.add_a_photo, color: Colors.grey),
+                                    Text(
+                                      "Tambah Foto",
+                                      style: TextStyle(color: Colors.grey),
+                                    ),
+                                  ],
+                                )
+                              : null,
+                        ),
+                      ),
+                      if (newRefImage != null)
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            icon: const Icon(
+                              Icons.delete,
+                              size: 16,
+                              color: Colors.red,
+                            ),
+                            label: const Text(
+                              "Hapus Foto",
+                              style: TextStyle(color: Colors.red, fontSize: 12),
+                            ),
+                            onPressed: () {
+                              setState(() => newRefImage = null);
+                            },
+                          ),
+                        ),
+                      const SizedBox(height: 16),
+                    ],
+
+                    TextField(
+                      controller: titleCtrl,
+                      decoration: InputDecoration(
+                        labelText: isLabel ? 'Isi Teks' : 'Nama',
+                      ),
+                      enabled: isPath || isLabel || !isWall,
+                    ),
+                    const SizedBox(height: 8),
+                    if (!isLabel)
+                      TextField(
+                        controller: descCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Deskripsi',
+                          border: OutlineInputBorder(),
+                        ),
+                        maxLines: 3,
+                      ),
+                    if (isWall && lengthCtrl != null) ...[
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: lengthCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: 'Panjang (Meter)',
+                          suffixText: 'm',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ],
+
+                    // --- DROPDOWN NAVIGASI ---
+                    buildNavDropdown(),
+
+                    if (isPath) ...[
+                      const SizedBox(height: 16),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.bookmark_add),
+                        label: const Text("Simpan ke Pustaka Saya"),
                         onPressed: () {
-                          setState(() => newRefImage = null);
+                          controller.updateSelectedAttribute(
+                            desc: descCtrl.text,
+                            name: titleCtrl.text,
+                          );
+                          controller.saveCurrentSelectionToLibrary();
+                          Navigator.pop(dialogContext);
                         },
                       ),
-                    ),
-                  const SizedBox(height: 16),
-                ],
-
-                TextField(
-                  controller: titleCtrl,
-                  decoration: InputDecoration(
-                    labelText: isLabel ? 'Isi Teks' : 'Nama',
-                  ),
-                  enabled: isPath || isLabel || !isWall,
+                    ],
+                  ],
                 ),
-                const SizedBox(height: 8),
-                if (!isLabel)
-                  TextField(
-                    controller: descCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Deskripsi',
-                      border: OutlineInputBorder(),
-                    ),
-                    maxLines: 3,
-                  ),
-                if (isWall && lengthCtrl != null) ...[
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: lengthCtrl,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: const InputDecoration(
-                      labelText: 'Panjang (Meter)',
-                      suffixText: 'm',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ],
-                // Dropdown navigasi dihapus
-                if (isPath) ...[
-                  const SizedBox(height: 16),
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.bookmark_add),
-                    label: const Text("Simpan ke Pustaka Saya"),
-                    onPressed: () {
-                      controller.updateSelectedAttribute(
-                        desc: descCtrl.text,
-                        name: titleCtrl.text,
-                      );
-                      controller.saveCurrentSelectionToLibrary();
-                      Navigator.pop(context);
-                    },
-                  ),
-                ],
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                controller.deleteSelected();
-                Navigator.pop(context);
-              },
-              style: TextButton.styleFrom(
-                foregroundColor: Theme.of(context).colorScheme.error,
               ),
-              child: const Text('Hapus'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                controller.updateSelectedAttribute(
-                  desc: descCtrl.text,
-                  name: titleCtrl.text,
-                  navTarget: selectedNavFloorId,
-                  referenceImage: newRefImage,
-                );
-                if (isWall && lengthCtrl != null) {
-                  final newLen = double.tryParse(
-                    lengthCtrl.text.replaceAll(',', '.'),
-                  );
-                  if (newLen != null && newLen > 0)
-                    controller.updateSelectedWallLength(newLen);
-                }
-                Navigator.pop(context);
-              },
-              child: const Text('Simpan'),
-            ),
-          ],
-        ),
-      ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    controller.deleteSelected();
+                    Navigator.pop(dialogContext);
+                  },
+                  style: TextButton.styleFrom(
+                    foregroundColor: Theme.of(context).colorScheme.error,
+                  ),
+                  child: const Text('Hapus'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    controller.updateSelectedAttribute(
+                      desc: descCtrl.text,
+                      name: titleCtrl.text,
+                      navTarget: selectedNavFloorId, // Simpan ID target
+                      referenceImage: newRefImage,
+                    );
+                    if (isWall && lengthCtrl != null) {
+                      final newLen = double.tryParse(
+                        lengthCtrl.text.replaceAll(',', '.'),
+                      );
+                      if (newLen != null && newLen > 0)
+                        controller.updateSelectedWallLength(newLen);
+                    }
+                    Navigator.pop(dialogContext);
+                  },
+                  child: const Text('Simpan'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -360,6 +462,7 @@ class PlanEditorDialogs {
     BuildContext context,
     Function(Color) onColorSelected,
   ) {
+    // ... (Tetap sama) ...
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -400,6 +503,7 @@ class PlanEditorDialogs {
     BuildContext context,
     PlanController controller,
   ) {
+    // ... (Tetap sama) ...
     final colorScheme = Theme.of(context).colorScheme;
     showModalBottomSheet(
       context: context,

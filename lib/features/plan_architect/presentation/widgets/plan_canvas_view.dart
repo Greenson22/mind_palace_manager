@@ -6,9 +6,23 @@ import 'package:mind_palace_manager/features/plan_architect/presentation/dialogs
 class PlanCanvasView extends StatelessWidget {
   final PlanController controller;
 
-  const PlanCanvasView({super.key, required this.controller});
+  // Callback navigasi jika item ditekan di View Mode
+  final Function(String planId)? onNavigate;
+
+  const PlanCanvasView({super.key, required this.controller, this.onNavigate});
 
   void _handleTapUp(BuildContext context, Offset localPos) {
+    // --- LOGIKA NAVIGASI (VIEW MODE) ---
+    if (controller.isViewMode && onNavigate != null) {
+      final hitItem = controller.findNavigableItemAt(localPos);
+      if (hitItem != null) {
+        // Jika item punya target plan, panggil callback navigasi
+        onNavigate!(hitItem['targetPlanId']!);
+        return;
+      }
+    }
+    // -----------------------------------
+
     if (controller.activeTool == PlanTool.text && !controller.isViewMode) {
       final textCtrl = TextEditingController();
       showDialog(
@@ -104,7 +118,6 @@ class PlanCanvasView extends StatelessWidget {
           top: 16,
           child: Column(
             children: [
-              // Tombol + dan - hanya muncul jika setting menyala
               if (controller.showZoomButtons) ...[
                 FloatingActionButton.small(
                   heroTag: "zi",
@@ -121,7 +134,6 @@ class PlanCanvasView extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
               ],
-              // Reset Zoom SELALU ada (sesuai request)
               FloatingActionButton.small(
                 heroTag: "zr",
                 onPressed: controller.resetZoom,

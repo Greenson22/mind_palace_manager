@@ -15,6 +15,7 @@ class PlanPortal {
   final Color color;
   final bool flipX;
   final String? referenceImage;
+  final String? navTargetFloorId; // --- PROPERTI BARU ---
 
   PlanPortal({
     required this.id,
@@ -25,6 +26,7 @@ class PlanPortal {
     this.color = Colors.blueGrey,
     this.flipX = false,
     this.referenceImage,
+    this.navTargetFloorId, // Baru
   });
 
   Map<String, dynamic> toJson() => {
@@ -37,6 +39,7 @@ class PlanPortal {
     'col': color.value,
     'flpX': flipX,
     'refImg': referenceImage,
+    'nav': navTargetFloorId, // Baru
   };
 
   factory PlanPortal.fromJson(Map<String, dynamic> json) => PlanPortal(
@@ -48,6 +51,7 @@ class PlanPortal {
     color: json['col'] != null ? Color(json['col']) : Colors.blueGrey,
     flipX: json['flpX'] ?? false,
     referenceImage: json['refImg'],
+    navTargetFloorId: json['nav'], // Baru
   );
 
   PlanPortal copyWith({
@@ -59,6 +63,7 @@ class PlanPortal {
     Color? color,
     bool? flipX,
     String? referenceImage,
+    String? navTargetFloorId, // Baru
   }) {
     return PlanPortal(
       id: id ?? this.id,
@@ -69,12 +74,20 @@ class PlanPortal {
       color: color ?? this.color,
       flipX: flipX ?? this.flipX,
       referenceImage: referenceImage ?? this.referenceImage,
+      navTargetFloorId: navTargetFloorId ?? this.navTargetFloorId, // Baru
     );
   }
 
   PlanPortal moveBy(Offset delta) => copyWith(position: position + delta);
 }
 
+// ... (Kelas PlanGroup, PlanFloor, Wall TETAP SAMA) ...
+// ... (PlanObject TETAP SAMA, sudah punya navTargetFloorId) ...
+// ... (PlanLabel, PlanPath, PlanShape TETAP SAMA) ...
+
+// Paste ulang PlanObject untuk memastikan konsistensi jika diperlukan,
+// tapi kode existing Anda untuk PlanObject sudah benar (ada navTargetFloorId).
+// Pastikan saja PlanPortal diupdate seperti di atas.
 class PlanGroup {
   final String id;
   final Offset position;
@@ -84,10 +97,8 @@ class PlanGroup {
   final List<PlanShape> shapes;
   final List<PlanPath> paths;
   final List<PlanLabel> labels;
-  // --- TAMBAHAN: DUKUNGAN TEMBOK & PORTAL ---
   final List<Wall> walls;
   final List<PlanPortal> portals;
-  // ------------------------------------------
   final String name;
   final bool isSavedAsset;
 
@@ -100,12 +111,14 @@ class PlanGroup {
     this.shapes = const [],
     this.paths = const [],
     this.labels = const [],
-    this.walls = const [], // Baru
-    this.portals = const [], // Baru
+    this.walls = const [],
+    this.portals = const [],
     this.name = "Grup",
     this.isSavedAsset = false,
   });
 
+  // ... (Metode getBounds, toJson, fromJson, copyWith, moveBy TETAP SAMA) ...
+  // (Demi keringkasan, gunakan kode yang sudah ada untuk bagian ini)
   Rect getBounds() {
     if (objects.isEmpty &&
         shapes.isEmpty &&
@@ -149,12 +162,10 @@ class PlanGroup {
         l.position.dy + l.fontSize,
       );
     }
-    // Cek bounds Tembok
     for (var w in walls) {
       check(w.start.dx, w.start.dy);
       check(w.end.dx, w.end.dy);
     }
-    // Cek bounds Portal
     for (var p in portals) {
       double r = p.width / 2;
       check(p.position.dx - r, p.position.dy - r);

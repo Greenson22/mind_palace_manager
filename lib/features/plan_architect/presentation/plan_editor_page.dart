@@ -9,6 +9,7 @@ import 'dialogs/plan_editor_dialogs.dart';
 import 'widgets/plan_editor_toolbar.dart';
 import 'widgets/plan_selection_bar.dart';
 import 'widgets/plan_canvas_view.dart';
+import 'package:mind_palace_manager/features/building/presentation/management/logic/district_building_logic.dart';
 
 class PlanEditorPage extends StatefulWidget {
   // Parameter opsional: jika diisi, editor berjalan dalam mode "Bangunan Denah"
@@ -17,7 +18,7 @@ class PlanEditorPage extends StatefulWidget {
   // Opsi untuk membuka langsung dalam mode lihat
   final bool initialViewMode;
 
-  // --- BARU: Parameter untuk Multi-Denah ---
+  // --- Parameter untuk Multi-Denah ---
   final String? planFilename; // Nama file spesifik (misal: plan_123.json)
   final String? planName; // Nama tampilan (misal: Lantai 1)
 
@@ -36,12 +37,19 @@ class PlanEditorPage extends StatefulWidget {
 class _PlanEditorPageState extends State<PlanEditorPage> {
   final PlanController _controller = PlanController();
 
+  // Local state untuk nama & file saat ini (agar bisa berubah saat navigasi)
+  late String _currentFilename;
+  String? _currentPlanName;
+
   @override
   void initState() {
     super.initState();
+    _currentFilename = widget.planFilename ?? 'plan.json';
+    _currentPlanName = widget.planName;
+
     // Jika dibuka dari bangunan, muat file plan yang sesuai
     if (widget.buildingDirectory != null) {
-      _loadBuildingPlan();
+      _loadBuildingPlan(_currentFilename);
     }
 
     // Set mode awal
@@ -51,17 +59,14 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
     }
   }
 
-  Future<void> _loadBuildingPlan() async {
-    // Gunakan filename yang dikirim, atau fallback ke 'plan.json' untuk kompatibilitas lama
-    final filename = widget.planFilename ?? 'plan.json';
+  Future<void> _loadBuildingPlan(String filename) async {
     final planFile = p.join(widget.buildingDirectory!.path, filename);
     await _controller.loadFromPath(planFile);
   }
 
   Future<void> _saveBuildingPlan() async {
     if (widget.buildingDirectory != null) {
-      final filename = widget.planFilename ?? 'plan.json';
-      final planFile = p.join(widget.buildingDirectory!.path, filename);
+      final planFile = p.join(widget.buildingDirectory!.path, _currentFilename);
       await _controller.saveToPath(planFile);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -75,6 +80,47 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
     }
   }
 
+  // --- IMPLEMENTASI NAVIGASI ---
+  Future<void> _handleNavigation(String targetPlanId) async {
+    if (widget.buildingDirectory == null) return;
+
+    // 1. Ambil daftar plan untuk mencari filename dari ID
+    final logic = DistrictBuildingLogic(widget.buildingDirectory!.parent);
+    final plans = await logic.getBuildingPlans(widget.buildingDirectory!);
+
+    try {
+      final targetPlan = plans.firstWhere((p) => p['id'] == targetPlanId);
+
+      // 2. Jika ada perubahan belum disimpan, simpan dulu atau tanya user?
+      // Disini kita auto-save saja demi kelancaran
+      await _saveBuildingPlan();
+
+      // 3. Load plan baru
+      setState(() {
+        _currentFilename = targetPlan['filename'];
+        _currentPlanName = targetPlan['name'];
+      });
+
+      await _loadBuildingPlan(_currentFilename);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Berpindah ke: ${targetPlan['name']}"),
+            backgroundColor: Colors.blue,
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Denah tujuan tidak ditemukan.")),
+        );
+      }
+    }
+  }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -82,6 +128,7 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
   }
 
   Future<void> _exportImage() async {
+    // ... (Kode export tetap sama) ...
     if (AppSettings.exportPath == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Atur folder export di Pengaturan dulu.")),
@@ -99,13 +146,11 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
         Rect.fromLTWH(0, 0, exportSize.width, exportSize.height),
       );
 
-      // Gambar background
       canvas.drawRect(
         Rect.fromLTWH(0, 0, exportSize.width, exportSize.height),
         Paint()..color = _controller.canvasColor,
       );
 
-      // Gambar konten
       final painter = PlanPainter(controller: _controller);
       painter.paint(canvas, exportSize);
 
@@ -119,11 +164,10 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
       if (pngBytes != null) {
         final now = DateTime.now();
         String prefix = "plan";
-        // Jika dalam mode bangunan, gunakan nama bangunan sebagai prefix
         if (widget.buildingDirectory != null) {
           prefix = "plan_${p.basename(widget.buildingDirectory!.path)}";
-          if (widget.planName != null) {
-            prefix += "_${widget.planName!.replaceAll(' ', '_')}";
+          if (_currentPlanName != null) {
+            prefix += "_${_currentPlanName!.replaceAll(' ', '_')}";
           }
         }
 
@@ -150,7 +194,6 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
     }
   }
 
-  // Konfirmasi Keluar
   Future<void> _onWillPop(bool didPop) async {
     if (didPop) return;
 
@@ -165,7 +208,6 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
               onPressed: () => Navigator.pop(c, false),
               child: const Text('Batal'),
             ),
-            // Opsi Simpan & Keluar khusus mode bangunan
             if (widget.buildingDirectory != null)
               TextButton(
                 onPressed: () async {
@@ -203,8 +245,8 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
         final colorScheme = Theme.of(context).colorScheme;
 
         String title = isView ? "Mode Lihat" : "Arsitek Denah";
-        if (widget.planName != null) {
-          title += " - ${widget.planName}";
+        if (_currentPlanName != null) {
+          title += " - $_currentPlanName";
         } else if (widget.buildingDirectory != null) {
           title += " (${p.basename(widget.buildingDirectory!.path)})";
         }
@@ -227,7 +269,6 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
               shadowColor: Colors.black12,
               iconTheme: IconThemeData(color: colorScheme.onSurface),
               actions: [
-                // TOMBOL SIMPAN MANUAL (Mode Bangunan)
                 if (widget.buildingDirectory != null && !isView)
                   IconButton(
                     icon: const Icon(Icons.save, color: Colors.blue),
@@ -294,7 +335,12 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
             ),
             body: Stack(
               children: [
-                Positioned.fill(child: PlanCanvasView(controller: _controller)),
+                Positioned.fill(
+                  child: PlanCanvasView(
+                    controller: _controller,
+                    onNavigate: _handleNavigation, // --- CALLBACK NAVIGASI ---
+                  ),
+                ),
 
                 if (!isView && _controller.selectedId != null)
                   Positioned(
@@ -304,7 +350,7 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
                     child: PlanSelectionBar(
                       controller: _controller,
                       buildingDirectory: widget.buildingDirectory,
-                      currentPlanFilename: widget.planFilename ?? 'plan.json',
+                      currentPlanFilename: _currentFilename,
                     ),
                   ),
 

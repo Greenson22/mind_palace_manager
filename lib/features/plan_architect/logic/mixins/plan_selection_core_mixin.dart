@@ -15,7 +15,7 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
     notifyListeners();
   }
 
-  // --- SELECT ALL ---
+  // ... (Method Select All & Select in Rect tetap sama) ...
   void selectAll() {
     isMultiSelectMode = true;
     selectedId = null;
@@ -32,7 +32,6 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
     notifyListeners();
   }
 
-  // --- SELECT IN RECTANGLE (Drag Box) ---
   void selectInRect(Rect rect) {
     if (!isMultiSelectMode) {
       isMultiSelectMode = true;
@@ -84,7 +83,31 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
     notifyListeners();
   }
 
+  // --- HELPER BARU: Temukan item yang bisa dinavigasi di posisi tertentu ---
+  Map<String, String>? findNavigableItemAt(Offset pos) {
+    // Cek Portals (Pintu/Jendela)
+    for (var p in portals.reversed) {
+      if ((p.position - pos).distance < (p.width / 2 + 5)) {
+        if (p.navTargetFloorId != null) {
+          return {'id': p.id, 'targetPlanId': p.navTargetFloorId!};
+        }
+        return null;
+      }
+    }
+    // Cek Objects
+    for (var obj in objects.reversed) {
+      if ((obj.position - pos).distance < 25.0) {
+        if (obj.navTargetFloorId != null) {
+          return {'id': obj.id, 'targetPlanId': obj.navTargetFloorId!};
+        }
+        return null;
+      }
+    }
+    return null;
+  }
+
   void handleSelection(Offset pos) {
+    // ... (Logika handleSelection yang lama tetap sama) ...
     String? hitId;
     // 1. Labels
     for (var lbl in labels.reversed) {
@@ -215,14 +238,11 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
     saveState();
   }
 
-  // --- TAMBAHAN BARU: SERIALISASI ITEM TERPILIH ---
-  // Mengembalikan Map berisi list item yang dipilih, dikelompokkan per kategori
+  // --- Method getRawSelectedItems yang sudah ada sebelumnya ---
   Map<String, List<Map<String, dynamic>>> getRawSelectedItems() {
     if (selectedId == null && multiSelectedIds.isEmpty) return {};
 
     final ids = isMultiSelectMode ? multiSelectedIds.toList() : [selectedId!];
-
-    // Siapkan wadah
     final Map<String, List<Map<String, dynamic>>> result = {
       'objects': [],
       'walls': [],
@@ -233,7 +253,6 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
       'groups': [],
     };
 
-    // Filter dan masukkan ke kategori yang sesuai
     for (var item in objects) {
       if (ids.contains(item.id)) result['objects']!.add(item.toJson());
     }
@@ -255,10 +274,7 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
     for (var item in groups) {
       if (ids.contains(item.id)) result['groups']!.add(item.toJson());
     }
-
-    // Bersihkan key yang kosong agar file tidak kotor
     result.removeWhere((key, value) => value.isEmpty);
-
     return result;
   }
 
@@ -273,7 +289,7 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         'desc': 'Lebar: ${p.width.toInt()}',
         'type': 'Struktur',
         'isPath': false,
-        'nav': null,
+        'nav': p.navTargetFloorId, // Update nav
         'refImage': p.referenceImage,
       };
     } catch (_) {}

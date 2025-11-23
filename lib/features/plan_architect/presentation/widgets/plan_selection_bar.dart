@@ -9,7 +9,7 @@ class PlanSelectionBar extends StatelessWidget {
   final PlanController controller;
 
   // --- PARAMETER BARU ---
-  final Directory? buildingDirectory; // Opsional (null jika mode playground)
+  final Directory? buildingDirectory;
   final String? currentPlanFilename;
 
   const PlanSelectionBar({
@@ -148,8 +148,11 @@ class PlanSelectionBar extends StatelessWidget {
                 OutlinedButton.icon(
                   icon: const Icon(Icons.edit, size: 14),
                   label: const Text("Detail"),
-                  onPressed: () =>
-                      PlanEditorDialogs.showEditDialog(context, controller),
+                  onPressed: () => PlanEditorDialogs.showEditDialog(
+                    context,
+                    controller,
+                    buildingDirectory: buildingDirectory, // Pass directory
+                  ),
                   style: OutlinedButton.styleFrom(
                     visualDensity: VisualDensity.compact,
                     padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -227,7 +230,7 @@ class PlanSelectionBar extends StatelessWidget {
 
           const SizedBox(height: 8),
 
-          // 3. PAD PENGGESER (Support Snap)
+          // 3. PAD PENGGESER
           Container(
             padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
             decoration: BoxDecoration(
@@ -282,7 +285,6 @@ class PlanSelectionBar extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // --- TOMBOL GABUNG TEMBOK ---
                 if (canMerge)
                   _buildQuickAction(
                     context,
@@ -297,7 +299,6 @@ class PlanSelectionBar extends StatelessWidget {
                     },
                   ),
 
-                // --- TOMBOL BUAT GRUP ---
                 if (controller.isMultiSelectMode &&
                     controller.multiSelectedIds.isNotEmpty)
                   _buildQuickAction(
@@ -307,7 +308,6 @@ class PlanSelectionBar extends StatelessWidget {
                     color: Colors.blue,
                     onTap: () {
                       controller.createGroupFromSelection();
-                      // Beri feedback visual
                       if (controller.selectedId != null &&
                           !controller.isMultiSelectMode) {
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -316,7 +316,6 @@ class PlanSelectionBar extends StatelessWidget {
                           ),
                         );
                       } else {
-                        // Jika gagal (misal karena memilih tembok), beri tahu user
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text(
@@ -329,19 +328,16 @@ class PlanSelectionBar extends StatelessWidget {
                   ),
 
                 // --- TOMBOL BARU: PINDAH DENAH ---
-                // Hanya tampil jika kita berada dalam konteks Bangunan (bukan Playground)
                 if (buildingDirectory != null && currentPlanFilename != null)
                   _buildQuickAction(
                     context,
-                    icon: Icons.layers_clear, // Icon "Pindah Layer/Lantai"
+                    icon: Icons.layers_clear,
                     label: "Pindah Denah",
                     color: Colors.indigo,
                     onTap: () async {
-                      // 1. Ambil data mentah
                       final items = controller.getRawSelectedItems();
                       if (items.isEmpty) return;
 
-                      // 2. Buka Dialog
                       final bool? success = await showDialog(
                         context: context,
                         builder: (c) => MoveObjectToPlanDialog(
@@ -351,9 +347,8 @@ class PlanSelectionBar extends StatelessWidget {
                         ),
                       );
 
-                      // 3. Jika sukses transfer, hapus dari sini
                       if (success == true) {
-                        controller.deleteSelected(); // Hapus item yang dipindah
+                        controller.deleteSelected(); // Hapus item dari sini
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text(
@@ -413,7 +408,6 @@ class PlanSelectionBar extends StatelessWidget {
                   onTap: controller.duplicateSelected,
                 ),
 
-                // --- TOMBOL FLIP & ROTATE ---
                 _buildQuickAction(
                   context,
                   icon: Icons.flip,
@@ -433,7 +427,6 @@ class PlanSelectionBar extends StatelessWidget {
                   onTap: controller.rotateSelected,
                 ),
 
-                // -----------------------------
                 _buildQuickAction(
                   context,
                   icon: Icons.layers,
