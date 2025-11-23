@@ -264,6 +264,30 @@ class PlanPainter extends CustomPainter {
         }
       }
     }
+
+    // --- TAMBAHAN: DRAW SELECTION BOX ---
+    if (controller.isBoxSelecting &&
+        controller.selectionBoxStart != null &&
+        controller.selectionBoxEnd != null) {
+      final rect = Rect.fromPoints(
+        controller.selectionBoxStart!,
+        controller.selectionBoxEnd!,
+      );
+
+      // Isi kotak (Biru transparan)
+      final Paint fillPaint = Paint()
+        ..color = Colors.blue.withOpacity(0.2)
+        ..style = PaintingStyle.fill;
+
+      // Garis pinggir (Biru solid)
+      final Paint borderPaint = Paint()
+        ..color = Colors.blue
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0;
+
+      canvas.drawRect(rect, fillPaint);
+      canvas.drawRect(rect, borderPaint);
+    }
   }
 
   void _drawPortal(Canvas canvas, PlanPortal portal, bool isSelected) {

@@ -63,10 +63,22 @@ class PlanEditorToolbar extends StatelessWidget {
                   onTap: () => controller.setTool(PlanTool.select),
                 ),
 
+                // --- TAMBAHAN: TOMBOL SELECT ALL ---
+                _buildIconButton(
+                  context,
+                  icon: Icons.select_all,
+                  tooltip: "Pilih Semua (Select All)",
+                  onTap: () {
+                    controller.setTool(PlanTool.select);
+                    controller.selectAll();
+                  },
+                ),
+
+                // -----------------------------------
                 _buildIconButton(
                   context,
                   icon: Icons.checklist,
-                  tooltip: "Multi Select",
+                  tooltip: "Multi Select Mode",
                   isActive: controller.isMultiSelectMode,
                   onTap: controller.toggleMultiSelectMode,
                   color: controller.isMultiSelectMode ? Colors.orange : null,

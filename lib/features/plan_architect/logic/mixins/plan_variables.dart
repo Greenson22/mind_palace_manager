@@ -59,6 +59,11 @@ abstract class PlanVariables extends ChangeNotifier {
   Set<String> multiSelectedIds = {};
   bool isMultiSelectMode = false;
 
+  // --- TAMBAHAN: SELECTION BOX STATE ---
+  Offset? selectionBoxStart; // Titik awal kotak seleksi
+  Offset? selectionBoxEnd; // Titik akhir kotak seleksi
+  bool isBoxSelecting = false; // Flag sedang menarik kotak
+
   IconData? selectedObjectIcon;
   String selectedObjectName = "Furniture";
   PlanShapeType selectedShapeType = PlanShapeType.rectangle;

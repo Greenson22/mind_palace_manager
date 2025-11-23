@@ -15,6 +15,88 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
     notifyListeners();
   }
 
+  // --- TAMBAHAN: SELECT ALL ---
+  void selectAll() {
+    isMultiSelectMode = true;
+    selectedId = null;
+    multiSelectedIds.clear();
+
+    // Masukkan semua ID yang memungkinkan
+    for (var w in walls) multiSelectedIds.add(w.id);
+    for (var o in objects) multiSelectedIds.add(o.id);
+    for (var s in shapes) multiSelectedIds.add(s.id);
+    for (var p in paths) multiSelectedIds.add(p.id);
+    for (var l in labels) multiSelectedIds.add(l.id);
+    for (var g in groups) multiSelectedIds.add(g.id);
+    for (var p in portals) multiSelectedIds.add(p.id);
+
+    notifyListeners();
+  }
+
+  // --- TAMBAHAN: SELECT IN RECTANGLE (Drag Box) ---
+  void selectInRect(Rect rect) {
+    // Aktifkan mode multi select jika belum
+    if (!isMultiSelectMode) {
+      isMultiSelectMode = true;
+      selectedId = null;
+      // Jangan clear multiSelectedIds jika sudah diaktifkan di onPanStart
+    }
+
+    // Gunakan Set untuk menghindari duplikasi
+    final Set<String> newSelections = {};
+
+    // 1. Tembok (Cek kedua ujungnya ada di dalam rect)
+    for (var w in walls) {
+      if (rect.contains(w.start) && rect.contains(w.end)) {
+        newSelections.add(w.id);
+      }
+    }
+    // 2. Objek (Cek titik tengah)
+    for (var o in objects) {
+      if (rect.contains(o.position)) {
+        newSelections.add(o.id);
+      }
+    }
+    // 3. Shapes (Cek overlap bounding box)
+    for (var s in shapes) {
+      if (rect.overlaps(s.rect.inflate(5.0))) {
+        // Beri toleransi 5px
+        newSelections.add(s.id);
+      }
+    }
+    // 4. Groups
+    for (var g in groups) {
+      if (rect.contains(g.position)) {
+        newSelections.add(g.id);
+      }
+    }
+    // 5. Portals
+    for (var p in portals) {
+      if (rect.contains(p.position)) {
+        newSelections.add(p.id);
+      }
+    }
+    // 6. Labels
+    for (var l in labels) {
+      if (rect.contains(l.position)) {
+        newSelections.add(l.id);
+      }
+    }
+    // 7. Paths (Cek apakah ada titik path yang masuk)
+    for (var p in paths) {
+      for (var pt in p.points) {
+        if (rect.contains(pt)) {
+          newSelections.add(p.id);
+          break;
+        }
+      }
+    }
+
+    multiSelectedIds.addAll(newSelections); // Tambahkan seleksi baru
+    notifyListeners();
+  }
+  // ------------------------------------------
+
   void handleSelection(Offset pos) {
     String? hitId;
     // 1. Cek Labels (Prioritas Tertinggi - Layer Atas)
@@ -109,7 +191,7 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
     double dy = b.dy - a.dy;
     if (dx == 0 && dy == 0) return false;
     double t = ((p.dx - a.dx) * dx + (p.dy - a.dy) * dy) / (dx * dx + dy * dy);
-    t = max(0, min(1, t));
+    t = max(0, min(1, t)); // Clamp agar tetap di dalam segmen garis
     Offset closest = Offset(a.dx + t * dx, a.dy + t * dy);
     return (p - closest).distance < threshold;
   }

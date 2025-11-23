@@ -7,12 +7,10 @@ import '../../data/plan_models.dart';
 import '../plan_enums.dart';
 
 // --- IMPORT MIXIN BARU ---
-// Ganti import 'plan_selection_mixin.dart' dengan dua ini:
 import 'plan_selection_core_mixin.dart';
 import 'plan_transform_mixin.dart';
 
 // --- UPDATE SYARAT MIXIN (ON CLAUSE) ---
-// Ganti 'PlanSelectionMixin' dengan 'PlanSelectionCoreMixin' dan 'PlanTransformMixin'
 mixin PlanInputMixin
     on
         PlanVariables,
@@ -20,8 +18,6 @@ mixin PlanInputMixin
         PlanSelectionCoreMixin,
         PlanTransformMixin,
         PlanStateMixin {
-  // ... (Sisa kode di bawah ini tetap sama, tidak perlu diubah) ...
-
   // Helper: Mencari Tembok Terdekat & Sudutnya
   Map<String, dynamic>? _getNearestWallInfo(Offset pos) {
     for (var wall in walls) {
@@ -54,10 +50,25 @@ mixin PlanInputMixin
 
     if (activeTool == PlanTool.select) {
       handleSelection(localPos);
+
+      // JIKA ada item terpilih (single atau multi), masuk mode drag (pindah barang)
       if (selectedId != null ||
           (isMultiSelectMode && multiSelectedIds.isNotEmpty)) {
         isDragging = true;
         lastDragPos = enableSnap ? snapToGrid(localPos) : localPos;
+        // Pastikan Box Selection direset jika mode drag item dimulai
+        isBoxSelecting = false;
+        selectionBoxStart = null;
+        selectionBoxEnd = null;
+      }
+      // JIKA TIDAK ada item terpilih (klik di ruang kosong), mulai Box Selection
+      else {
+        isBoxSelecting = true;
+        selectionBoxStart = localPos;
+        selectionBoxEnd = localPos;
+        // Pastikan mode multi-select aktif untuk Box Selection
+        isMultiSelectMode = true;
+        multiSelectedIds.clear(); // Hapus seleksi lama saat mulai drag baru
       }
     } else if (activeTool == PlanTool.moveAll) {
       isDragging = true;
@@ -77,18 +88,25 @@ mixin PlanInputMixin
   void onPanUpdate(Offset localPos) {
     if (isViewMode || activeTool == PlanTool.hand) return;
 
-    if (activeTool == PlanTool.select && isDragging && lastDragPos != null) {
-      Offset targetPos = enableSnap ? snapToGrid(localPos) : localPos;
-      final delta = targetPos - lastDragPos!;
-      if (delta.distanceSquared > 0) {
-        moveSelectedItem(delta); // Ini sekarang ada di PlanTransformMixin
-        lastDragPos = targetPos;
+    if (activeTool == PlanTool.select) {
+      // Logika Pindah Barang
+      if (isDragging && lastDragPos != null) {
+        Offset targetPos = enableSnap ? snapToGrid(localPos) : localPos;
+        final delta = targetPos - lastDragPos!;
+        if (delta.distanceSquared > 0) {
+          moveSelectedItem(delta);
+          lastDragPos = targetPos;
+        }
+      }
+      // Logika Update Kotak Seleksi
+      else if (isBoxSelecting && selectionBoxStart != null) {
+        selectionBoxEnd = localPos;
       }
     } else if (activeTool == PlanTool.moveAll &&
         isDragging &&
         lastDragPos != null) {
       final delta = localPos - lastDragPos!;
-      moveAllContent(delta); // Ini juga di PlanTransformMixin
+      moveAllContent(delta);
       lastDragPos = localPos;
     } else if (activeTool == PlanTool.wall && tempStart != null) {
       Offset pos = getSmartSnapPoint(localPos);
@@ -109,10 +127,27 @@ mixin PlanInputMixin
   void onPanEnd() {
     if (isViewMode || activeTool == PlanTool.hand) return;
 
-    if (activeTool == PlanTool.select && isDragging) {
-      isDragging = false;
-      lastDragPos = null;
-      saveState();
+    if (activeTool == PlanTool.select) {
+      if (isDragging) {
+        isDragging = false;
+        lastDragPos = null;
+        saveState();
+      }
+      // Selesai Box Selection
+      else if (isBoxSelecting &&
+          selectionBoxStart != null &&
+          selectionBoxEnd != null) {
+        final rect = Rect.fromPoints(selectionBoxStart!, selectionBoxEnd!);
+        // Hanya select jika kotak cukup besar (minimal 5px)
+        if (rect.size.longestSide > 5) {
+          selectInRect(rect);
+        }
+
+        // Reset state box
+        isBoxSelecting = false;
+        selectionBoxStart = null;
+        selectionBoxEnd = null;
+      }
     } else if (activeTool == PlanTool.moveAll && isDragging) {
       isDragging = false;
       lastDragPos = null;
