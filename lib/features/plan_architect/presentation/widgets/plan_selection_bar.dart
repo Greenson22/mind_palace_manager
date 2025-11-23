@@ -163,13 +163,36 @@ class PlanSelectionBar extends StatelessWidget {
                   ),
                 ),
 
-              // --- TOMBOL GROUP & SAVE ---
+              // --- UPDATE: UNGROUP WITH CONFIRMATION ---
               if (isGroup)
                 _buildQuickAction(
                   context,
                   icon: Icons.group_off,
                   label: "Ungroup",
-                  onTap: controller.ungroupSelected,
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (c) => AlertDialog(
+                        title: const Text("Ungroup?"),
+                        content: const Text(
+                          "Grup akan dibubarkan menjadi objek terpisah.",
+                        ),
+                        actions: [
+                          TextButton(
+                            child: const Text("Batal"),
+                            onPressed: () => Navigator.pop(c),
+                          ),
+                          ElevatedButton(
+                            child: const Text("Ya, Ungroup"),
+                            onPressed: () {
+                              Navigator.pop(c);
+                              controller.ungroupSelected();
+                            },
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
 
               if (isGroup || (data['isPath'] == true))
@@ -198,12 +221,44 @@ class PlanSelectionBar extends StatelessWidget {
                 label: "Urutan",
                 onTap: () => _showOrderMenu(context, controller),
               ),
+
+              // --- UPDATE: DELETE WITH CONFIRMATION ---
               _buildQuickAction(
                 context,
                 icon: Icons.delete_outline,
                 label: "Hapus",
                 color: colorScheme.error,
-                onTap: controller.deleteSelected,
+                onTap: () {
+                  if (isGroup) {
+                    showDialog(
+                      context: context,
+                      builder: (c) => AlertDialog(
+                        title: const Text("Hapus Grup?"),
+                        content: const Text(
+                          "Grup ini beserta isinya akan dihapus permanen.",
+                        ),
+                        actions: [
+                          TextButton(
+                            child: const Text("Batal"),
+                            onPressed: () => Navigator.pop(c),
+                          ),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                            ),
+                            child: const Text("Hapus"),
+                            onPressed: () {
+                              Navigator.pop(c);
+                              controller.deleteSelected();
+                            },
+                          ),
+                        ],
+                      ),
+                    );
+                  } else {
+                    controller.deleteSelected();
+                  }
+                },
               ),
             ],
           ),

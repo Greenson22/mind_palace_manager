@@ -3,18 +3,17 @@ import 'dart:ui' as ui; // Diperlukan untuk tipe data ui.Image
 
 enum PlanShapeType { rectangle, circle, star }
 
-// --- MODEL GRUP (BARU) ---
+// --- MODEL GRUP ---
 class PlanGroup {
   final String id;
   final Offset position;
   final double rotation;
-  // Grup bisa berisi objek, shape, path, atau label
   final List<PlanObject> objects;
   final List<PlanShape> shapes;
   final List<PlanPath> paths;
   final List<PlanLabel> labels;
   final String name;
-  final bool isSavedAsset; // Agar bisa disimpan sebagai aset
+  final bool isSavedAsset;
 
   PlanGroup({
     required this.id,
@@ -27,6 +26,54 @@ class PlanGroup {
     this.name = "Grup",
     this.isSavedAsset = false,
   });
+
+  // --- METHOD BARU: Hitung Bounding Box Grup ---
+  Rect getBounds() {
+    if (objects.isEmpty && shapes.isEmpty && paths.isEmpty && labels.isEmpty) {
+      return Rect.fromCenter(center: Offset.zero, width: 40, height: 40);
+    }
+
+    double minX = double.infinity;
+    double minY = double.infinity;
+    double maxX = double.negativeInfinity;
+    double maxY = double.negativeInfinity;
+
+    void check(double x, double y) {
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+
+    for (var o in objects) {
+      // Estimasi ukuran objek + padding
+      double r = o.size / 2 + 2;
+      check(o.position.dx - r, o.position.dy - r);
+      check(o.position.dx + r, o.position.dy + r);
+    }
+    for (var s in shapes) {
+      check(s.rect.left, s.rect.top);
+      check(s.rect.right, s.rect.bottom);
+    }
+    for (var p in paths) {
+      for (var pt in p.points) {
+        check(pt.dx, pt.dy);
+      }
+    }
+    for (var l in labels) {
+      check(l.position.dx, l.position.dy);
+      // Estimasi lebar teks kasar
+      check(
+        l.position.dx + (l.text.length * l.fontSize * 0.6),
+        l.position.dy + l.fontSize,
+      );
+    }
+
+    if (minX == double.infinity)
+      return Rect.fromCenter(center: Offset.zero, width: 40, height: 40);
+
+    return Rect.fromLTRB(minX, minY, maxX, maxY);
+  }
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -90,7 +137,7 @@ class PlanGroup {
   PlanGroup moveBy(Offset delta) => copyWith(position: position + delta);
 }
 
-// --- MODEL LANTAI (UPDATE) ---
+// --- MODEL LANTAI ---
 class PlanFloor {
   final String id;
   final String name;
@@ -99,7 +146,7 @@ class PlanFloor {
   final List<PlanLabel> labels;
   final List<PlanPath> paths;
   final List<PlanShape> shapes;
-  final List<PlanGroup> groups; // <--- Ditambahkan
+  final List<PlanGroup> groups;
 
   PlanFloor({
     required this.id,
@@ -109,7 +156,7 @@ class PlanFloor {
     this.labels = const [],
     this.paths = const [],
     this.shapes = const [],
-    this.groups = const [], // <--- Ditambahkan
+    this.groups = const [],
   });
 
   Map<String, dynamic> toJson() => {
@@ -120,7 +167,7 @@ class PlanFloor {
     'labels': labels.map((e) => e.toJson()).toList(),
     'paths': paths.map((e) => e.toJson()).toList(),
     'shapes': shapes.map((e) => e.toJson()).toList(),
-    'groups': groups.map((e) => e.toJson()).toList(), // <--- Ditambahkan
+    'groups': groups.map((e) => e.toJson()).toList(),
   };
 
   factory PlanFloor.fromJson(Map<String, dynamic> json) => PlanFloor(
@@ -144,7 +191,7 @@ class PlanFloor {
         [],
     groups:
         (json['groups'] as List?)?.map((e) => PlanGroup.fromJson(e)).toList() ??
-        [], // <--- Ditambahkan
+        [],
   );
 
   PlanFloor copyWith({
@@ -155,7 +202,7 @@ class PlanFloor {
     List<PlanLabel>? labels,
     List<PlanPath>? paths,
     List<PlanShape>? shapes,
-    List<PlanGroup>? groups, // <--- Ditambahkan
+    List<PlanGroup>? groups,
   }) {
     return PlanFloor(
       id: id ?? this.id,
@@ -165,14 +212,12 @@ class PlanFloor {
       labels: labels ?? this.labels,
       paths: paths ?? this.paths,
       shapes: shapes ?? this.shapes,
-      groups: groups ?? this.groups, // <--- Ditambahkan
+      groups: groups ?? this.groups,
     );
   }
 }
 
-// --- MODEL LAINNYA TETAP SAMA (Wall, PlanObject, PlanLabel, PlanPath, PlanShape) ---
-// (Salin ulang bagian Wall kebawah dari file asli Anda jika perlu, atau biarkan jika sudah ada)
-// ...
+// --- MODEL LAINNYA (TETAP SAMA) ---
 class Wall {
   final String id;
   final Offset start;

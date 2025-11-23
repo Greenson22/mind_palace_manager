@@ -1,6 +1,5 @@
-// lib/features/plan_architect/presentation/plan_painter.dart
 import 'package:flutter/material.dart';
-import 'dart:ui' as ui; // FIX: Tambahkan 'as ui'
+import 'dart:ui' as ui;
 import 'dart:math' as math;
 import '../logic/plan_controller.dart';
 import '../data/plan_models.dart';
@@ -172,7 +171,6 @@ class PlanPainter extends CustomPainter {
             p.lineTo(path.points[i].dx, path.points[i].dy);
           canvas.drawPath(p, pathPaint);
         } else if (path.points.isNotEmpty) {
-          // FIX: Gunakan ui.PointMode karena dart:ui dialiaskan
           canvas.drawPoints(ui.PointMode.points, path.points, pathPaint);
         }
       }
@@ -236,30 +234,31 @@ class PlanPainter extends CustomPainter {
     }
   }
 
-  // --- DRAW GROUP ---
+  // --- UPDATE: DRAW GROUP WITH RECTANGLE BOUNDS ---
   void _drawGroup(Canvas canvas, PlanGroup group, bool isSelected) {
     canvas.save();
     canvas.translate(group.position.dx, group.position.dy);
     canvas.rotate(group.rotation);
 
-    // Visual Seleksi Grup
+    // Visual Seleksi Grup (KOTAK)
     if (isSelected) {
-      canvas.drawCircle(
-        Offset.zero,
-        30,
-        Paint()..color = Colors.orange.withOpacity(0.2),
-      );
-      canvas.drawCircle(
-        Offset.zero,
-        30,
+      // Ambil bounding box dari model
+      final bounds = group.getBounds().inflate(10.0); // Inflate untuk padding
+
+      // Draw Fill
+      canvas.drawRect(bounds, Paint()..color = Colors.orange.withOpacity(0.15));
+
+      // Draw Border
+      canvas.drawRect(
+        bounds,
         Paint()
           ..color = Colors.orange
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 2,
+          ..strokeWidth = 2.0,
       );
     }
 
-    // Render isi grup
+    // Render isi grup (relatif terhadap 0,0 grup)
     for (var shp in group.shapes) _drawShape(canvas, shp, false);
 
     final Paint pathPaint = Paint()
@@ -317,7 +316,6 @@ class PlanPainter extends CustomPainter {
     canvas.restore();
   }
 
-  // FIX: Gunakan ui.Image di sini
   void _drawImage(Canvas canvas, ui.Image img, double size) {
     final srcRect = Rect.fromLTWH(
       0,

@@ -17,8 +17,8 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
   void handleSelection(Offset pos) {
     String? hitId;
 
-    // Cek hit urutan terbalik (yang paling atas kena duluan)
-    // Prioritas: Label > Object > Group > Shape > Path > Wall
+    // Cek hit dengan urutan (layer atas ke bawah):
+    // Label > Object > Group > Shape > Path > Wall
 
     for (var lbl in labels.reversed) {
       if ((lbl.position - pos).distance < 20.0) {
@@ -34,15 +34,30 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
         }
       }
     }
+
+    // --- LOGIKA BARU HIT TEST UNTUK GRUP ---
     if (hitId == null) {
       for (var grp in groups.reversed) {
-        // Deteksi hit sederhana ke pusat grup (bisa dikembangkan cek bound box)
-        if ((grp.position - pos).distance < 30.0) {
+        // 1. Transformasikan titik sentuh ke koordinat lokal grup
+        // (karena grup bisa diputar dan digeser)
+        final offset = pos - grp.position;
+        final cosA = cos(-grp.rotation);
+        final sinA = sin(-grp.rotation);
+        final localX = offset.dx * cosA - offset.dy * sinA;
+        final localY = offset.dx * sinA + offset.dy * cosA;
+        final localPos = Offset(localX, localY);
+
+        // 2. Cek apakah titik lokal ada di dalam bounding box grup
+        final bounds = grp.getBounds();
+        // Inflate sedikit agar lebih mudah ditekan
+        if (bounds.inflate(10).contains(localPos)) {
           hitId = grp.id;
           break;
         }
       }
     }
+    // --------------------------------------
+
     if (hitId == null) {
       for (var shp in shapes.reversed) {
         if (shp.rect.contains(pos)) {
@@ -127,7 +142,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
   }
 
   void moveSelectedItem(Offset delta) {
-    // Handle Multi-Select Move
     if (isMultiSelectMode) {
       bool changed = false;
       List<PlanShape> newShapes = List.from(shapes);
@@ -188,7 +202,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       return;
     }
 
-    // Handle Single Selection Move
     if (selectedId == null) return;
 
     List<PlanGroup> newGroups = List.from(groups);
@@ -199,7 +212,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       return;
     }
 
-    // ... (Kode lama untuk shape, object, wall, label, path)
     List<PlanShape> newShapes = List.from(shapes);
     final shpIdx = newShapes.indexWhere((s) => s.id == selectedId);
     if (shpIdx != -1) {
@@ -258,8 +270,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       groups: newGroups,
     );
   }
-
-  // --- GROUPING LOGIC ---
 
   void createGroupFromSelection() {
     if (multiSelectedIds.isEmpty && selectedId == null) return;
@@ -391,12 +401,10 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
   }
 
   void duplicateSelected() {
-    // ... (Kode lama untuk objects, shapes, dll)
     if (selectedId == null) return;
     final offset = const Offset(20, 20);
     final newId = DateTime.now().millisecondsSinceEpoch.toString();
 
-    // Duplicate Group
     try {
       final grp = groups.firstWhere((g) => g.id == selectedId);
       updateActiveFloor(
@@ -467,7 +475,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
   void rotateSelected() {
     if (selectedId == null) return;
 
-    // Rotate Group
     List<PlanGroup> newGroups = List.from(groups);
     final gIdx = newGroups.indexWhere((g) => g.id == selectedId);
     if (gIdx != -1) {
@@ -479,7 +486,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       return;
     }
 
-    // ... (Sisa kode rotateSelected lama)
     List<PlanObject> newObjs = List.from(objects);
     final objIdx = newObjs.indexWhere((o) => o.id == selectedId);
     if (objIdx != -1) {
@@ -511,7 +517,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
   }) {
     if (selectedId == null) return;
 
-    // Update Group Name
     List<PlanGroup> newGroups = List.from(groups);
     final gIdx = newGroups.indexWhere((g) => g.id == selectedId);
     if (gIdx != -1) {
@@ -521,7 +526,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       return;
     }
 
-    // ... (Sisa kode update attribute lama)
     List<PlanObject> newObjects = List.from(objects);
     final objIdx = newObjects.indexWhere((o) => o.id == selectedId);
     if (objIdx != -1) {
@@ -605,9 +609,7 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
     }
   }
 
-  // ... (updateSelectedWallLength, updateSelectedColor, dll tetap sama)
   void updateSelectedWallLength(double newLengthInMeters) {
-    // ... (kode lama)
     if (selectedId == null) return;
     List<Wall> newWalls = List.from(walls);
     final wIdx = newWalls.indexWhere((w) => w.id == selectedId);
@@ -638,7 +640,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
   void bringToFront() {
     if (selectedId == null) return;
 
-    // Handle Group
     List<PlanGroup> newGroups = List.from(groups);
     final gIdx = newGroups.indexWhere((g) => g.id == selectedId);
     if (gIdx != -1) {
@@ -699,7 +700,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
   void saveCurrentSelectionToLibrary() {
     if (selectedId == null) return;
 
-    // Save Path
     final pathIdx = paths.indexWhere((p) => p.id == selectedId);
     if (pathIdx != -1) {
       savedCustomInteriors.add(paths[pathIdx].copyWith(isSavedAsset: true));
@@ -707,7 +707,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       return;
     }
 
-    // Save Group (BARU)
     final grpIdx = groups.indexWhere((g) => g.id == selectedId);
     if (grpIdx != -1) {
       savedCustomInteriors.add(groups[grpIdx].copyWith(isSavedAsset: true));
@@ -719,7 +718,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
   Map<String, dynamic>? getSelectedItemData() {
     if (selectedId == null) return null;
 
-    // Data untuk Grup
     try {
       final g = groups.firstWhere((x) => x.id == selectedId);
       return {
