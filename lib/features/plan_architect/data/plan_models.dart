@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
-import '../logic/plan_enums.dart'; // Pastikan import ini ada
+import '../logic/plan_enums.dart';
 
 // --- UPDATE ENUM ---
 enum PlanShapeType { rectangle, circle, triangle, hexagon, star }
@@ -18,7 +18,7 @@ class PlanPortal {
     required this.id,
     required this.position,
     this.rotation = 0.0,
-    this.width = 40.0, // Lebar standar
+    this.width = 40.0,
     required this.type,
     this.color = Colors.blueGrey,
   });
@@ -67,7 +67,7 @@ class PlanGroup {
   final String id;
   final Offset position;
   final double rotation;
-  final bool flipX; // TAMBAHAN: Properti Flip
+  final bool flipX; // PROPERTI FLIP
   final List<PlanObject> objects;
   final List<PlanShape> shapes;
   final List<PlanPath> paths;
@@ -79,7 +79,7 @@ class PlanGroup {
     required this.id,
     required this.position,
     this.rotation = 0.0,
-    this.flipX = false, // Default false
+    this.flipX = false,
     this.objects = const [],
     this.shapes = const [],
     this.paths = const [],
@@ -138,7 +138,7 @@ class PlanGroup {
     'x': position.dx,
     'y': position.dy,
     'rot': rotation,
-    'flpX': flipX, // Simpan properti flip
+    'flpX': flipX,
     'name': name,
     'isSaved': isSavedAsset,
     'objects': objects.map((e) => e.toJson()).toList(),
@@ -151,7 +151,7 @@ class PlanGroup {
     id: json['id'],
     position: Offset(json['x'], json['y']),
     rotation: (json['rot'] as num?)?.toDouble() ?? 0.0,
-    flipX: json['flpX'] ?? false, // Baca properti flip
+    flipX: json['flpX'] ?? false,
     name: json['name'] ?? "Grup",
     isSavedAsset: json['isSaved'] ?? false,
     objects:
@@ -174,7 +174,7 @@ class PlanGroup {
     String? id,
     Offset? position,
     double? rotation,
-    bool? flipX, // Parameter copyWith
+    bool? flipX,
     List<PlanObject>? objects,
     List<PlanShape>? shapes,
     List<PlanPath>? paths,
@@ -186,7 +186,7 @@ class PlanGroup {
       id: id ?? this.id,
       position: position ?? this.position,
       rotation: rotation ?? this.rotation,
-      flipX: flipX ?? this.flipX, // Assign
+      flipX: flipX ?? this.flipX,
       objects: objects ?? this.objects,
       shapes: shapes ?? this.shapes,
       paths: paths ?? this.paths,
@@ -208,7 +208,7 @@ class PlanFloor {
   final List<PlanPath> paths;
   final List<PlanShape> shapes;
   final List<PlanGroup> groups;
-  final List<PlanPortal> portals; // BARU: List untuk Pintu & Jendela
+  final List<PlanPortal> portals;
 
   PlanFloor({
     required this.id,
@@ -219,7 +219,7 @@ class PlanFloor {
     this.paths = const [],
     this.shapes = const [],
     this.groups = const [],
-    this.portals = const [], // BARU
+    this.portals = const [],
   });
 
   Map<String, dynamic> toJson() => {
@@ -231,7 +231,7 @@ class PlanFloor {
     'paths': paths.map((e) => e.toJson()).toList(),
     'shapes': shapes.map((e) => e.toJson()).toList(),
     'groups': groups.map((e) => e.toJson()).toList(),
-    'portals': portals.map((e) => e.toJson()).toList(), // BARU
+    'portals': portals.map((e) => e.toJson()).toList(),
   };
 
   factory PlanFloor.fromJson(Map<String, dynamic> json) => PlanFloor(
@@ -256,7 +256,6 @@ class PlanFloor {
     groups:
         (json['groups'] as List?)?.map((e) => PlanGroup.fromJson(e)).toList() ??
         [],
-    // BARU
     portals:
         (json['portals'] as List?)
             ?.map((e) => PlanPortal.fromJson(e))
@@ -273,7 +272,7 @@ class PlanFloor {
     List<PlanPath>? paths,
     List<PlanShape>? shapes,
     List<PlanGroup>? groups,
-    List<PlanPortal>? portals, // BARU
+    List<PlanPortal>? portals,
   }) {
     return PlanFloor(
       id: id ?? this.id,
@@ -284,7 +283,7 @@ class PlanFloor {
       paths: paths ?? this.paths,
       shapes: shapes ?? this.shapes,
       groups: groups ?? this.groups,
-      portals: portals ?? this.portals, // BARU
+      portals: portals ?? this.portals,
     );
   }
 }
@@ -354,7 +353,7 @@ class PlanObject {
   final String description;
   final int iconCodePoint;
   final double rotation;
-  final bool flipX; // TAMBAHAN: Properti Flip
+  final bool flipX; // PROPERTI FLIP
   final Color color;
   final String? navTargetFloorId;
   final double size;
@@ -368,7 +367,7 @@ class PlanObject {
     required this.description,
     required this.iconCodePoint,
     this.rotation = 0.0,
-    this.flipX = false, // Default false
+    this.flipX = false,
     this.color = Colors.black87,
     this.navTargetFloorId,
     this.size = 14.0,
@@ -384,7 +383,7 @@ class PlanObject {
     'desc': description,
     'icon': iconCodePoint,
     'rot': rotation,
-    'flpX': flipX, // Simpan
+    'flpX': flipX,
     'col': color.value,
     'navFloor': navTargetFloorId,
     'size': size,
@@ -398,7 +397,7 @@ class PlanObject {
     description: json['description'],
     iconCodePoint: json['icon'],
     rotation: (json['rot'] as num?)?.toDouble() ?? 0.0,
-    flipX: json['flpX'] ?? false, // Baca
+    flipX: json['flpX'] ?? false,
     color: json['col'] != null ? Color(json['col']) : Colors.black87,
     navTargetFloorId: json['navFloor'],
     size: (json['size'] as num?)?.toDouble() ?? 14.0,
@@ -411,7 +410,7 @@ class PlanObject {
     String? description,
     Offset? position,
     double? rotation,
-    bool? flipX, // Params
+    bool? flipX,
     Color? color,
     String? navTargetFloorId,
     double? size,
@@ -425,7 +424,7 @@ class PlanObject {
       name: name ?? this.name,
       description: description ?? this.description,
       rotation: rotation ?? this.rotation,
-      flipX: flipX ?? this.flipX, // Assign
+      flipX: flipX ?? this.flipX,
       color: color ?? this.color,
       navTargetFloorId: navTargetFloorId ?? this.navTargetFloorId,
       size: size ?? this.size,
@@ -560,7 +559,7 @@ class PlanShape {
   final Color color;
   final bool isFilled;
   final double rotation;
-  final bool flipX; // TAMBAHAN: Properti Flip
+  final bool flipX; // PROPERTI FLIP
   final String name;
   final String description;
 
@@ -571,7 +570,7 @@ class PlanShape {
     this.color = Colors.blue,
     this.isFilled = true,
     this.rotation = 0.0,
-    this.flipX = false, // Default false
+    this.flipX = false,
     this.name = "Bentuk",
     this.description = "",
   });
@@ -586,7 +585,7 @@ class PlanShape {
     'color': color.value,
     'filled': isFilled,
     'rot': rotation,
-    'flpX': flipX, // Simpan
+    'flpX': flipX,
     'name': name,
     'desc': description,
   };
@@ -598,7 +597,7 @@ class PlanShape {
     color: Color(json['color']),
     isFilled: json['filled'] ?? true,
     rotation: (json['rot'] as num?)?.toDouble() ?? 0.0,
-    flipX: json['flpX'] ?? false, // Baca
+    flipX: json['flpX'] ?? false,
     name: json['name'] ?? 'Bentuk',
     description: json['desc'] ?? '',
   );
@@ -609,7 +608,7 @@ class PlanShape {
     Color? color,
     bool? isFilled,
     double? rotation,
-    bool? flipX, // Params
+    bool? flipX,
     String? name,
     String? description,
   }) {
@@ -620,7 +619,7 @@ class PlanShape {
       color: color ?? this.color,
       isFilled: isFilled ?? this.isFilled,
       rotation: rotation ?? this.rotation,
-      flipX: flipX ?? this.flipX, // Assign
+      flipX: flipX ?? this.flipX,
       name: name ?? this.name,
       description: description ?? this.description,
     );
