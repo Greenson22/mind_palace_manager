@@ -1,12 +1,23 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:mind_palace_manager/features/plan_architect/logic/plan_controller.dart';
 import 'package:mind_palace_manager/features/plan_architect/presentation/dialogs/plan_editor_dialogs.dart';
+import 'package:mind_palace_manager/features/plan_architect/presentation/dialogs/move_object_to_plan_dialog.dart';
 
 class PlanSelectionBar extends StatelessWidget {
   final PlanController controller;
 
-  const PlanSelectionBar({super.key, required this.controller});
+  // --- PARAMETER BARU ---
+  final Directory? buildingDirectory; // Opsional (null jika mode playground)
+  final String? currentPlanFilename;
+
+  const PlanSelectionBar({
+    super.key,
+    required this.controller,
+    this.buildingDirectory,
+    this.currentPlanFilename,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -286,7 +297,7 @@ class PlanSelectionBar extends StatelessWidget {
                     },
                   ),
 
-                // --- TOMBOL BUAT GRUP (BARU) ---
+                // --- TOMBOL BUAT GRUP ---
                 if (controller.isMultiSelectMode &&
                     controller.multiSelectedIds.isNotEmpty)
                   _buildQuickAction(
@@ -317,7 +328,45 @@ class PlanSelectionBar extends StatelessWidget {
                     },
                   ),
 
-                // -------------------------------
+                // --- TOMBOL BARU: PINDAH DENAH ---
+                // Hanya tampil jika kita berada dalam konteks Bangunan (bukan Playground)
+                if (buildingDirectory != null && currentPlanFilename != null)
+                  _buildQuickAction(
+                    context,
+                    icon: Icons.layers_clear, // Icon "Pindah Layer/Lantai"
+                    label: "Pindah Denah",
+                    color: Colors.indigo,
+                    onTap: () async {
+                      // 1. Ambil data mentah
+                      final items = controller.getRawSelectedItems();
+                      if (items.isEmpty) return;
+
+                      // 2. Buka Dialog
+                      final bool? success = await showDialog(
+                        context: context,
+                        builder: (c) => MoveObjectToPlanDialog(
+                          buildingDirectory: buildingDirectory!,
+                          currentPlanFilename: currentPlanFilename!,
+                          itemsToMove: items,
+                        ),
+                      );
+
+                      // 3. Jika sukses transfer, hapus dari sini
+                      if (success == true) {
+                        controller.deleteSelected(); // Hapus item yang dipindah
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              "Item berhasil dipindahkan ke denah tujuan.",
+                            ),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      }
+                    },
+                  ),
+
+                // -----------------------------------
                 if (isGroup)
                   _buildQuickAction(
                     context,

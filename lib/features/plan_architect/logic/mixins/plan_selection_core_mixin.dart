@@ -215,6 +215,53 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
     saveState();
   }
 
+  // --- TAMBAHAN BARU: SERIALISASI ITEM TERPILIH ---
+  // Mengembalikan Map berisi list item yang dipilih, dikelompokkan per kategori
+  Map<String, List<Map<String, dynamic>>> getRawSelectedItems() {
+    if (selectedId == null && multiSelectedIds.isEmpty) return {};
+
+    final ids = isMultiSelectMode ? multiSelectedIds.toList() : [selectedId!];
+
+    // Siapkan wadah
+    final Map<String, List<Map<String, dynamic>>> result = {
+      'objects': [],
+      'walls': [],
+      'portals': [],
+      'shapes': [],
+      'labels': [],
+      'paths': [],
+      'groups': [],
+    };
+
+    // Filter dan masukkan ke kategori yang sesuai
+    for (var item in objects) {
+      if (ids.contains(item.id)) result['objects']!.add(item.toJson());
+    }
+    for (var item in walls) {
+      if (ids.contains(item.id)) result['walls']!.add(item.toJson());
+    }
+    for (var item in portals) {
+      if (ids.contains(item.id)) result['portals']!.add(item.toJson());
+    }
+    for (var item in shapes) {
+      if (ids.contains(item.id)) result['shapes']!.add(item.toJson());
+    }
+    for (var item in labels) {
+      if (ids.contains(item.id)) result['labels']!.add(item.toJson());
+    }
+    for (var item in paths) {
+      if (ids.contains(item.id)) result['paths']!.add(item.toJson());
+    }
+    for (var item in groups) {
+      if (ids.contains(item.id)) result['groups']!.add(item.toJson());
+    }
+
+    // Bersihkan key yang kosong agar file tidak kotor
+    result.removeWhere((key, value) => value.isEmpty);
+
+    return result;
+  }
+
   Map<String, dynamic>? getSelectedItemData() {
     if (selectedId == null) return null;
 
@@ -227,7 +274,7 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         'type': 'Struktur',
         'isPath': false,
         'nav': null,
-        'refImage': p.referenceImage, // TAMBAHAN
+        'refImage': p.referenceImage,
       };
     } catch (_) {}
 
@@ -252,7 +299,7 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         'type': 'Bentuk',
         'isPath': false,
         'nav': null,
-        'refImage': s.referenceImage, // TAMBAHAN
+        'refImage': s.referenceImage,
       };
     } catch (_) {}
     try {
@@ -275,7 +322,7 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         'type': 'Interior',
         'isPath': false,
         'nav': o.navTargetFloorId,
-        'refImage': o.referenceImage, // TAMBAHAN
+        'refImage': o.referenceImage,
       };
     } catch (_) {}
     try {
@@ -298,7 +345,7 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         'type': 'Struktur',
         'isPath': false,
         'nav': null,
-        'refImage': w.referenceImage, // TAMBAHAN
+        'refImage': w.referenceImage,
       };
     } catch (_) {}
     return null;

@@ -301,7 +301,11 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
                     bottom: 140,
                     left: 16,
                     right: 16,
-                    child: PlanSelectionBar(controller: _controller),
+                    child: PlanSelectionBar(
+                      controller: _controller,
+                      buildingDirectory: widget.buildingDirectory,
+                      currentPlanFilename: widget.planFilename ?? 'plan.json',
+                    ),
                   ),
 
                 if (!isView)
