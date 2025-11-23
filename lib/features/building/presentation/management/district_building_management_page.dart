@@ -45,6 +45,7 @@ class _DistrictBuildingManagementPageState
     WidgetsBinding.instance.addPostFrameCallback((_) => _refreshList());
   }
 
+  // ... (Metode _refreshList, _handleCreate, _handleEdit, _handleDelete, _handleMove, _handleRetract, _handleExportIcon TETAP SAMA) ...
   Future<void> _refreshList() async {
     setState(() => _isLoading = true);
     if (!await checkAndRequestPermissions()) {
@@ -66,8 +67,6 @@ class _DistrictBuildingManagementPageState
     }
     setState(() => _isLoading = false);
   }
-
-  // --- ACTIONS ---
 
   Future<void> _handleCreate() async {
     final result = await BuildingManagementDialogs.showCreateDialog(context);
@@ -125,9 +124,7 @@ class _DistrictBuildingManagementPageState
     );
     if (confirm == true) {
       await _logic.deleteBuilding(folder);
-      await _logic.removeBuildingFromMapData(
-        p.basename(folder.path),
-      ); // Cleanup Map
+      await _logic.removeBuildingFromMapData(p.basename(folder.path));
       _refreshList();
     }
   }
@@ -145,7 +142,6 @@ class _DistrictBuildingManagementPageState
       setState(() => _isLoading = true);
       try {
         final name = p.basename(folder.path);
-        // Rename logic handled simply here as moving is a cross-directory rename
         String newName = name;
         if (await Directory(p.join(targetDistrict.path, name)).exists()) {
           newName = "${name}_${DateTime.now().millisecondsSinceEpoch}";
@@ -237,7 +233,11 @@ class _DistrictBuildingManagementPageState
     }
   }
 
-  Future<void> _navigateToView(Directory folder) async {
+  // --- Navigasi Utama ---
+  Future<void> _navigateToView(
+    Directory folder, {
+    bool editMode = false,
+  }) async {
     String type = 'standard';
     try {
       final file = File(p.join(folder.path, 'data.json'));
@@ -249,13 +249,19 @@ class _DistrictBuildingManagementPageState
 
     if (!mounted) return;
     if (type == 'plan') {
+      // Jika Edit Plan (Arsitek), buka tanpa initialViewMode (default edit)
+      // Jika View Plan, buka dengan initialViewMode = true
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => PlanEditorPage(buildingDirectory: folder),
+          builder: (context) => PlanEditorPage(
+            buildingDirectory: folder,
+            initialViewMode: !editMode, // Jika editMode false -> View Mode
+          ),
         ),
       );
     } else {
+      // Bangunan Biasa
       CloudNavigation.push(
         context,
         BuildingViewerPage(buildingDirectory: folder),
@@ -300,9 +306,15 @@ class _DistrictBuildingManagementPageState
                 return BuildingListItem(
                   buildingFolder: folder,
                   iconDataFuture: _logic.getBuildingIconData(folder),
+                  // Tap utama selalu ke mode view
                   onTap: () => _navigateToView(folder),
                   onActionSelected: (action) {
                     if (action == 'view') _navigateToView(folder);
+                    // Aksi khusus Edit Plan
+                    if (action == 'edit_plan') {
+                      _navigateToView(folder, editMode: true);
+                    }
+                    // Aksi khusus Edit Ruangan (Bangunan Biasa)
                     if (action == 'edit_room') {
                       Navigator.push(
                         context,

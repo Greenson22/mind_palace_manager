@@ -8,6 +8,8 @@ class DistrictBuildingLogic {
 
   DistrictBuildingLogic(this.districtDirectory);
 
+  // ... (Fungsi loadBuildings, createBuilding, updateBuilding, deleteBuilding TETAP SAMA) ...
+
   // --- Load Data ---
   Future<List<Directory>> loadBuildings() async {
     if (!await districtDirectory.exists()) {
@@ -111,28 +113,41 @@ class DistrictBuildingLogic {
   }
 
   // --- Helper: Get Icon Data ---
+  // --- PERUBAHAN DISINI: Mengembalikan juga buildingType ---
   Future<Map<String, dynamic>> getBuildingIconData(
     Directory buildingDir,
   ) async {
     try {
       final jsonFile = File(p.join(buildingDir.path, 'data.json'));
-      if (!await jsonFile.exists()) return {'type': null, 'data': null};
+      // Default standard jika tidak ditemukan
+      if (!await jsonFile.exists())
+        return {'type': null, 'data': null, 'buildingType': 'standard'};
+
       final content = await jsonFile.readAsString();
       final data = json.decode(content);
 
       final iconType = data['icon_type'];
       final iconData = data['icon_data'];
+      final buildingType = data['type'] ?? 'standard'; // Ambil tipe bangunan
+
+      Map<String, dynamic> result = {
+        'type': iconType,
+        'data': iconData,
+        'buildingType': buildingType,
+      };
 
       if (iconType == 'image' && iconData != null) {
         final imageFile = File(p.join(buildingDir.path, iconData.toString()));
-        if (await imageFile.exists())
-          return {'type': 'image', 'data': iconData, 'file': imageFile};
-        else
-          return {'type': null, 'data': null};
+        if (await imageFile.exists()) {
+          result['file'] = imageFile;
+          result['type'] = 'image'; // Pastikan tipe konsisten
+        } else {
+          result['type'] = null;
+        }
       }
-      return {'type': iconType, 'data': iconData};
+      return result;
     } catch (e) {
-      return {'type': null, 'data': null};
+      return {'type': null, 'data': null, 'buildingType': 'standard'};
     }
   }
 

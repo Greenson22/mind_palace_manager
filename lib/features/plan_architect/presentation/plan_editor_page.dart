@@ -14,7 +14,14 @@ class PlanEditorPage extends StatefulWidget {
   // Parameter opsional: jika diisi, editor berjalan dalam mode "Bangunan Denah"
   final Directory? buildingDirectory;
 
-  const PlanEditorPage({super.key, this.buildingDirectory});
+  // --- BARU: Opsi untuk membuka langsung dalam mode lihat ---
+  final bool initialViewMode;
+
+  const PlanEditorPage({
+    super.key,
+    this.buildingDirectory,
+    this.initialViewMode = false, // Default false (Edit Mode)
+  });
 
   @override
   State<PlanEditorPage> createState() => _PlanEditorPageState();
@@ -29,6 +36,12 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
     // Jika dibuka dari bangunan, muat file plan.json
     if (widget.buildingDirectory != null) {
       _loadBuildingPlan();
+    }
+
+    // --- BARU: Set mode awal ---
+    if (widget.initialViewMode) {
+      _controller.isViewMode = true;
+      _controller.activeTool = PlanTool.select;
     }
   }
 
