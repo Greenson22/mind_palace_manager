@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'dart:io'; // TAMBAHAN
-import 'package:file_picker/file_picker.dart'; // TAMBAHAN
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:mind_palace_manager/features/plan_architect/logic/plan_controller.dart';
 import 'package:mind_palace_manager/features/plan_architect/data/plan_models.dart';
 import 'package:mind_palace_manager/features/plan_architect/presentation/dialogs/interior_picker_sheet.dart';
@@ -166,99 +166,7 @@ class PlanEditorDialogs {
     );
   }
 
-  static void showFloorManager(
-    BuildContext context,
-    PlanController controller,
-  ) {
-    final colorScheme = Theme.of(context).colorScheme;
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setState) {
-          return AlertDialog(
-            title: const Text("Kelola Lantai"),
-            content: SizedBox(
-              width: double.maxFinite,
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: controller.floors.length,
-                itemBuilder: (c, i) {
-                  final floor = controller.floors[i];
-                  final isActive = i == controller.activeFloorIndex;
-                  return ListTile(
-                    leading: Icon(
-                      isActive
-                          ? Icons.radio_button_checked
-                          : Icons.radio_button_unchecked,
-                      color: isActive
-                          ? colorScheme.primary
-                          : colorScheme.onSurfaceVariant,
-                    ),
-                    title: Text(
-                      floor.name,
-                      style: TextStyle(
-                        fontWeight: isActive
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                      ),
-                    ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.edit, size: 16),
-                      onPressed: () {
-                        final ctrl = TextEditingController(text: floor.name);
-                        showDialog(
-                          context: context,
-                          builder: (c) => AlertDialog(
-                            title: const Text("Ganti Nama Lantai"),
-                            content: TextField(controller: ctrl),
-                            actions: [
-                              ElevatedButton(
-                                onPressed: () {
-                                  controller.renameActiveFloor(ctrl.text);
-                                  Navigator.pop(c);
-                                  setState(() {});
-                                },
-                                child: const Text("Simpan"),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                    onTap: () {
-                      controller.setActiveFloor(i);
-                      Navigator.pop(ctx);
-                    },
-                  );
-                },
-              ),
-            ),
-            actions: [
-              if (controller.floors.length > 1)
-                TextButton(
-                  onPressed: () {
-                    controller.removeActiveFloor();
-                    Navigator.pop(ctx);
-                  },
-                  style: TextButton.styleFrom(
-                    foregroundColor: colorScheme.error,
-                  ),
-                  child: const Text("Hapus Lantai Ini"),
-                ),
-              ElevatedButton.icon(
-                icon: const Icon(Icons.add),
-                label: const Text("Tambah Lantai"),
-                onPressed: () {
-                  controller.addFloor();
-                  setState(() {});
-                },
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
+  // Method showFloorManager telah dihapus.
 
   static void showEditDialog(BuildContext context, PlanController controller) {
     final data = controller.getSelectedItemData();
@@ -267,15 +175,15 @@ class PlanEditorDialogs {
     final titleCtrl = TextEditingController(text: data['title']);
     final descCtrl = TextEditingController(text: data['desc']);
 
-    // --- LOGIKA BARU: GAMBAR REFERENSI ---
     String? currentRefImage = data['refImage'];
     String? newRefImage = currentRefImage;
-    // -------------------------------------
 
     final bool isPath = data['isPath'] ?? false;
     final bool isLabel = data['type'] == 'Label';
     final bool isWall = data['type'] == 'Struktur';
-    String? selectedNavFloorId = data['nav'];
+
+    // Navigasi dihapus, jadi kita set null
+    String? selectedNavFloorId = null;
 
     TextEditingController? lengthCtrl;
     if (isWall) {
@@ -297,7 +205,6 @@ class PlanEditorDialogs {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // --- WIDGET GAMBAR REFERENSI ---
                 if (!isLabel && !isPath) ...[
                   const Text(
                     "Wujud Asli / Referensi:",
@@ -363,7 +270,6 @@ class PlanEditorDialogs {
                   const SizedBox(height: 16),
                 ],
 
-                // -------------------------------
                 TextField(
                   controller: titleCtrl,
                   decoration: InputDecoration(
@@ -395,31 +301,7 @@ class PlanEditorDialogs {
                     ),
                   ),
                 ],
-                if (data['type'] == 'Interior') ...[
-                  const SizedBox(height: 16),
-                  const Text(
-                    "Aksi Navigasi (Mode Lihat)",
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
-                  DropdownButton<String>(
-                    isExpanded: true,
-                    hint: const Text("Tidak ada aksi"),
-                    value: selectedNavFloorId,
-                    items: [
-                      const DropdownMenuItem(
-                        value: null,
-                        child: Text("Tidak ada aksi"),
-                      ),
-                      ...controller.floors.map(
-                        (f) => DropdownMenuItem(
-                          value: f.id,
-                          child: Text("Pindah ke: ${f.name}"),
-                        ),
-                      ),
-                    ],
-                    onChanged: (v) => setState(() => selectedNavFloorId = v),
-                  ),
-                ],
+                // Dropdown navigasi dihapus
                 if (isPath) ...[
                   const SizedBox(height: 16),
                   OutlinedButton.icon(
@@ -455,7 +337,7 @@ class PlanEditorDialogs {
                   desc: descCtrl.text,
                   name: titleCtrl.text,
                   navTarget: selectedNavFloorId,
-                  referenceImage: newRefImage, // KIRIM REF IMAGE
+                  referenceImage: newRefImage,
                 );
                 if (isWall && lengthCtrl != null) {
                   final newLen = double.tryParse(
@@ -545,7 +427,6 @@ class PlanEditorDialogs {
     Map<String, dynamic> data,
   ) {
     final colorScheme = Theme.of(context).colorScheme;
-    // Ambil gambar referensi jika ada
     String? refImage = data['refImage'];
 
     showModalBottomSheet(
@@ -560,7 +441,6 @@ class PlanEditorDialogs {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // --- TAMPILKAN GAMBAR REFERENSI DI MODE LIHAT ---
             if (refImage != null && File(refImage).existsSync()) ...[
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
@@ -573,8 +453,6 @@ class PlanEditorDialogs {
               ),
               const SizedBox(height: 16),
             ],
-
-            // ------------------------------------------------
             Text(
               data['title'],
               style: Theme.of(

@@ -1,4 +1,3 @@
-// lib/features/plan_architect/presentation/plan_editor_page.dart
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -87,7 +86,7 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
     }
   }
 
-  // --- PERUBAHAN: Konfirmasi Keluar ---
+  // Konfirmasi Keluar
   Future<void> _onWillPop(bool didPop) async {
     if (didPop) return;
 
@@ -97,7 +96,7 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
         builder: (c) => AlertDialog(
           title: const Text('Belum Disimpan'),
           content: const Text(
-            'Anda memiliki perubahan yang belum disimpan (Undo/Redo history). Keluar sekarang akan mereset sesi edit ini.',
+            'Anda memiliki perubahan yang belum disimpan. Keluar sekarang akan mereset sesi edit ini.',
           ),
           actions: [
             TextButton(
@@ -129,29 +128,17 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
         final bool isView = _controller.isViewMode;
         final colorScheme = Theme.of(context).colorScheme;
 
-        // --- PERUBAHAN: Wrap dengan PopScope ---
         return PopScope(
           canPop: false,
           onPopInvoked: _onWillPop,
           child: Scaffold(
             appBar: AppBar(
-              title: Column(
-                children: [
-                  Text(
-                    isView ? "Mode Lihat" : "Arsitek Denah",
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    _controller.activeFloor.name,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
+              title: Text(
+                isView ? "Mode Lihat" : "Arsitek Denah",
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               centerTitle: true,
               backgroundColor: colorScheme.surface,
@@ -159,12 +146,7 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
               shadowColor: Colors.black12,
               iconTheme: IconThemeData(color: colorScheme.onSurface),
               actions: [
-                IconButton(
-                  icon: const Icon(Icons.layers_outlined),
-                  tooltip: "Kelola Lantai",
-                  onPressed: () =>
-                      PlanEditorDialogs.showFloorManager(context, _controller),
-                ),
+                // Tombol "Kelola Lantai" dihapus
                 IconButton(
                   icon: Icon(isView ? Icons.edit : Icons.visibility_outlined),
                   tooltip: isView ? "Kembali ke Edit" : "Mode Presentasi",

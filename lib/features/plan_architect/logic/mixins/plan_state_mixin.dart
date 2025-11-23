@@ -11,40 +11,28 @@ mixin PlanStateMixin on PlanVariables {
   bool get canRedo => historyIndex < historyStack.length - 1;
 
   void initFloors() {
+    // --- UBAH: Pastikan hanya ada 1 lantai tetap ---
     if (floors.isEmpty) {
-      floors.add(PlanFloor(id: 'floor_1', name: 'Lantai 1'));
+      floors.add(PlanFloor(id: 'main_plan', name: 'Denah Utama'));
     }
+    // Paksa index ke 0
+    activeFloorIndex = 0;
     hasUnsavedChanges = false;
     saveState(initial: true);
   }
 
-  void addFloor() {
-    final newId = 'floor_${floors.length + 1}';
-    floors.add(PlanFloor(id: newId, name: 'Lantai ${floors.length + 1}'));
-    activeFloorIndex = floors.length - 1;
-    selectedId = null;
-    saveState();
-  }
-
-  void removeActiveFloor() {
-    if (floors.length <= 1) return;
-    floors.removeAt(activeFloorIndex);
-    if (activeFloorIndex >= floors.length) activeFloorIndex = floors.length - 1;
-    selectedId = null;
-    saveState();
-  }
+  // Fungsi addFloor dan removeActiveFloor dihapus karena tidak lagi digunakan.
 
   void setActiveFloor(int index) {
-    if (index >= 0 && index < floors.length) {
-      activeFloorIndex = index;
-      selectedId = null;
-      notifyListeners();
-      reloadImagesForActiveFloor();
-    }
+    // Selalu paksa ke lantai utama (index 0)
+    activeFloorIndex = 0;
+    selectedId = null;
+    notifyListeners();
+    reloadImagesForActiveFloor();
   }
 
   void renameActiveFloor(String newName) {
-    floors[activeFloorIndex] = floors[activeFloorIndex].copyWith(name: newName);
+    floors[0] = floors[0].copyWith(name: newName);
     saveState();
   }
 
@@ -55,16 +43,17 @@ mixin PlanStateMixin on PlanVariables {
     List<PlanPath>? paths,
     List<PlanShape>? shapes,
     List<PlanGroup>? groups,
-    List<PlanPortal>? portals, // BARU
+    List<PlanPortal>? portals,
   }) {
-    floors[activeFloorIndex] = activeFloor.copyWith(
-      walls: walls,
-      objects: objects,
-      labels: labels,
-      paths: paths,
-      shapes: shapes,
-      groups: groups,
-      portals: portals, // BARU
+    // Selalu update floors[0]
+    floors[0] = floors[0].copyWith(
+      walls: walls ?? this.walls,
+      objects: objects ?? this.objects,
+      labels: labels ?? this.labels,
+      paths: paths ?? this.paths,
+      shapes: shapes ?? this.shapes,
+      groups: groups ?? this.groups,
+      portals: portals ?? this.portals,
     );
   }
 
@@ -73,10 +62,10 @@ mixin PlanStateMixin on PlanVariables {
       historyStack.removeRange(historyIndex + 1, historyStack.length);
     }
 
-    // Simpan state ke JSON (PlanFloor.toJson sudah menghandle groups & portals)
+    // Simpan state ke JSON, memaksa activeIdx ke 0
     final state = jsonEncode({
       'floors': floors.map((f) => f.toJson()).toList(),
-      'activeIdx': activeFloorIndex,
+      'activeIdx': 0,
       'cc': canvasColor.value,
     });
 
@@ -111,9 +100,15 @@ mixin PlanStateMixin on PlanVariables {
     floors = (data['floors'] as List)
         .map((e) => PlanFloor.fromJson(e))
         .toList();
-    activeFloorIndex = data['activeIdx'] ?? 0;
+
+    // Pastikan minimal ada 1 lantai jika data kosong
+    if (floors.isEmpty) {
+      floors.add(PlanFloor(id: 'main_plan', name: 'Denah Utama'));
+    }
+
+    activeFloorIndex = 0; // Selalu 0
     if (data['cc'] != null) canvasColor = Color(data['cc']);
-    if (activeFloorIndex >= floors.length) activeFloorIndex = 0;
+
     selectedId = null;
     notifyListeners();
     reloadImagesForActiveFloor();
@@ -127,7 +122,7 @@ mixin PlanStateMixin on PlanVariables {
       labels: [],
       shapes: [],
       groups: [],
-      portals: [], // Reset portal juga
+      portals: [],
     );
     selectedId = null;
     saveState();

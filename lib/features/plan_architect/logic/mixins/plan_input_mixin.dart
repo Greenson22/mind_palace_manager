@@ -5,12 +5,9 @@ import 'plan_view_mixin.dart';
 import 'plan_state_mixin.dart';
 import '../../data/plan_models.dart';
 import '../plan_enums.dart';
-
-// --- IMPORT MIXIN BARU ---
 import 'plan_selection_core_mixin.dart';
 import 'plan_transform_mixin.dart';
 
-// --- UPDATE SYARAT MIXIN (ON CLAUSE) ---
 mixin PlanInputMixin
     on
         PlanVariables,
@@ -51,24 +48,19 @@ mixin PlanInputMixin
     if (activeTool == PlanTool.select) {
       handleSelection(localPos);
 
-      // JIKA ada item terpilih (single atau multi), masuk mode drag (pindah barang)
       if (selectedId != null ||
           (isMultiSelectMode && multiSelectedIds.isNotEmpty)) {
         isDragging = true;
         lastDragPos = enableSnap ? snapToGrid(localPos) : localPos;
-        // Pastikan Box Selection direset jika mode drag item dimulai
         isBoxSelecting = false;
         selectionBoxStart = null;
         selectionBoxEnd = null;
-      }
-      // JIKA TIDAK ada item terpilih (klik di ruang kosong), mulai Box Selection
-      else {
+      } else {
         isBoxSelecting = true;
         selectionBoxStart = localPos;
         selectionBoxEnd = localPos;
-        // Pastikan mode multi-select aktif untuk Box Selection
         isMultiSelectMode = true;
-        multiSelectedIds.clear(); // Hapus seleksi lama saat mulai drag baru
+        multiSelectedIds.clear();
       }
     } else if (activeTool == PlanTool.moveAll) {
       isDragging = true;
@@ -89,7 +81,6 @@ mixin PlanInputMixin
     if (isViewMode || activeTool == PlanTool.hand) return;
 
     if (activeTool == PlanTool.select) {
-      // Logika Pindah Barang
       if (isDragging && lastDragPos != null) {
         Offset targetPos = enableSnap ? snapToGrid(localPos) : localPos;
         final delta = targetPos - lastDragPos!;
@@ -97,9 +88,7 @@ mixin PlanInputMixin
           moveSelectedItem(delta);
           lastDragPos = targetPos;
         }
-      }
-      // Logika Update Kotak Seleksi
-      else if (isBoxSelecting && selectionBoxStart != null) {
+      } else if (isBoxSelecting && selectionBoxStart != null) {
         selectionBoxEnd = localPos;
       }
     } else if (activeTool == PlanTool.moveAll &&
@@ -110,7 +99,6 @@ mixin PlanInputMixin
       lastDragPos = localPos;
     } else if (activeTool == PlanTool.wall && tempStart != null) {
       Offset pos = getSmartSnapPoint(localPos);
-      // Fitur Lurus Otomatis (Ortho)
       if ((pos.dx - tempStart!.dx).abs() < 10)
         pos = Offset(tempStart!.dx, pos.dy);
       if ((pos.dy - tempStart!.dy).abs() < 10)
@@ -132,18 +120,13 @@ mixin PlanInputMixin
         isDragging = false;
         lastDragPos = null;
         saveState();
-      }
-      // Selesai Box Selection
-      else if (isBoxSelecting &&
+      } else if (isBoxSelecting &&
           selectionBoxStart != null &&
           selectionBoxEnd != null) {
         final rect = Rect.fromPoints(selectionBoxStart!, selectionBoxEnd!);
-        // Hanya select jika kotak cukup besar (minimal 5px)
         if (rect.size.longestSide > 5) {
           selectInRect(rect);
         }
-
-        // Reset state box
         isBoxSelecting = false;
         selectionBoxStart = null;
         selectionBoxEnd = null;
@@ -201,17 +184,7 @@ mixin PlanInputMixin
   void onTapUp(Offset localPos) {
     if (isViewMode) {
       handleSelection(localPos);
-      if (selectedId != null) {
-        try {
-          final obj = objects.firstWhere((o) => o.id == selectedId);
-          if (obj.navTargetFloorId != null) {
-            final targetIdx = floors.indexWhere(
-              (f) => f.id == obj.navTargetFloorId,
-            );
-            if (targetIdx != -1) setActiveFloor(targetIdx);
-          }
-        } catch (_) {}
-      }
+      // Logika pindah lantai telah dihapus karena sekarang single-floor
       return;
     }
 
