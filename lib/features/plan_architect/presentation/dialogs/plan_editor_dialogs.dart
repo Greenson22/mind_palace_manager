@@ -29,12 +29,12 @@ class PlanEditorDialogs {
     Colors.white,
   ];
 
-  // --- DATABASE INTERIOR ---
+  // --- DATABASE INTERIOR (EXPANDED TO ~200 ITEMS) ---
   static final List<Map<String, dynamic>> _allInteriors = [
-    // Furnitur
+    // 1. FURNITUR & RUMAH (LIVING)
     {'icon': Icons.chair, 'name': 'Kursi', 'cat': 'Furnitur'},
     {'icon': Icons.chair_alt, 'name': 'Kursi Kayu', 'cat': 'Furnitur'},
-    {'icon': Icons.table_bar, 'name': 'Meja', 'cat': 'Furnitur'},
+    {'icon': Icons.table_bar, 'name': 'Meja Bar', 'cat': 'Furnitur'},
     {'icon': Icons.table_restaurant, 'name': 'Meja Makan', 'cat': 'Furnitur'},
     {'icon': Icons.desk, 'name': 'Meja Kerja', 'cat': 'Furnitur'},
     {'icon': Icons.bed, 'name': 'Kasur', 'cat': 'Furnitur'},
@@ -46,9 +46,17 @@ class PlanEditorDialogs {
     {'icon': Icons.kitchen, 'name': 'Lemari', 'cat': 'Furnitur'},
     {'icon': Icons.door_sliding, 'name': 'Lemari Geser', 'cat': 'Furnitur'},
     {'icon': Icons.inventory_2, 'name': 'Laci', 'cat': 'Furnitur'},
-    {'icon': Icons.event_seat, 'name': 'Bangku', 'cat': 'Furnitur'},
+    {'icon': Icons.event_seat, 'name': 'Bangku Taman', 'cat': 'Furnitur'},
+    {'icon': Icons.child_friendly, 'name': 'Box Bayi', 'cat': 'Furnitur'},
+    {'icon': Icons.living, 'name': 'Sofa Ruang Tamu', 'cat': 'Furnitur'},
+    {'icon': Icons.horizontal_split, 'name': 'Rak Sepatu', 'cat': 'Furnitur'},
+    {'icon': Icons.curtains, 'name': 'Gorden', 'cat': 'Furnitur'},
+    {'icon': Icons.curtains_closed, 'name': 'Tirai', 'cat': 'Furnitur'},
+    {'icon': Icons.checkroom, 'name': 'Gantungan Baju', 'cat': 'Furnitur'},
+    {'icon': Icons.umbrella, 'name': 'Tempat Payung', 'cat': 'Furnitur'},
+    {'icon': Icons.bed_outlined, 'name': 'Rangka Kasur', 'cat': 'Furnitur'},
 
-    // Elektronik
+    // 2. ELEKTRONIK & GADGET
     {'icon': Icons.tv, 'name': 'TV', 'cat': 'Elektronik'},
     {'icon': Icons.desktop_windows, 'name': 'PC', 'cat': 'Elektronik'},
     {'icon': Icons.laptop, 'name': 'Laptop', 'cat': 'Elektronik'},
@@ -60,25 +68,72 @@ class PlanEditorDialogs {
       'cat': 'Elektronik',
     },
     {'icon': Icons.ac_unit, 'name': 'AC', 'cat': 'Elektronik'},
-    {'icon': Icons.mode_fan_off, 'name': 'Kipas', 'cat': 'Elektronik'},
+    {'icon': Icons.mode_fan_off, 'name': 'Kipas Angin', 'cat': 'Elektronik'},
     {'icon': Icons.speaker, 'name': 'Speaker', 'cat': 'Elektronik'},
-    {'icon': Icons.router, 'name': 'Router', 'cat': 'Elektronik'},
+    {'icon': Icons.speaker_group, 'name': 'Home Theater', 'cat': 'Elektronik'},
+    {'icon': Icons.router, 'name': 'Router WiFi', 'cat': 'Elektronik'},
     {'icon': Icons.print, 'name': 'Printer', 'cat': 'Elektronik'},
     {'icon': Icons.phone_android, 'name': 'HP', 'cat': 'Elektronik'},
+    {'icon': Icons.phone, 'name': 'Telepon Rumah', 'cat': 'Elektronik'},
     {'icon': Icons.camera_alt, 'name': 'Kamera', 'cat': 'Elektronik'},
+    {'icon': Icons.videogame_asset, 'name': 'Konsol Game', 'cat': 'Elektronik'},
+    {'icon': Icons.power, 'name': 'Stop Kontak', 'cat': 'Elektronik'},
+    {'icon': Icons.toggle_on, 'name': 'Saklar', 'cat': 'Elektronik'},
+    {'icon': Icons.videocam, 'name': 'CCTV', 'cat': 'Elektronik'},
+    {'icon': Icons.security, 'name': 'Alarm', 'cat': 'Elektronik'},
+    {'icon': Icons.smart_screen, 'name': 'Smart TV', 'cat': 'Elektronik'},
+    {'icon': Icons.tablet, 'name': 'Tablet', 'cat': 'Elektronik'},
+    {'icon': Icons.headphones, 'name': 'Headphone', 'cat': 'Elektronik'},
+    {
+      'icon': Icons.battery_charging_full,
+      'name': 'Charger',
+      'cat': 'Elektronik',
+    },
+    {'icon': Icons.radio, 'name': 'Radio', 'cat': 'Elektronik'},
 
-    // Sanitasi
+    // 3. SANITASI & KAMAR MANDI
     {'icon': Icons.bathtub, 'name': 'Bathtub', 'cat': 'Sanitasi'},
     {'icon': Icons.wc, 'name': 'Toilet', 'cat': 'Sanitasi'},
     {'icon': Icons.wash, 'name': 'Wastafel', 'cat': 'Sanitasi'},
     {'icon': Icons.shower, 'name': 'Shower', 'cat': 'Sanitasi'},
-    {'icon': Icons.water_drop, 'name': 'Keran', 'cat': 'Sanitasi'},
+    {'icon': Icons.water_drop, 'name': 'Keran Air', 'cat': 'Sanitasi'},
     {'icon': Icons.soap, 'name': 'Sabun', 'cat': 'Sanitasi'},
     {'icon': Icons.cleaning_services, 'name': 'Alat Pel', 'cat': 'Sanitasi'},
+    {'icon': Icons.hot_tub, 'name': 'Jacuzzi', 'cat': 'Sanitasi'},
+    {
+      'icon': Icons.baby_changing_station,
+      'name': 'Meja Bayi',
+      'cat': 'Sanitasi',
+    },
+    {'icon': Icons.dry_cleaning, 'name': 'Handuk', 'cat': 'Sanitasi'},
+    {'icon': Icons.delete, 'name': 'Tempat Sampah', 'cat': 'Sanitasi'},
+    {'icon': Icons.iron, 'name': 'Setrika', 'cat': 'Sanitasi'},
+    {'icon': Icons.sanitizer, 'name': 'Hand Sanitizer', 'cat': 'Sanitasi'},
 
-    // Struktur
+    // 4. DAPUR & MAKANAN
+    {'icon': Icons.soup_kitchen, 'name': 'Kompor', 'cat': 'Dapur'},
+    {'icon': Icons.rice_bowl, 'name': 'Rice Cooker', 'cat': 'Dapur'},
+    {'icon': Icons.blender, 'name': 'Blender', 'cat': 'Dapur'},
+    {'icon': Icons.coffee, 'name': 'Mesin Kopi', 'cat': 'Dapur'},
+    {'icon': Icons.coffee_maker, 'name': 'Teko', 'cat': 'Dapur'},
+    {'icon': Icons.restaurant, 'name': 'Piring/Sendok', 'cat': 'Dapur'},
+    {'icon': Icons.flatware, 'name': 'Alat Makan', 'cat': 'Dapur'},
+    {'icon': Icons.local_drink, 'name': 'Gelas', 'cat': 'Dapur'},
+    {'icon': Icons.wine_bar, 'name': 'Gelas Kaca', 'cat': 'Dapur'},
+    {'icon': Icons.cake, 'name': 'Kue', 'cat': 'Dapur'},
+    {'icon': Icons.local_bar, 'name': 'Minibar', 'cat': 'Dapur'},
+    {'icon': Icons.bakery_dining, 'name': 'Roti', 'cat': 'Dapur'},
+    {'icon': Icons.set_meal, 'name': 'Hidangan', 'cat': 'Dapur'},
+    {'icon': Icons.fastfood, 'name': 'Makanan Cepat Saji', 'cat': 'Dapur'},
+    {'icon': Icons.local_pizza, 'name': 'Pizza', 'cat': 'Dapur'},
+    {'icon': Icons.icecream, 'name': 'Es Krim', 'cat': 'Dapur'},
+    {'icon': Icons.egg, 'name': 'Telur', 'cat': 'Dapur'},
+    {'icon': Icons.breakfast_dining, 'name': 'Sarapan', 'cat': 'Dapur'},
+
+    // 5. STRUKTUR & BANGUNAN
     {'icon': Icons.door_front_door, 'name': 'Pintu', 'cat': 'Struktur'},
-    {'icon': Icons.sensor_door, 'name': 'Pintu Masuk', 'cat': 'Struktur'},
+    {'icon': Icons.sensor_door, 'name': 'Pintu Otomatis', 'cat': 'Struktur'},
+    {'icon': Icons.meeting_room, 'name': 'Pintu Kamar', 'cat': 'Struktur'},
     {'icon': Icons.window, 'name': 'Jendela', 'cat': 'Struktur'},
     {'icon': Icons.stairs, 'name': 'Tangga', 'cat': 'Struktur'},
     {'icon': Icons.elevator, 'name': 'Lift', 'cat': 'Struktur'},
@@ -87,33 +142,91 @@ class PlanEditorDialogs {
     {'icon': Icons.view_column, 'name': 'Pilar', 'cat': 'Struktur'},
     {'icon': Icons.roofing, 'name': 'Atap', 'cat': 'Struktur'},
     {'icon': Icons.foundation, 'name': 'Fondasi', 'cat': 'Struktur'},
+    {'icon': Icons.account_tree, 'name': 'Partisi', 'cat': 'Struktur'},
+    {'icon': Icons.grid_view, 'name': 'Ubin', 'cat': 'Struktur'},
+    {'icon': Icons.balcony, 'name': 'Balkon', 'cat': 'Struktur'},
+    {'icon': Icons.solar_power, 'name': 'Panel Surya', 'cat': 'Struktur'},
+    {'icon': Icons.hvac, 'name': 'Ventilasi', 'cat': 'Struktur'},
 
-    // Dekorasi
-    {'icon': Icons.local_florist, 'name': 'Tanaman', 'cat': 'Dekorasi'},
-    {'icon': Icons.yard, 'name': 'Pot Bunga', 'cat': 'Dekorasi'},
-    {'icon': Icons.light, 'name': 'Lampu', 'cat': 'Dekorasi'},
+    // 6. KANTOR & BELAJAR (Kategori Baru)
+    {'icon': Icons.work, 'name': 'Tas Kerja', 'cat': 'Kantor'},
+    {'icon': Icons.attach_file, 'name': 'Klip', 'cat': 'Kantor'},
+    {'icon': Icons.folder, 'name': 'Folder', 'cat': 'Kantor'},
+    {'icon': Icons.book, 'name': 'Buku', 'cat': 'Kantor'},
+    {'icon': Icons.menu_book, 'name': 'Buku Terbuka', 'cat': 'Kantor'},
+    {'icon': Icons.library_books, 'name': 'Pustaka', 'cat': 'Kantor'},
+    {'icon': Icons.edit, 'name': 'Pensil', 'cat': 'Kantor'},
+    {'icon': Icons.edit_note, 'name': 'Catatan', 'cat': 'Kantor'},
+    {'icon': Icons.calculate, 'name': 'Kalkulator', 'cat': 'Kantor'},
+    {'icon': Icons.calendar_month, 'name': 'Kalender', 'cat': 'Kantor'},
+    {'icon': Icons.push_pin, 'name': 'Pin', 'cat': 'Kantor'},
+    {'icon': Icons.map, 'name': 'Peta', 'cat': 'Kantor'},
+    {'icon': Icons.archive, 'name': 'Arsip', 'cat': 'Kantor'},
+    {'icon': Icons.scanner, 'name': 'Scanner', 'cat': 'Kantor'},
+
+    // 7. DEKORASI & HOBI
+    {'icon': Icons.local_florist, 'name': 'Bunga', 'cat': 'Dekorasi'},
+    {'icon': Icons.yard, 'name': 'Pot Tanaman', 'cat': 'Dekorasi'},
+    {'icon': Icons.forest, 'name': 'Pohon Hias', 'cat': 'Dekorasi'},
+    {'icon': Icons.light, 'name': 'Lampu Gantung', 'cat': 'Dekorasi'},
     {'icon': Icons.lightbulb, 'name': 'Bohlam', 'cat': 'Dekorasi'},
+    {'icon': Icons.highlight, 'name': 'Lampu Sorot', 'cat': 'Dekorasi'},
     {'icon': Icons.image, 'name': 'Lukisan', 'cat': 'Dekorasi'},
-    {'icon': Icons.access_time, 'name': 'Jam', 'cat': 'Dekorasi'},
+    {'icon': Icons.access_time, 'name': 'Jam Dinding', 'cat': 'Dekorasi'},
     {
       'icon': Icons.local_fire_department,
       'name': 'Perapian',
       'cat': 'Dekorasi',
     },
-    {'icon': Icons.curtains, 'name': 'Gorden', 'cat': 'Dekorasi'},
-    {'icon': Icons.palette, 'name': 'Palet Seni', 'cat': 'Dekorasi'},
-    {'icon': Icons.music_note, 'name': 'Instrumen', 'cat': 'Dekorasi'},
+    {'icon': Icons.palette, 'name': 'Seni', 'cat': 'Dekorasi'},
+    {'icon': Icons.music_note, 'name': 'Musik', 'cat': 'Dekorasi'},
+    {'icon': Icons.piano, 'name': 'Piano', 'cat': 'Dekorasi'},
+    {'icon': Icons.emoji_events, 'name': 'Piala', 'cat': 'Dekorasi'},
+    {'icon': Icons.celebration, 'name': 'Pesta', 'cat': 'Dekorasi'},
+    {'icon': Icons.sports_soccer, 'name': 'Bola', 'cat': 'Dekorasi'},
+    {'icon': Icons.sports_esports, 'name': 'Joystick', 'cat': 'Dekorasi'},
+    {'icon': Icons.toys, 'name': 'Mainan', 'cat': 'Dekorasi'},
+    {'icon': Icons.gif_box, 'name': 'Kado', 'cat': 'Dekorasi'},
 
-    // Lainnya
-    {'icon': Icons.directions_car, 'name': 'Mobil', 'cat': 'Lainnya'},
-    {'icon': Icons.pedal_bike, 'name': 'Sepeda', 'cat': 'Lainnya'},
-    {'icon': Icons.motorcycle, 'name': 'Motor', 'cat': 'Lainnya'},
-    {'icon': Icons.fitness_center, 'name': 'Gym', 'cat': 'Lainnya'},
-    {'icon': Icons.restaurant_menu, 'name': 'Alat Makan', 'cat': 'Lainnya'},
-    {'icon': Icons.build, 'name': 'Perkakas', 'cat': 'Lainnya'},
-    {'icon': Icons.shopping_cart, 'name': 'Belanjaan', 'cat': 'Lainnya'},
-    {'icon': Icons.pets, 'name': 'Hewan', 'cat': 'Lainnya'},
-    {'icon': Icons.coffee, 'name': 'Kopi', 'cat': 'Lainnya'},
+    // 8. OUTDOOR & KOMERSIAL
+    {'icon': Icons.nature, 'name': 'Pohon Besar', 'cat': 'Outdoor'},
+    {'icon': Icons.grass, 'name': 'Rumput', 'cat': 'Outdoor'},
+    {'icon': Icons.pool, 'name': 'Kolam Renang', 'cat': 'Outdoor'},
+    {'icon': Icons.deck, 'name': 'Kursi Taman', 'cat': 'Outdoor'},
+    {'icon': Icons.outdoor_grill, 'name': 'BBQ', 'cat': 'Outdoor'},
+    {'icon': Icons.sunny, 'name': 'Matahari', 'cat': 'Outdoor'},
+    {'icon': Icons.water, 'name': 'Air Mancur', 'cat': 'Outdoor'},
+    {'icon': Icons.directions_walk, 'name': 'Jalan Setapak', 'cat': 'Outdoor'},
+    {'icon': Icons.park, 'name': 'Taman', 'cat': 'Outdoor'},
+    {'icon': Icons.directions_car, 'name': 'Mobil', 'cat': 'Outdoor'},
+    {'icon': Icons.pedal_bike, 'name': 'Sepeda', 'cat': 'Outdoor'},
+    {'icon': Icons.motorcycle, 'name': 'Motor', 'cat': 'Outdoor'},
+    {'icon': Icons.shopping_cart, 'name': 'Troli', 'cat': 'Outdoor'},
+    {'icon': Icons.storefront, 'name': 'Toko', 'cat': 'Outdoor'},
+    {'icon': Icons.local_atm, 'name': 'ATM', 'cat': 'Outdoor'},
+    {'icon': Icons.attach_money, 'name': 'Kasir', 'cat': 'Outdoor'},
+    {'icon': Icons.shopping_bag, 'name': 'Belanjaan', 'cat': 'Outdoor'},
+    {'icon': Icons.restaurant_menu, 'name': 'Menu', 'cat': 'Outdoor'},
+
+    // 9. SIMBOL & TEKNIS (Kategori Baru)
+    {'icon': Icons.warning, 'name': 'Bahaya', 'cat': 'Simbol'},
+    {'icon': Icons.info, 'name': 'Info', 'cat': 'Simbol'},
+    {'icon': Icons.help, 'name': 'Tanya', 'cat': 'Simbol'},
+    {'icon': Icons.add, 'name': 'Tambah', 'cat': 'Simbol'},
+    {'icon': Icons.remove, 'name': 'Kurang', 'cat': 'Simbol'},
+    {'icon': Icons.check, 'name': 'Ceklis', 'cat': 'Simbol'},
+    {'icon': Icons.close, 'name': 'Silang', 'cat': 'Simbol'},
+    {'icon': Icons.arrow_upward, 'name': 'Arah Atas', 'cat': 'Simbol'},
+    {'icon': Icons.arrow_forward, 'name': 'Arah Kanan', 'cat': 'Simbol'},
+    {'icon': Icons.place, 'name': 'Lokasi', 'cat': 'Simbol'},
+    {'icon': Icons.flag, 'name': 'Bendera', 'cat': 'Simbol'},
+    {'icon': Icons.fire_extinguisher, 'name': 'Pemadam', 'cat': 'Simbol'},
+    {'icon': Icons.emergency, 'name': 'Darurat', 'cat': 'Simbol'},
+    {'icon': Icons.accessible, 'name': 'Kursi Roda', 'cat': 'Simbol'},
+    {'icon': Icons.wifi, 'name': 'WiFi', 'cat': 'Simbol'},
+    {'icon': Icons.bluetooth, 'name': 'Bluetooth', 'cat': 'Simbol'},
+    {'icon': Icons.build, 'name': 'Perkakas', 'cat': 'Simbol'},
+    {'icon': Icons.construction, 'name': 'Konstruksi', 'cat': 'Simbol'},
   ];
 
   static void showLayerSettings(
@@ -521,7 +634,6 @@ class PlanEditorDialogs {
     );
   }
 
-  // --- PERBAIKAN UTAMA: FITUR PENCARIAN INTERIOR ---
   static void showInteriorPicker(
     BuildContext context,
     PlanController controller,
@@ -549,14 +661,49 @@ class PlanEditorDialogs {
     );
   }
 
-  // ... (Helper icon grid moved into _InteriorPickerSheet logic)
+  static Widget _buildIconGrid(
+    BuildContext context,
+    PlanController controller,
+    List<Map<String, dynamic>> items,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return GridView.builder(
+      padding: const EdgeInsets.all(16),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        childAspectRatio: 0.8,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, index) {
+        final item = items[index];
+        return InkWell(
+          onTap: () {
+            controller.selectObjectIcon(item['icon'], item['name']);
+            Navigator.pop(context);
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(item['icon'], size: 28, color: colorScheme.onSurface),
+              const SizedBox(height: 4),
+              Text(
+                item['name'],
+                style: TextStyle(fontSize: 11, color: colorScheme.onSurface),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
   static void showViewModeInfo(
     BuildContext context,
     Map<String, dynamic> data,
   ) {
     final colorScheme = Theme.of(context).colorScheme;
-
     showModalBottomSheet(
       context: context,
       backgroundColor: colorScheme.surface,
@@ -642,6 +789,10 @@ class _InteriorPickerSheetState extends State<_InteriorPickerSheet> {
   @override
   Widget build(BuildContext context) {
     final bool isSearching = _searchQuery.isNotEmpty;
+    final int totalCount = PlanEditorDialogs._allInteriors.length;
+    final int filteredCount = isSearching
+        ? _getFilteredItems().length
+        : totalCount;
 
     return Container(
       decoration: BoxDecoration(
@@ -662,7 +813,7 @@ class _InteriorPickerSheetState extends State<_InteriorPickerSheet> {
 
           // SEARCH BAR
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
@@ -689,11 +840,38 @@ class _InteriorPickerSheetState extends State<_InteriorPickerSheet> {
             ),
           ),
 
+          // --- INDIKATOR JUMLAH (FITUR BARU) ---
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 0),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.info_outline,
+                  size: 14,
+                  color: widget.colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  isSearching
+                      ? "Ditemukan $filteredCount dari $totalCount interior"
+                      : "Total $totalCount interior tersedia",
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: widget.colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+
           Expanded(
             child: isSearching
                 ? _buildSearchResults()
                 : DefaultTabController(
-                    length: 6,
+                    // Tambah Kategori Baru: Kantor, Simbol, Outdoor, Dapur = Total 9
+                    length: 9,
                     child: Column(
                       children: [
                         TabBar(
@@ -706,9 +884,12 @@ class _InteriorPickerSheetState extends State<_InteriorPickerSheet> {
                             Tab(text: "Furnitur"),
                             Tab(text: "Elektronik"),
                             Tab(text: "Sanitasi"),
+                            Tab(text: "Dapur"),
+                            Tab(text: "Kantor"), // Baru
                             Tab(text: "Struktur"),
                             Tab(text: "Dekorasi"),
-                            Tab(text: "Lainnya"),
+                            Tab(text: "Outdoor"),
+                            Tab(text: "Simbol/Lain"), // Baru
                           ],
                         ),
                         Expanded(
@@ -717,9 +898,16 @@ class _InteriorPickerSheetState extends State<_InteriorPickerSheet> {
                               _buildGrid(_getItemsByCategory('Furnitur')),
                               _buildGrid(_getItemsByCategory('Elektronik')),
                               _buildGrid(_getItemsByCategory('Sanitasi')),
+                              _buildGrid(_getItemsByCategory('Dapur')),
+                              _buildGrid(_getItemsByCategory('Kantor')),
                               _buildGrid(_getItemsByCategory('Struktur')),
                               _buildGrid(_getItemsByCategory('Dekorasi')),
-                              _buildGrid(_getItemsByCategory('Lainnya')),
+                              _buildGrid(_getItemsByCategory('Outdoor')),
+                              // Gabungkan Simbol & Lainnya di tab terakhir agar ringkas
+                              _buildGrid([
+                                ..._getItemsByCategory('Simbol'),
+                                ..._getItemsByCategory('Lainnya'),
+                              ]),
                             ],
                           ),
                         ),
@@ -737,7 +925,7 @@ class _InteriorPickerSheetState extends State<_InteriorPickerSheet> {
     if (results.isEmpty) {
       return Center(
         child: Text(
-          "Tidak ditemukan interior '$originalQuery'",
+          "Tidak ditemukan interior '$_searchQuery'",
           style: TextStyle(color: widget.colorScheme.onSurfaceVariant),
         ),
       );
@@ -745,12 +933,9 @@ class _InteriorPickerSheetState extends State<_InteriorPickerSheet> {
     return _buildGrid(results);
   }
 
-  String get originalQuery => _searchController.text;
-
   Widget _buildGrid(List<Map<String, dynamic>> items) {
     return GridView.builder(
-      controller:
-          widget.scrollController, // Agar scroll smooth dengan bottom sheet
+      controller: widget.scrollController,
       padding: const EdgeInsets.all(16),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 4,
