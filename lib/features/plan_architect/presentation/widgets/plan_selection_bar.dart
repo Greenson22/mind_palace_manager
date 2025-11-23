@@ -1,3 +1,4 @@
+// lib/features/plan_architect/presentation/widgets/plan_selection_bar.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:mind_palace_manager/features/plan_architect/logic/plan_controller.dart';
@@ -16,7 +17,6 @@ class PlanSelectionBar extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     bool isGroup = data['isGroup'] ?? false;
 
-    // --- LOGIKA UKURAN (Sama seperti perbaikan sebelumnya) ---
     double currentSize = 2.0;
     if (!isGroup) {
       if (data['type'] == 'Struktur') {
@@ -57,7 +57,6 @@ class PlanSelectionBar extends StatelessWidget {
         currentSize = 5.0;
       }
     }
-    // ---------------------------------------------------------
 
     return Container(
       constraints: const BoxConstraints(maxWidth: 600),
@@ -77,7 +76,7 @@ class PlanSelectionBar extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 1. HEADER INFO
+          // 1. Header
           Row(
             children: [
               Container(
@@ -130,13 +129,12 @@ class PlanSelectionBar extends StatelessWidget {
               ),
             ],
           ),
-
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 8),
             child: Divider(height: 1),
           ),
 
-          // 2. SLIDER UKURAN & WARNA
+          // 2. Ukuran & Warna
           Row(
             children: [
               if (!isGroup)
@@ -197,7 +195,7 @@ class PlanSelectionBar extends StatelessWidget {
 
           const SizedBox(height: 8),
 
-          // 3. PAD PENGGESER (BARU: DIRECTIONAL PAD)
+          // 3. PAD PENGGESER (DIRECTIONAL PAD)
           Container(
             padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
             decoration: BoxDecoration(
@@ -216,29 +214,30 @@ class PlanSelectionBar extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Tombol Kiri
+                // Menggunakan NudgeButton yang di-update
                 _NudgeButton(
                   icon: Icons.chevron_left,
                   onPressed: () =>
-                      controller.moveSelectedItem(const Offset(-2, 0)),
+                      controller.nudgeSelection(const Offset(-2, 0)),
+                  onRelease: controller.saveState, // Simpan state saat dilepas
                 ),
-                // Tombol Atas
                 _NudgeButton(
                   icon: Icons.keyboard_arrow_up,
                   onPressed: () =>
-                      controller.moveSelectedItem(const Offset(0, -2)),
+                      controller.nudgeSelection(const Offset(0, -2)),
+                  onRelease: controller.saveState,
                 ),
-                // Tombol Bawah
                 _NudgeButton(
                   icon: Icons.keyboard_arrow_down,
                   onPressed: () =>
-                      controller.moveSelectedItem(const Offset(0, 2)),
+                      controller.nudgeSelection(const Offset(0, 2)),
+                  onRelease: controller.saveState,
                 ),
-                // Tombol Kanan
                 _NudgeButton(
                   icon: Icons.chevron_right,
                   onPressed: () =>
-                      controller.moveSelectedItem(const Offset(2, 0)),
+                      controller.nudgeSelection(const Offset(2, 0)),
+                  onRelease: controller.saveState,
                 ),
               ],
             ),
@@ -246,7 +245,7 @@ class PlanSelectionBar extends StatelessWidget {
 
           const SizedBox(height: 8),
 
-          // 4. TOMBOL AKSI (Action Buttons)
+          // 4. Quick Actions
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -410,13 +409,13 @@ class PlanSelectionBar extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 20, color: finalColor),
             const SizedBox(height: 2),
-            Text(label, style: TextStyle(fontSize: 10, color: finalColor)),
+            Text(label, style: TextStyle(fontSize: 9, color: finalColor)),
           ],
         ),
       ),
@@ -424,12 +423,17 @@ class PlanSelectionBar extends StatelessWidget {
   }
 }
 
-// --- WIDGET TOMBOL GESER (Support Tekan Lama) ---
+// --- WIDGET TOMBOL GESER (Support Tekan Lama & Simpan State) ---
 class _NudgeButton extends StatefulWidget {
   final IconData icon;
   final VoidCallback onPressed;
+  final VoidCallback onRelease; // Callback baru
 
-  const _NudgeButton({required this.icon, required this.onPressed});
+  const _NudgeButton({
+    required this.icon,
+    required this.onPressed,
+    required this.onRelease,
+  });
 
   @override
   State<_NudgeButton> createState() => _NudgeButtonState();
@@ -448,11 +452,20 @@ class _NudgeButtonState extends State<_NudgeButton> {
   }
 
   void _handleTapUp(TapUpDetails details) {
-    _timer?.cancel();
+    _stopTimer();
   }
 
   void _handleTapCancel() {
-    _timer?.cancel();
+    _stopTimer();
+  }
+
+  void _stopTimer() {
+    if (_timer != null) {
+      _timer?.cancel();
+      _timer = null;
+      // Panggil save state saat dilepas
+      widget.onRelease();
+    }
   }
 
   @override

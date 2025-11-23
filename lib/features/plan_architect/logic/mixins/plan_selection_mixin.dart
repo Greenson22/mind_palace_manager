@@ -1,3 +1,4 @@
+// lib/features/plan_architect/logic/mixins/plan_selection_mixin.dart
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'plan_variables.dart';
@@ -23,10 +24,9 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
         break;
       }
     }
-    // BARU: Cek Portals (Pintu/Jendela)
+    // Cek Portals (Pintu/Jendela)
     if (hitId == null) {
       for (var p in portals.reversed) {
-        // Hitbox lingkaran sederhana di sekitar titik tengah
         if ((p.position - pos).distance < (p.width / 2 + 5)) {
           hitId = p.id;
           break;
@@ -131,25 +131,31 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       walls: List.from(walls)..removeWhere((w) => idsToDelete.contains(w.id)),
       groups: List.from(groups)..removeWhere((g) => idsToDelete.contains(g.id)),
       portals: List.from(portals)
-        ..removeWhere((p) => idsToDelete.contains(p.id)), // BARU
+        ..removeWhere((p) => idsToDelete.contains(p.id)),
     );
     selectedId = null;
     multiSelectedIds.clear();
     saveState();
   }
 
+  // --- FUNGSI BARU: Nudge (Geser sedikit + Update UI) ---
+  void nudgeSelection(Offset delta) {
+    moveSelectedItem(delta);
+    // PENTING: Beritahu UI untuk repaint agar pergerakan terlihat
+    notifyListeners();
+  }
+
   void moveSelectedItem(Offset delta) {
     // Multi Select Move
     if (isMultiSelectMode) {
       bool changed = false;
-      // ... (copy semua list) ...
       List<PlanShape> newShapes = List.from(shapes);
       List<PlanObject> newObjects = List.from(objects);
       List<Wall> newWalls = List.from(walls);
       List<PlanLabel> newLabels = List.from(labels);
       List<PlanPath> newPaths = List.from(paths);
       List<PlanGroup> newGroups = List.from(groups);
-      List<PlanPortal> newPortals = List.from(portals); // BARU
+      List<PlanPortal> newPortals = List.from(portals);
 
       for (var id in multiSelectedIds) {
         final sIdx = newShapes.indexWhere((x) => x.id == id);
@@ -188,7 +194,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
           changed = true;
         }
 
-        // BARU: Move Portal
         final portIdx = newPortals.indexWhere((x) => x.id == id);
         if (portIdx != -1) {
           newPortals[portIdx] = newPortals[portIdx].moveBy(delta);
@@ -203,7 +208,7 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
           labels: newLabels,
           paths: newPaths,
           groups: newGroups,
-          portals: newPortals, // BARU
+          portals: newPortals,
         );
       }
       return;
@@ -212,7 +217,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
     // Single Select Move
     if (selectedId == null) return;
 
-    // BARU: Move Single Portal
     List<PlanPortal> newPortals = List.from(portals);
     final portIdx = newPortals.indexWhere((p) => p.id == selectedId);
     if (portIdx != -1) {
@@ -221,7 +225,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       return;
     }
 
-    // Existing moves...
     List<PlanGroup> newGroups = List.from(groups);
     final gIdx = newGroups.indexWhere((g) => g.id == selectedId);
     if (gIdx != -1) {
@@ -273,7 +276,7 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
     final newLabels = labels.map((l) => l.moveBy(delta)).toList();
     final newShapes = shapes.map((s) => s.moveBy(delta)).toList();
     final newGroups = groups.map((g) => g.moveBy(delta)).toList();
-    final newPortals = portals.map((p) => p.moveBy(delta)).toList(); // BARU
+    final newPortals = portals.map((p) => p.moveBy(delta)).toList();
     updateActiveFloor(
       walls: newWalls,
       objects: newObjects,
@@ -281,7 +284,7 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       labels: newLabels,
       shapes: newShapes,
       groups: newGroups,
-      portals: newPortals, // BARU
+      portals: newPortals,
     );
   }
 
@@ -292,7 +295,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
         : [selectedId!];
     if (idsToGroup.isEmpty) return;
 
-    // Filter item
     List<PlanObject> selObjects = objects
         .where((e) => idsToGroup.contains(e.id))
         .toList();
@@ -306,8 +308,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
         .where((e) => idsToGroup.contains(e.id))
         .toList();
 
-    // (Portal tidak dimasukkan ke grup untuk saat ini karena logika dinding)
-
     if (selObjects.isEmpty &&
         selShapes.isEmpty &&
         selPaths.isEmpty &&
@@ -317,7 +317,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
     double sumX = 0, sumY = 0;
     int count = 0;
 
-    // Hitung center
     for (var o in selObjects) {
       sumX += o.position.dx;
       sumY += o.position.dy;
@@ -480,7 +479,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       );
     } catch (_) {}
 
-    // BARU: Duplicate Portal
     try {
       final prt = portals.firstWhere((p) => p.id == selectedId);
       updateActiveFloor(
@@ -530,12 +528,11 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       return;
     }
 
-    // BARU: Rotate Portal
     List<PlanPortal> newPortals = List.from(portals);
     final pIdx = newPortals.indexWhere((p) => p.id == selectedId);
     if (pIdx != -1) {
       newPortals[pIdx] = newPortals[pIdx].copyWith(
-        rotation: newPortals[pIdx].rotation + (pi / 4), // Putar 45 derajat
+        rotation: newPortals[pIdx].rotation + (pi / 4),
       );
       updateActiveFloor(portals: newPortals);
       saveState();
@@ -543,7 +540,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
     }
   }
 
-  // --- METHOD UPDATE ATTRIBUTE ---
   void updateSelectedAttribute({
     Color? color,
     double? stroke,
@@ -554,7 +550,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
   }) {
     if (selectedId == null) return;
 
-    // Group name
     List<PlanGroup> newGroups = List.from(groups);
     final gIdx = newGroups.indexWhere((g) => g.id == selectedId);
     if (gIdx != -1) {
@@ -564,7 +559,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       return;
     }
 
-    // Object attributes
     List<PlanObject> newObjects = List.from(objects);
     final objIdx = newObjects.indexWhere((o) => o.id == selectedId);
     if (objIdx != -1) {
@@ -580,7 +574,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       return;
     }
 
-    // Wall attributes
     List<Wall> newWalls = List.from(walls);
     final wIdx = newWalls.indexWhere((w) => w.id == selectedId);
     if (wIdx != -1) {
@@ -594,7 +587,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       return;
     }
 
-    // Path attributes
     List<PlanPath> newPaths = List.from(paths);
     final pIdx = newPaths.indexWhere((p) => p.id == selectedId);
     if (pIdx != -1) {
@@ -609,7 +601,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       return;
     }
 
-    // Label attributes
     List<PlanLabel> newLabels = List.from(labels);
     final lIdx = newLabels.indexWhere((l) => l.id == selectedId);
     if (lIdx != -1) {
@@ -623,7 +614,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       return;
     }
 
-    // Shape attributes
     List<PlanShape> newShapes = List.from(shapes);
     final sIdx = newShapes.indexWhere((s) => s.id == selectedId);
     if (sIdx != -1) {
@@ -652,13 +642,12 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       return;
     }
 
-    // BARU: Portal Attributes
     List<PlanPortal> newPortals = List.from(portals);
     final portIdx = newPortals.indexWhere((p) => p.id == selectedId);
     if (portIdx != -1) {
       newPortals[portIdx] = newPortals[portIdx].copyWith(
         color: color,
-        width: stroke, // Gunakan slider ukuran untuk lebar pintu
+        width: stroke,
       );
       updateActiveFloor(portals: newPortals);
       saveState();
@@ -696,13 +685,11 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
 
   void bringToFront() {
     if (selectedId == null) return;
-    // Logic bring to front existing...
-    // ...
+    // ... (existing logic, not modified)
   }
 
   void sendToBack() {
-    // Logic send to back existing...
-    // ...
+    // ... (existing logic, not modified)
   }
 
   void saveCurrentSelectionToLibrary() {
@@ -724,7 +711,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
   Map<String, dynamic>? getSelectedItemData() {
     if (selectedId == null) return null;
 
-    // BARU: Get Portal Data
     try {
       final p = portals.firstWhere((x) => x.id == selectedId);
       return {
