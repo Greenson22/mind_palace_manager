@@ -1,6 +1,8 @@
+// lib/features/plan_architect/logic/mixins/plan_view_mixin.dart
 import 'package:flutter/material.dart';
 import 'plan_variables.dart';
 import '../plan_enums.dart';
+import 'package:mind_palace_manager/app_settings.dart'; // Import AppSettings
 
 mixin PlanViewMixin on PlanVariables {
   void toggleViewMode() {
@@ -14,22 +16,29 @@ mixin PlanViewMixin on PlanVariables {
 
   void setCanvasColor(Color color) {
     canvasColor = color;
+    // Simpan ke AppSettings
+    AppSettings.savePlanCanvasColor(color.value);
     notifyListeners();
   }
 
   void toggleGridVisibility() {
     showGrid = !showGrid;
+    // Simpan ke AppSettings
+    AppSettings.savePlanShowGrid(showGrid);
     notifyListeners();
   }
 
-  // --- METHOD BARU ---
   void toggleZoomButtonsVisibility() {
     showZoomButtons = !showZoomButtons;
+    // Simpan ke AppSettings
+    AppSettings.savePlanShowZoomButtons(showZoomButtons);
     notifyListeners();
   }
 
   void setGridSize(double size) {
     gridSize = size;
+    // Simpan ke AppSettings
+    AppSettings.savePlanGridSize(size);
     notifyListeners();
   }
 
@@ -37,15 +46,19 @@ mixin PlanViewMixin on PlanVariables {
     switch (layer) {
       case 'walls':
         layerWalls = !layerWalls;
+        AppSettings.savePlanLayerState('walls', layerWalls);
         break;
       case 'objects':
         layerObjects = !layerObjects;
+        AppSettings.savePlanLayerState('objects', layerObjects);
         break;
       case 'labels':
         layerLabels = !layerLabels;
+        AppSettings.savePlanLayerState('labels', layerLabels);
         break;
       case 'dims':
         layerDims = !layerDims;
+        AppSettings.savePlanLayerState('dims', layerDims);
         break;
     }
     notifyListeners();

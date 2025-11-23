@@ -61,6 +61,16 @@ class AppSettings {
   static const String _favoriteInteriorsKey = 'favoriteInteriors';
   static const String _recentInteriorsKey = 'recentInteriors';
 
+  // --- PLAN ARCHITECT KEYS (BARU) ---
+  static const String _planShowGridKey = 'planShowGrid';
+  static const String _planShowZoomButtonsKey = 'planShowZoomButtons';
+  static const String _planGridSizeKey = 'planGridSize';
+  static const String _planCanvasColorKey = 'planCanvasColor';
+  static const String _planLayerWallsKey = 'planLayerWalls';
+  static const String _planLayerObjectsKey = 'planLayerObjects';
+  static const String _planLayerLabelsKey = 'planLayerLabels';
+  static const String _planLayerDimsKey = 'planLayerDims';
+
   // --- VARIABLES ---
   static String? baseBuildingsPath;
   static String mapPinShape = 'Bulat';
@@ -115,6 +125,16 @@ class AppSettings {
   // --- VARIABLE BARU UNTUK INTERIOR ---
   static List<String> favoriteInteriors = [];
   static List<String> recentInteriors = [];
+
+  // --- PLAN ARCHITECT VARIABLES (BARU) ---
+  static bool planShowGrid = true;
+  static bool planShowZoomButtons = true;
+  static double planGridSize = 20.0;
+  static int planCanvasColor = 0xFFFFFFFF; // Default Putih
+  static bool planLayerWalls = true;
+  static bool planLayerObjects = true;
+  static bool planLayerLabels = true;
+  static bool planLayerDims = false;
 
   static Future<void> loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
@@ -189,6 +209,17 @@ class AppSettings {
     // --- LOAD FAVORITE & RECENT ---
     favoriteInteriors = prefs.getStringList(_favoriteInteriorsKey) ?? [];
     recentInteriors = prefs.getStringList(_recentInteriorsKey) ?? [];
+
+    // --- LOAD PLAN SETTINGS ---
+    planShowGrid = prefs.getBool(_planShowGridKey) ?? true;
+    planShowZoomButtons = prefs.getBool(_planShowZoomButtonsKey) ?? true;
+    planGridSize = prefs.getDouble(_planGridSizeKey) ?? 20.0;
+    planCanvasColor = prefs.getInt(_planCanvasColorKey) ?? 0xFFFFFFFF;
+
+    planLayerWalls = prefs.getBool(_planLayerWallsKey) ?? true;
+    planLayerObjects = prefs.getBool(_planLayerObjectsKey) ?? true;
+    planLayerLabels = prefs.getBool(_planLayerLabelsKey) ?? true;
+    planLayerDims = prefs.getBool(_planLayerDimsKey) ?? false;
   }
 
   // ... (Save functions existing) ...
@@ -463,6 +494,53 @@ class AppSettings {
       recentInteriors = recentInteriors.sublist(0, 20); // Batasi 20
     }
     await prefs.setStringList(_recentInteriorsKey, recentInteriors);
+  }
+
+  // --- SAVE FUNCTIONS UNTUK PLAN ARCHITECT (BARU) ---
+  static Future<void> savePlanShowGrid(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_planShowGridKey, value);
+    planShowGrid = value;
+  }
+
+  static Future<void> savePlanShowZoomButtons(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_planShowZoomButtonsKey, value);
+    planShowZoomButtons = value;
+  }
+
+  static Future<void> savePlanGridSize(double value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_planGridSizeKey, value);
+    planGridSize = value;
+  }
+
+  static Future<void> savePlanCanvasColor(int colorValue) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_planCanvasColorKey, colorValue);
+    planCanvasColor = colorValue;
+  }
+
+  static Future<void> savePlanLayerState(String layer, bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    switch (layer) {
+      case 'walls':
+        await prefs.setBool(_planLayerWallsKey, value);
+        planLayerWalls = value;
+        break;
+      case 'objects':
+        await prefs.setBool(_planLayerObjectsKey, value);
+        planLayerObjects = value;
+        break;
+      case 'labels':
+        await prefs.setBool(_planLayerLabelsKey, value);
+        planLayerLabels = value;
+        break;
+      case 'dims':
+        await prefs.setBool(_planLayerDimsKey, value);
+        planLayerDims = value;
+        break;
+    }
   }
 
   static ThemeMode _getThemeModeFromString(String themeString) {

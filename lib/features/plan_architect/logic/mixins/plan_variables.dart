@@ -1,6 +1,8 @@
+// lib/features/plan_architect/logic/mixins/plan_variables.dart
 import 'package:flutter/material.dart';
 import '../../data/plan_models.dart';
 import '../plan_enums.dart';
+import 'package:mind_palace_manager/app_settings.dart'; // Import AppSettings
 
 abstract class PlanVariables extends ChangeNotifier {
   // --- DATA UTAMA ---
@@ -16,26 +18,29 @@ abstract class PlanVariables extends ChangeNotifier {
   List<PlanLabel> get labels => activeFloor.labels;
   List<PlanShape> get shapes => activeFloor.shapes;
   List<PlanGroup> get groups => activeFloor.groups;
-  List<PlanPortal> get portals => activeFloor.portals; // BARU
+  List<PlanPortal> get portals => activeFloor.portals;
 
-  // --- VIEW SETTINGS ---
+  // --- VIEW SETTINGS (DIUPDATE) ---
   bool isViewMode = false;
-  Color canvasColor = Colors.white;
-  bool showGrid = true;
 
-  // --- NEW SETTING: ZOOM CONTROLS ---
-  bool showZoomButtons = true; // Default: Tampilkan tombol zoom (+/-)
+  // Inisialisasi dari AppSettings
+  Color canvasColor = Color(AppSettings.planCanvasColor);
+  bool showGrid = AppSettings.planShowGrid;
+  bool showZoomButtons = AppSettings.planShowZoomButtons;
 
   final double canvasWidth = 500.0;
   final double canvasHeight = 500.0;
 
-  bool layerWalls = true;
-  bool layerObjects = true;
-  bool layerLabels = true;
-  bool layerDims = false;
+  // Inisialisasi Layer dari AppSettings
+  bool layerWalls = AppSettings.planLayerWalls;
+  bool layerObjects = AppSettings.planLayerObjects;
+  bool layerLabels = AppSettings.planLayerLabels;
+  bool layerDims = AppSettings.planLayerDims;
 
   bool enableSnap = true;
-  double gridSize = 20.0;
+
+  // Inisialisasi Grid Size dari AppSettings
+  double gridSize = AppSettings.planGridSize;
 
   final TransformationController transformController =
       TransformationController();
@@ -60,16 +65,16 @@ abstract class PlanVariables extends ChangeNotifier {
   bool isMultiSelectMode = false;
 
   // --- TAMBAHAN: SELECTION BOX STATE ---
-  Offset? selectionBoxStart; // Titik awal kotak seleksi
-  Offset? selectionBoxEnd; // Titik akhir kotak seleksi
-  bool isBoxSelecting = false; // Flag sedang menarik kotak
+  Offset? selectionBoxStart;
+  Offset? selectionBoxEnd;
+  bool isBoxSelecting = false;
 
   IconData? selectedObjectIcon;
   String selectedObjectName = "Furniture";
   PlanShapeType selectedShapeType = PlanShapeType.rectangle;
 
   // --- NEW STATE: SHAPE STYLE ---
-  bool shapeFilled = true; // Default: Solid
+  bool shapeFilled = true;
 
   // --- HISTORY STATE ---
   final List<String> historyStack = [];
