@@ -63,17 +63,20 @@ class _VisualizationSettingsSectionState
   late double _objectIconOpacity;
   late bool _interactableWhenHidden;
 
-  // State Navigasi
   late bool _showNavigationArrows;
   late double _navigationArrowOpacity;
   late double _navigationArrowScale;
   late Color _navigationArrowColor;
 
-  // State Transisi Awan (BARU)
   late bool _enableCloudTransition;
   late double _cloudTransitionDuration;
   late Color _cloudColor;
   late String _cloudShape;
+
+  // --- STATE BARU UNTUK DENAH ---
+  late double _planBackgroundBlur;
+  late double _planBackgroundOpacity;
+  late double _planBackgroundScale;
 
   @override
   void initState() {
@@ -102,17 +105,20 @@ class _VisualizationSettingsSectionState
     _navigationArrowScale = AppSettings.navigationArrowScale;
     _navigationArrowColor = Color(AppSettings.navigationArrowColor);
 
-    // Init Cloud Transition
     _enableCloudTransition = AppSettings.enableCloudTransition;
     _cloudTransitionDuration = AppSettings.cloudTransitionDuration;
     _cloudColor = Color(AppSettings.cloudColor);
     _cloudShape = AppSettings.cloudShape;
+
+    // --- INIT NILAI BARU ---
+    _planBackgroundBlur = AppSettings.planBackgroundBlur;
+    _planBackgroundOpacity = AppSettings.planBackgroundOpacity;
+    _planBackgroundScale = AppSettings.planBackgroundScale;
   }
 
   @override
   void didUpdateWidget(covariant VisualizationSettingsSection oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Refresh values if widget params change
     _initValues();
   }
 
@@ -190,7 +196,55 @@ class _VisualizationSettingsSectionState
 
         const SizedBox(height: 24),
 
-        // --- TRANSISI & ANIMASI (BAGIAN BARU) ---
+        // --- Tampilan Arsitek Denah (BARU) ---
+        buildSectionHeader(context, 'Tampilan Arsitek Denah'),
+        buildSettingsCard([
+          buildSliderTile(
+            icon: Icons.blur_on,
+            color: Colors.indigo,
+            title: 'Kekuatan Blur Background',
+            value: _planBackgroundBlur,
+            min: 0.0,
+            max: 50.0,
+            divisions: 50,
+            onChanged: (val) async {
+              widget.setStateCallback(() => _planBackgroundBlur = val);
+              await AppSettings.savePlanBackgroundBlur(val);
+            },
+          ),
+          const Divider(indent: 56),
+          buildSliderTile(
+            icon: Icons.brightness_medium,
+            color: Colors.indigo,
+            title: 'Kegelapan Overlay (Opacity)',
+            value: _planBackgroundOpacity,
+            min: 0.0,
+            max: 1.0,
+            divisions: 20,
+            onChanged: (val) async {
+              widget.setStateCallback(() => _planBackgroundOpacity = val);
+              await AppSettings.savePlanBackgroundOpacity(val);
+            },
+          ),
+          const Divider(indent: 56),
+          buildSliderTile(
+            icon: Icons.zoom_out_map,
+            color: Colors.indigo,
+            title: 'Skala Gambar Background',
+            value: _planBackgroundScale,
+            min: 0.5,
+            max: 3.0,
+            divisions: 25,
+            onChanged: (val) async {
+              widget.setStateCallback(() => _planBackgroundScale = val);
+              await AppSettings.savePlanBackgroundScale(val);
+            },
+          ),
+        ]),
+
+        const SizedBox(height: 24),
+
+        // --- Transisi & Animasi ---
         buildSectionHeader(context, 'Transisi & Animasi'),
         buildSettingsCard([
           SwitchListTile(

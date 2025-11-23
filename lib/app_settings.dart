@@ -61,7 +61,7 @@ class AppSettings {
   static const String _favoriteInteriorsKey = 'favoriteInteriors';
   static const String _recentInteriorsKey = 'recentInteriors';
 
-  // --- PLAN ARCHITECT KEYS (BARU) ---
+  // --- PLAN ARCHITECT KEYS (EDITOR) ---
   static const String _planShowGridKey = 'planShowGrid';
   static const String _planShowZoomButtonsKey = 'planShowZoomButtons';
   static const String _planGridSizeKey = 'planGridSize';
@@ -70,6 +70,11 @@ class AppSettings {
   static const String _planLayerObjectsKey = 'planLayerObjects';
   static const String _planLayerLabelsKey = 'planLayerLabels';
   static const String _planLayerDimsKey = 'planLayerDims';
+
+  // --- KEYS BARU UNTUK BACKGROUND DENAH ---
+  static const String _planBackgroundBlurKey = 'planBackgroundBlur';
+  static const String _planBackgroundOpacityKey = 'planBackgroundOpacity';
+  static const String _planBackgroundScaleKey = 'planBackgroundScale';
 
   // --- VARIABLES ---
   static String? baseBuildingsPath;
@@ -122,19 +127,23 @@ class AppSettings {
   static double cloudTransitionDuration = 1.8;
   static String cloudShape = 'Bulat';
 
-  // --- VARIABLE BARU UNTUK INTERIOR ---
   static List<String> favoriteInteriors = [];
   static List<String> recentInteriors = [];
 
-  // --- PLAN ARCHITECT VARIABLES (BARU) ---
+  // --- PLAN ARCHITECT VARIABLES ---
   static bool planShowGrid = true;
   static bool planShowZoomButtons = true;
   static double planGridSize = 20.0;
-  static int planCanvasColor = 0xFFFFFFFF; // Default Putih
+  static int planCanvasColor = 0xFFFFFFFF;
   static bool planLayerWalls = true;
   static bool planLayerObjects = true;
   static bool planLayerLabels = true;
   static bool planLayerDims = false;
+
+  // --- VARIABLE BARU UNTUK BACKGROUND DENAH ---
+  static double planBackgroundBlur = 30.0;
+  static double planBackgroundOpacity = 0.6;
+  static double planBackgroundScale = 1.0;
 
   static Future<void> loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
@@ -206,11 +215,9 @@ class AppSettings {
         prefs.getDouble(_cloudTransitionDurationKey) ?? 1.8;
     cloudShape = prefs.getString(_cloudShapeKey) ?? 'Bulat';
 
-    // --- LOAD FAVORITE & RECENT ---
     favoriteInteriors = prefs.getStringList(_favoriteInteriorsKey) ?? [];
     recentInteriors = prefs.getStringList(_recentInteriorsKey) ?? [];
 
-    // --- LOAD PLAN SETTINGS ---
     planShowGrid = prefs.getBool(_planShowGridKey) ?? true;
     planShowZoomButtons = prefs.getBool(_planShowZoomButtonsKey) ?? true;
     planGridSize = prefs.getDouble(_planGridSizeKey) ?? 20.0;
@@ -220,9 +227,14 @@ class AppSettings {
     planLayerObjects = prefs.getBool(_planLayerObjectsKey) ?? true;
     planLayerLabels = prefs.getBool(_planLayerLabelsKey) ?? true;
     planLayerDims = prefs.getBool(_planLayerDimsKey) ?? false;
+
+    // --- LOAD SETTINGS BARU ---
+    planBackgroundBlur = prefs.getDouble(_planBackgroundBlurKey) ?? 30.0;
+    planBackgroundOpacity = prefs.getDouble(_planBackgroundOpacityKey) ?? 0.6;
+    planBackgroundScale = prefs.getDouble(_planBackgroundScaleKey) ?? 1.0;
   }
 
-  // ... (Save functions existing) ...
+  // ... (SAVE FUNCTIONS LAMA) ...
   static Future<void> saveBackgroundMode(String mode) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_wallpaperModeKey, mode);
@@ -475,7 +487,6 @@ class AppSettings {
     cloudShape = shape;
   }
 
-  // --- FUNGSI BARU UNTUK INTERIOR ---
   static Future<void> toggleFavoriteInterior(String name) async {
     final prefs = await SharedPreferences.getInstance();
     if (favoriteInteriors.contains(name)) {
@@ -488,15 +499,14 @@ class AppSettings {
 
   static Future<void> addRecentInterior(String name) async {
     final prefs = await SharedPreferences.getInstance();
-    recentInteriors.remove(name); // Hapus jika ada (agar pindah ke depan)
-    recentInteriors.insert(0, name); // Masukkan di awal
+    recentInteriors.remove(name);
+    recentInteriors.insert(0, name);
     if (recentInteriors.length > 20) {
-      recentInteriors = recentInteriors.sublist(0, 20); // Batasi 20
+      recentInteriors = recentInteriors.sublist(0, 20);
     }
     await prefs.setStringList(_recentInteriorsKey, recentInteriors);
   }
 
-  // --- SAVE FUNCTIONS UNTUK PLAN ARCHITECT (BARU) ---
   static Future<void> savePlanShowGrid(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_planShowGridKey, value);
@@ -541,6 +551,25 @@ class AppSettings {
         planLayerDims = value;
         break;
     }
+  }
+
+  // --- SAVE FUNCTIONS BARU ---
+  static Future<void> savePlanBackgroundBlur(double value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_planBackgroundBlurKey, value);
+    planBackgroundBlur = value;
+  }
+
+  static Future<void> savePlanBackgroundOpacity(double value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_planBackgroundOpacityKey, value);
+    planBackgroundOpacity = value;
+  }
+
+  static Future<void> savePlanBackgroundScale(double value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_planBackgroundScaleKey, value);
+    planBackgroundScale = value;
   }
 
   static ThemeMode _getThemeModeFromString(String themeString) {

@@ -1,21 +1,19 @@
 import 'package:flutter/material.dart';
+import 'dart:ui' as ui;
+import 'dart:math' as math;
+import 'package:mind_palace_manager/app_settings.dart';
 import 'package:mind_palace_manager/features/plan_architect/logic/plan_controller.dart';
 import 'package:mind_palace_manager/features/plan_architect/presentation/plan_painter.dart';
 import 'package:mind_palace_manager/features/plan_architect/presentation/dialogs/plan_editor_dialogs.dart';
 
 class PlanCanvasView extends StatelessWidget {
   final PlanController controller;
-
-  // Callback navigasi jika item ditekan di View Mode
   final Function(String planId)? onNavigate;
 
   const PlanCanvasView({super.key, required this.controller, this.onNavigate});
 
   void _handleTapUp(BuildContext context, Offset localPos) {
-    // --- LOGIKA TAP (TEKAN): Tampilkan Info / Pilih Objek ---
-
     if (controller.activeTool == PlanTool.text && !controller.isViewMode) {
-      // Logika tambah teks (Edit Mode)
       final textCtrl = TextEditingController();
       showDialog(
         context: context,
@@ -43,10 +41,7 @@ class PlanCanvasView extends StatelessWidget {
         ),
       );
     } else {
-      // Seleksi Objek (Baik View maupun Edit Mode)
       controller.onTapUp(localPos);
-
-      // Jika View Mode & ada objek terpilih -> Tampilkan Info
       if (controller.isViewMode && controller.selectedId != null) {
         final data = controller.getSelectedItemData();
         if (data != null) PlanEditorDialogs.showViewModeInfo(context, data);
@@ -55,14 +50,9 @@ class PlanCanvasView extends StatelessWidget {
   }
 
   void _handleLongPress(BuildContext context, Offset localPos) {
-    // --- LOGIKA LONG PRESS (TAHAN): Navigasi (View Mode) ---
     if (controller.isViewMode && onNavigate != null) {
       final hitItem = controller.findNavigableItemAt(localPos);
       if (hitItem != null) {
-        // Getar sedikit untuk feedback (opsional, butuh package haptic)
-        // HapticFeedback.mediumImpact();
-
-        // Panggil navigasi
         onNavigate!(hitItem['targetPlanId']!);
       }
     }
@@ -74,12 +64,72 @@ class PlanCanvasView extends StatelessWidget {
     final bool isView = controller.isViewMode;
     final bool allowPan = isHand || isView;
 
+    // Ambil setting dinamis dari AppSettings
+    final double blurSigma = AppSettings.planBackgroundBlur;
+    final double overlayOpacity = AppSettings.planBackgroundOpacity;
+    final double scaleMultiplier = AppSettings.planBackgroundScale;
+
     return Stack(
       children: [
-        // 1. BACKGROUND LUAR: HITAM (VOID)
-        Positioned.fill(child: Container(color: const Color(0xFF121212))),
+        // 1. BACKGROUND: DYNAMIC BLURRED PLAN
+        Positioned.fill(
+          child: Stack(
+            children: [
+              // A. Base Hitam
+              Container(color: const Color(0xFF121212)),
 
-        // 2. INTERACTIVE VIEWER (PAN/ZOOM)
+              // B. Denah Background (Scaled)
+              // Hanya render jika blur > 0 atau opacity tidak penuh
+              if (blurSigma > 0 || overlayOpacity < 1.0)
+                Positioned.fill(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      // Hitung scale dasar agar cover layar
+                      final double scaleX =
+                          constraints.maxWidth / controller.canvasWidth;
+                      final double scaleY =
+                          constraints.maxHeight / controller.canvasHeight;
+
+                      // Scale dasar dikali dengan multiplier dari setting
+                      final double finalScale =
+                          math.max(scaleX, scaleY) * scaleMultiplier;
+
+                      return Transform.scale(
+                        scale: finalScale,
+                        alignment: Alignment.center,
+                        child: Center(
+                          child: SizedBox(
+                            width: controller.canvasWidth,
+                            height: controller.canvasHeight,
+                            child: RepaintBoundary(
+                              child: CustomPaint(
+                                painter: PlanPainter(controller: controller),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+
+              // C. Efek Blur dan Overlay
+              Positioned.fill(
+                child: BackdropFilter(
+                  filter: ui.ImageFilter.blur(
+                    sigmaX: blurSigma,
+                    sigmaY: blurSigma,
+                  ),
+                  child: Container(
+                    color: Colors.black.withOpacity(overlayOpacity),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // 2. INTERACTIVE VIEWER (FOREGROUND)
         InteractiveViewer(
           transformationController: controller.transformController,
           boundaryMargin: const EdgeInsets.all(double.infinity),
@@ -96,15 +146,9 @@ class PlanCanvasView extends StatelessWidget {
                   ? null
                   : (d) => controller.onPanUpdate(d.localPosition),
               onPanEnd: allowPan ? null : (d) => controller.onPanEnd(),
-
-              // TAP: Pilih / Info
               onTapUp: (d) => _handleTapUp(context, d.localPosition),
-
-              // LONG PRESS: Navigasi (Pindah Lantai)
               onLongPressStart: (d) =>
                   _handleLongPress(context, d.localPosition),
-
-              // 3. KANVAS (KERTAS)
               child: Container(
                 width: controller.canvasWidth,
                 height: controller.canvasHeight,
