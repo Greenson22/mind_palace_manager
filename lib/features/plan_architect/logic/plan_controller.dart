@@ -4,7 +4,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../data/plan_models.dart';
 
-// --- PERUBAHAN 1: Tambahkan 'moveAll' ke enum ---
 enum PlanTool {
   select,
   wall,
@@ -40,14 +39,19 @@ class PlanController extends ChangeNotifier {
   bool layerWalls = true;
   bool layerObjects = true;
   bool layerLabels = true;
-  bool layerDims = true;
+
+  // --- PERUBAHAN 1: Default layerDims jadi false ---
+  bool layerDims = false;
 
   bool enableSnap = true;
-  final double gridSize = 20.0;
+
+  // --- PERUBAHAN 2: Grid Size tidak final agar bisa diubah ---
+  double gridSize = 20.0;
+
   PlanTool activeTool = PlanTool.select;
 
   Color activeColor = Colors.black;
-  double activeStrokeWidth = 2.0; // DEFAULT: 2.0 (Tipis)
+  double activeStrokeWidth = 2.0;
 
   Offset? tempStart;
   Offset? tempEnd;
@@ -66,14 +70,19 @@ class PlanController extends ChangeNotifier {
   final List<String> _history = [];
   int _historyIndex = -1;
 
+  // --- PERUBAHAN 3: Flag Unsaved Changes ---
+  bool hasUnsavedChanges = false;
+
   PlanController() {
     if (floors.isEmpty) {
       floors.add(PlanFloor(id: 'floor_1', name: 'Lantai 1'));
     }
-    _saveState();
+    // Reset flag saat init karena baru load
+    hasUnsavedChanges = false;
+    _saveState(initial: true);
   }
 
-  // ... (Bagian Manajemen Lantai & Undo/Redo SAMA) ...
+  // ... (Fungsi addFloor, removeActiveFloor, setActiveFloor, renameActiveFloor SAMA) ...
   void addFloor() {
     final newId = 'floor_${floors.length + 1}';
     floors.add(PlanFloor(id: newId, name: 'Lantai ${floors.length + 1}'));
@@ -122,7 +131,8 @@ class PlanController extends ChangeNotifier {
   bool get canUndo => _historyIndex > 0;
   bool get canRedo => _historyIndex < _history.length - 1;
 
-  void _saveState() {
+  // --- PERUBAHAN 3: Update flag unsaved changes ---
+  void _saveState({bool initial = false}) {
     if (_historyIndex < _history.length - 1)
       _history.removeRange(_historyIndex + 1, _history.length);
     final state = jsonEncode({
@@ -136,6 +146,11 @@ class PlanController extends ChangeNotifier {
       _history.removeAt(0);
       _historyIndex--;
     }
+
+    if (!initial) {
+      hasUnsavedChanges = true;
+    }
+
     notifyListeners();
   }
 
@@ -160,10 +175,11 @@ class PlanController extends ChangeNotifier {
     if (data['cc'] != null) canvasColor = Color(data['cc']);
     if (activeFloorIndex >= floors.length) activeFloorIndex = 0;
     selectedId = null;
+    // Saat undo/redo, kita anggap ada perubahan status state
     notifyListeners();
   }
 
-  // ... (Bagian View/Layer Settings SAMA) ...
+  // ... (Bagian View/Layer Settings) ...
   void toggleViewMode() {
     isViewMode = !isViewMode;
     if (isViewMode) {
@@ -180,6 +196,12 @@ class PlanController extends ChangeNotifier {
 
   void toggleGridVisibility() {
     showGrid = !showGrid;
+    notifyListeners();
+  }
+
+  // --- PERUBAHAN 2: Fungsi Ubah Grid Size ---
+  void setGridSize(double size) {
+    gridSize = size;
     notifyListeners();
   }
 
@@ -201,6 +223,7 @@ class PlanController extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ... (SetTool, Zoom, dll SAMA) ...
   void setTool(PlanTool tool) {
     activeTool = tool;
     selectedId = null;
@@ -258,7 +281,7 @@ class PlanController extends ChangeNotifier {
     _saveState();
   }
 
-  // ... (Bagian Input Handling SAMA) ...
+  // ... (Snap Logic SAMA) ...
   Offset _snapToGrid(Offset pos) {
     double x = (pos.dx / gridSize).round() * gridSize;
     double y = (pos.dy / gridSize).round() * gridSize;
@@ -274,6 +297,7 @@ class PlanController extends ChangeNotifier {
     return rawPos;
   }
 
+  // ... (Pan Start/Update/End SAMA - dengan Move All yang sudah ada) ...
   void onPanStart(Offset localPos) {
     if (isViewMode) return;
     if (activeTool == PlanTool.hand) return;
@@ -284,14 +308,10 @@ class PlanController extends ChangeNotifier {
         isDragging = true;
         lastDragPos = enableSnap ? _snapToGrid(localPos) : localPos;
       }
-    }
-    // --- PERUBAHAN 2: Inisialisasi drag untuk Move All ---
-    else if (activeTool == PlanTool.moveAll) {
+    } else if (activeTool == PlanTool.moveAll) {
       isDragging = true;
       lastDragPos = localPos;
-    }
-    // -----------------------------------------------------
-    else if (activeTool == PlanTool.wall || activeTool == PlanTool.shape) {
+    } else if (activeTool == PlanTool.wall || activeTool == PlanTool.shape) {
       Offset pos = (activeTool == PlanTool.wall)
           ? _getSmartSnapPoint(localPos)
           : localPos;
@@ -316,17 +336,13 @@ class PlanController extends ChangeNotifier {
         _moveSelectedItem(delta);
         lastDragPos = targetPos;
       }
-    }
-    // --- PERUBAHAN 3: Logika Move All saat drag ---
-    else if (activeTool == PlanTool.moveAll &&
+    } else if (activeTool == PlanTool.moveAll &&
         isDragging &&
         lastDragPos != null) {
       final delta = localPos - lastDragPos!;
       _moveAllContent(delta);
       lastDragPos = localPos;
-    }
-    // -----------------------------------------------
-    else if (activeTool == PlanTool.wall && tempStart != null) {
+    } else if (activeTool == PlanTool.wall && tempStart != null) {
       Offset pos = _getSmartSnapPoint(localPos);
       if ((pos.dx - tempStart!.dx).abs() < 10)
         pos = Offset(tempStart!.dx, pos.dy);
@@ -348,15 +364,11 @@ class PlanController extends ChangeNotifier {
       isDragging = false;
       lastDragPos = null;
       _saveState();
-    }
-    // --- PERUBAHAN 4: Simpan state setelah Move All ---
-    else if (activeTool == PlanTool.moveAll && isDragging) {
+    } else if (activeTool == PlanTool.moveAll && isDragging) {
       isDragging = false;
       lastDragPos = null;
       _saveState();
-    }
-    // --------------------------------------------------
-    else if (activeTool == PlanTool.wall &&
+    } else if (activeTool == PlanTool.wall &&
         tempStart != null &&
         tempEnd != null) {
       if ((tempStart! - tempEnd!).distance > 5) {
@@ -400,6 +412,7 @@ class PlanController extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ... (TapUp, AddLabel, MoveAllContent, MoveSelectedItem SAMA) ...
   void onTapUp(Offset localPos) {
     if (isViewMode) {
       _handleSelection(localPos);
@@ -428,7 +441,7 @@ class PlanController extends ChangeNotifier {
         description: "...",
         iconCodePoint: selectedObjectIcon!.codePoint,
         color: activeColor,
-        size: 14.0, // DEFAULT: Kecil (14.0)
+        size: 14.0,
       );
       _updateActiveFloor(objects: [...objects, newObj]);
       _saveState();
@@ -445,13 +458,12 @@ class PlanController extends ChangeNotifier {
       position: pos,
       text: text,
       color: activeColor,
-      fontSize: 12.0, // DEFAULT: Kecil
+      fontSize: 12.0,
     );
     _updateActiveFloor(labels: [...labels, newLbl]);
     _saveState();
   }
 
-  // --- PERUBAHAN 5: Helper Function Move All Content ---
   void _moveAllContent(Offset delta) {
     final newWalls = walls.map((w) => w.moveBy(delta)).toList();
     final newObjects = objects.map((o) => o.moveBy(delta)).toList();
@@ -467,7 +479,6 @@ class PlanController extends ChangeNotifier {
       shapes: newShapes,
     );
   }
-  // -----------------------------------------------------
 
   void _moveSelectedItem(Offset delta) {
     List<PlanShape> newShapes = List.from(shapes);
@@ -507,6 +518,7 @@ class PlanController extends ChangeNotifier {
     }
   }
 
+  // ... (deleteSelected, updateSelectedAttribute, _handleSelection SAMA) ...
   void deleteSelected() {
     if (selectedId == null) return;
     _updateActiveFloor(
@@ -529,7 +541,6 @@ class PlanController extends ChangeNotifier {
   }) {
     if (selectedId == null) return;
 
-    // 1. Objects
     List<PlanObject> newObjects = List.from(objects);
     final objIdx = newObjects.indexWhere((o) => o.id == selectedId);
     if (objIdx != -1) {
@@ -545,7 +556,6 @@ class PlanController extends ChangeNotifier {
       return;
     }
 
-    // 2. Walls
     List<Wall> newWalls = List.from(walls);
     final wIdx = newWalls.indexWhere((w) => w.id == selectedId);
     if (wIdx != -1) {
@@ -559,7 +569,6 @@ class PlanController extends ChangeNotifier {
       return;
     }
 
-    // 3. Paths
     List<PlanPath> newPaths = List.from(paths);
     final pIdx = newPaths.indexWhere((p) => p.id == selectedId);
     if (pIdx != -1) {
@@ -574,7 +583,6 @@ class PlanController extends ChangeNotifier {
       return;
     }
 
-    // 4. Labels
     List<PlanLabel> newLabels = List.from(labels);
     final lIdx = newLabels.indexWhere((l) => l.id == selectedId);
     if (lIdx != -1) {
@@ -588,7 +596,6 @@ class PlanController extends ChangeNotifier {
       return;
     }
 
-    // 5. Shapes
     List<PlanShape> newShapes = List.from(shapes);
     final sIdx = newShapes.indexWhere((s) => s.id == selectedId);
     if (sIdx != -1) {
@@ -617,6 +624,42 @@ class PlanController extends ChangeNotifier {
       return;
     }
   }
+
+  // --- PERUBAHAN 4: Fungsi Update Panjang Tembok/Garis ---
+  void updateSelectedWallLength(double newLengthInMeters) {
+    if (selectedId == null) return;
+
+    // 1. Cek Wall
+    List<Wall> newWalls = List.from(walls);
+    final wIdx = newWalls.indexWhere((w) => w.id == selectedId);
+    if (wIdx != -1) {
+      final oldWall = newWalls[wIdx];
+      // Konversi meter ke pixel (1 meter = 40 px, asumsi skala)
+      final double newLengthPx = newLengthInMeters * 40.0;
+
+      // Hitung vektor arah
+      final double dx = oldWall.end.dx - oldWall.start.dx;
+      final double dy = oldWall.end.dy - oldWall.start.dy;
+      final double currentLen = sqrt(dx * dx + dy * dy);
+
+      if (currentLen == 0) return;
+
+      // Normalisasi dan perpanjang dari titik Start
+      final double unitX = dx / currentLen;
+      final double unitY = dy / currentLen;
+
+      final Offset newEnd = Offset(
+        oldWall.start.dx + (unitX * newLengthPx),
+        oldWall.start.dy + (unitY * newLengthPx),
+      );
+
+      newWalls[wIdx] = oldWall.copyWith(end: newEnd);
+      _updateActiveFloor(walls: newWalls);
+      _saveState();
+      return;
+    }
+  }
+  // -------------------------------------------------------
 
   void _handleSelection(Offset pos) {
     selectedId = null;

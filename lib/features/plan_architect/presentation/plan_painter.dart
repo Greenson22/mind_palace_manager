@@ -9,11 +9,8 @@ class PlanPainter extends CustomPainter {
   final PlanController controller;
   PlanPainter({required this.controller}) : super(repaint: controller);
 
-  // Helper untuk menentukan warna teks agar kontras dengan background canvas
   Color get _contrastColor {
-    // Hitung kecerahan warna background (0.0 - 1.0)
     final double luminance = controller.canvasColor.computeLuminance();
-    // Jika background terang (> 0.5), teks hitam. Jika gelap, teks putih.
     return luminance > 0.5 ? Colors.black87 : Colors.white;
   }
 
@@ -30,9 +27,8 @@ class PlanPainter extends CustomPainter {
       _drawGrid(canvas, size);
     }
 
-    // Snap Points
     if (!controller.isViewMode && controller.enableSnap) {
-      // _drawSnapPoints(canvas, size); // Dimatikan untuk performa
+      // _drawSnapPoints(canvas, size);
     }
 
     // 2. Shapes & Objects
@@ -68,20 +64,19 @@ class PlanPainter extends CustomPainter {
         if (isSel)
           canvas.drawCircle(
             Offset.zero,
-            (obj.size / 2) + 8, // Seleksi menyesuaikan ukuran
+            (obj.size / 2) + 8,
             Paint()..color = Colors.blue.withOpacity(0.3),
           );
         final icon = IconData(obj.iconCodePoint, fontFamily: 'MaterialIcons');
         tp.text = TextSpan(
           text: String.fromCharCode(icon.codePoint),
           style: TextStyle(
-            fontSize: obj.size, // MENGGUNAKAN UKURAN DINAMIS
+            fontSize: obj.size,
             fontFamily: icon.fontFamily,
             color: isSel ? Colors.blue : obj.color,
           ),
         );
         tp.layout();
-        // Center icon
         tp.paint(canvas, Offset(-tp.width / 2, -tp.height / 2));
         canvas.restore();
       }
@@ -132,12 +127,9 @@ class PlanPainter extends CustomPainter {
         tp.text = TextSpan(
           text: label.text,
           style: TextStyle(
-            color: isSel
-                ? Colors.blue
-                : label.color, // Warna label mengikuti setting user
+            color: isSel ? Colors.blue : label.color,
             fontSize: label.fontSize,
             fontWeight: FontWeight.bold,
-            // Beri shadow agar terbaca di segala medan
             shadows: [
               Shadow(
                 blurRadius: 2,
@@ -182,6 +174,13 @@ class PlanPainter extends CustomPainter {
       final Paint selectedPaint = Paint()
         ..color = Colors.blueAccent
         ..strokeCap = StrokeCap.square;
+
+      // --- PERUBAHAN 3: Logic Show Dims (Layer aktif ATAU sedang menggambar tembok) ---
+      bool isDrawingWall =
+          controller.activeTool == PlanTool.wall &&
+          controller.tempStart != null;
+      bool showDims = controller.layerDims || isDrawingWall;
+
       for (var wall in controller.walls) {
         bool isSel =
             (!controller.isObjectSelected && controller.selectedId == wall.id);
@@ -194,7 +193,7 @@ class PlanPainter extends CustomPainter {
           isSel ? selectedPaint : wallPaint,
         );
 
-        if (controller.layerDims) {
+        if (showDims) {
           _drawWallLabel(canvas, wall);
         }
       }
@@ -209,18 +208,18 @@ class PlanPainter extends CustomPainter {
           controller.tempEnd!,
           previewPaint,
         );
-        if (controller.layerDims)
-          _drawWallLabel(
-            canvas,
-            Wall(
-              id: 'temp',
-              start: controller.tempStart!,
-              end: controller.tempEnd!,
-            ),
-          );
+        // Selalu tampilkan dim saat menggambar
+        _drawWallLabel(
+          canvas,
+          Wall(
+            id: 'temp',
+            start: controller.tempStart!,
+            end: controller.tempEnd!,
+          ),
+        );
         canvas.drawCircle(
           controller.tempStart!,
-          2, // Titik ujung diperkecil
+          2,
           Paint()..color = Colors.redAccent,
         );
         canvas.drawCircle(
@@ -237,7 +236,8 @@ class PlanPainter extends CustomPainter {
       ..color = Colors.grey.withOpacity(0.3)
       ..strokeWidth = 1;
 
-    double step = 40.0;
+    // --- PERUBAHAN 2: Gunakan controller.gridSize dinamis ---
+    double step = controller.gridSize;
     for (double x = 0; x <= size.width; x += step) {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
     }
@@ -246,9 +246,8 @@ class PlanPainter extends CustomPainter {
     }
   }
 
-  void _drawSnapPoints(Canvas canvas, Size size) {
-    // Disabled for performance
-  }
+  // ... (drawSnapPoints, drawShape, drawStar SAMA) ...
+  void _drawSnapPoints(Canvas canvas, Size size) {}
 
   void _drawShape(Canvas canvas, PlanShape shape, bool isSelected) {
     canvas.save();
@@ -263,8 +262,7 @@ class PlanPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
     final Paint border = Paint()
       ..color = isSelected ? Colors.blue : shape.color
-      ..strokeWidth =
-          2 // Border shape diperkecil
+      ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
     if (shape.type == PlanShapeType.rectangle) {
       canvas.drawRect(shape.rect, paint);
@@ -304,11 +302,10 @@ class PlanPainter extends CustomPainter {
     if (lengthPx < 20) return;
     final lengthM = (lengthPx / 40).toStringAsFixed(1);
 
-    // Menggunakan warna kontras
     final textSpan = TextSpan(
       text: "${lengthM}m",
       style: TextStyle(
-        color: _contrastColor.withOpacity(0.7), // Warna adaptif
+        color: _contrastColor.withOpacity(0.7),
         fontSize: 9,
         fontWeight: FontWeight.bold,
       ),
@@ -324,7 +321,6 @@ class PlanPainter extends CustomPainter {
       height: textPainter.height + 2,
     );
 
-    // Background label menyesuaikan agar teks terbaca
     canvas.drawRect(
       rect,
       Paint()..color = controller.canvasColor.withOpacity(0.7),

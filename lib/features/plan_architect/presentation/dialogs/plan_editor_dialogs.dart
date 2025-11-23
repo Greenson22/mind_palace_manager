@@ -1,10 +1,10 @@
 // lib/features/plan_architect/presentation/dialogs/plan_editor_dialogs.dart
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:mind_palace_manager/features/plan_architect/logic/plan_controller.dart';
 import 'package:mind_palace_manager/features/plan_architect/data/plan_models.dart';
 
 class PlanEditorDialogs {
-  // --- PALET WARNA ---
   static final List<Color> _colors = [
     Colors.black,
     Colors.grey,
@@ -26,7 +26,7 @@ class PlanEditorDialogs {
     Colors.orange,
     Colors.deepOrange,
     Colors.brown,
-    Colors.white, // Tambahkan putih untuk opsi
+    Colors.white,
   ];
 
   static void showLayerSettings(
@@ -51,6 +51,28 @@ class PlanEditorDialogs {
                     setState(() {});
                   },
                 ),
+                // --- PERUBAHAN 2: Slider Ukuran Grid ---
+                if (controller.showGrid) ...[
+                  const Padding(
+                    padding: EdgeInsets.only(left: 16, top: 8),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text("Ukuran Kotak Grid"),
+                    ),
+                  ),
+                  Slider(
+                    value: controller.gridSize,
+                    min: 10.0,
+                    max: 100.0,
+                    divisions: 18,
+                    label: "${controller.gridSize.toInt()}px",
+                    onChanged: (val) {
+                      controller.setGridSize(val);
+                      setState(() {});
+                    },
+                  ),
+                ],
+                // ---------------------------------------
                 const Divider(),
                 CheckboxListTile(
                   title: const Text("Layer Tembok"),
@@ -99,7 +121,7 @@ class PlanEditorDialogs {
                             Colors.grey.shade200,
                             const Color(0xFFFFF3E0),
                             Colors.black,
-                            const Color(0xFF121212), // Dark gray
+                            const Color(0xFF121212),
                           ]
                           .map(
                             (c) => InkWell(
@@ -136,6 +158,7 @@ class PlanEditorDialogs {
     );
   }
 
+  // ... (showFloorManager SAMA) ...
   static void showFloorManager(
     BuildContext context,
     PlanController controller,
@@ -230,6 +253,7 @@ class PlanEditorDialogs {
     );
   }
 
+  // --- PERUBAHAN 4: Input Panjang Tembok di Dialog Edit ---
   static void showEditDialog(BuildContext context, PlanController controller) {
     final data = controller.getSelectedItemData();
     if (data == null) return;
@@ -238,7 +262,19 @@ class PlanEditorDialogs {
     final descCtrl = TextEditingController(text: data['desc']);
     final bool isPath = data['isPath'] ?? false;
     final bool isLabel = data['type'] == 'Label';
+    final bool isWall = data['type'] == 'Struktur'; // Tembok
     String? selectedNavFloorId = data['nav'];
+
+    // Jika tembok, hitung panjang saat ini dalam meter
+    TextEditingController? lengthCtrl;
+    if (isWall) {
+      try {
+        final wall = controller.walls.firstWhere((w) => w.id == data['id']);
+        final lenPx = (wall.end - wall.start).distance;
+        final lenM = (lenPx / 40.0).toStringAsFixed(2); // 1m = 40px
+        lengthCtrl = TextEditingController(text: lenM);
+      } catch (_) {}
+    }
 
     showDialog(
       context: context,
@@ -254,7 +290,7 @@ class PlanEditorDialogs {
                   decoration: InputDecoration(
                     labelText: isLabel ? 'Isi Teks' : 'Nama',
                   ),
-                  enabled: isPath || isLabel || data['type'] != 'Struktur',
+                  enabled: isPath || isLabel || !isWall,
                 ),
                 const SizedBox(height: 8),
                 if (!isLabel)
@@ -266,6 +302,23 @@ class PlanEditorDialogs {
                     ),
                     maxLines: 3,
                   ),
+
+                // Input Panjang Tembok
+                if (isWall && lengthCtrl != null) ...[
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: lengthCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Panjang (Meter)',
+                      suffixText: 'm',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+
                 if (data['type'] == 'Interior') ...[
                   const SizedBox(height: 16),
                   const Text(
@@ -322,11 +375,23 @@ class PlanEditorDialogs {
             ),
             ElevatedButton(
               onPressed: () {
+                // Simpan perubahan umum
                 controller.updateSelectedAttribute(
                   desc: descCtrl.text,
                   name: titleCtrl.text,
                   navTarget: selectedNavFloorId,
                 );
+
+                // Simpan perubahan panjang tembok
+                if (isWall && lengthCtrl != null) {
+                  final newLen = double.tryParse(
+                    lengthCtrl.text.replaceAll(',', '.'),
+                  );
+                  if (newLen != null && newLen > 0) {
+                    controller.updateSelectedWallLength(newLen);
+                  }
+                }
+
                 Navigator.pop(context);
               },
               child: const Text('Simpan'),
@@ -337,6 +402,7 @@ class PlanEditorDialogs {
     );
   }
 
+  // ... (showColorPicker, showInteriorPicker, _buildIconGrid, showViewModeInfo SAMA) ...
   static void showColorPicker(
     BuildContext context,
     Function(Color) onColorSelected,
@@ -377,7 +443,6 @@ class PlanEditorDialogs {
     );
   }
 
-  // --- PERBAIKAN UTAMA: INTERIOR PICKER DARK MODE ---
   static void showInteriorPicker(
     BuildContext context,
     PlanController controller,
@@ -396,7 +461,6 @@ class PlanEditorDialogs {
           builder: (context, scrollController) {
             return Container(
               decoration: BoxDecoration(
-                // Gunakan surface color dari tema agar dinamis (Putih di Light, Abu Gelap di Dark)
                 color: colorScheme.surface,
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(20),
@@ -407,7 +471,6 @@ class PlanEditorDialogs {
                 child: Column(
                   children: [
                     const SizedBox(height: 8),
-                    // Indikator Drag
                     Container(
                       width: 40,
                       height: 4,
@@ -419,7 +482,6 @@ class PlanEditorDialogs {
                     const SizedBox(height: 8),
                     TabBar(
                       isScrollable: true,
-                      // Warna label mengikuti tema
                       labelColor: colorScheme.primary,
                       unselectedLabelColor: colorScheme.onSurfaceVariant,
                       indicatorColor: colorScheme.primary,
@@ -533,20 +595,11 @@ class PlanEditorDialogs {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                item['icon'],
-                size: 28,
-                // Warna ikon mengikuti tema
-                color: colorScheme.onSurface,
-              ),
+              Icon(item['icon'], size: 28, color: colorScheme.onSurface),
               const SizedBox(height: 4),
               Text(
                 item['name'],
-                style: TextStyle(
-                  fontSize: 11,
-                  // Warna teks mengikuti tema
-                  color: colorScheme.onSurface,
-                ),
+                style: TextStyle(fontSize: 11, color: colorScheme.onSurface),
                 textAlign: TextAlign.center,
               ),
             ],

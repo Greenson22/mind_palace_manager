@@ -87,6 +87,40 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
     }
   }
 
+  // --- PERUBAHAN: Konfirmasi Keluar ---
+  Future<void> _onWillPop(bool didPop) async {
+    if (didPop) return;
+
+    if (_controller.hasUnsavedChanges) {
+      final shouldPop = await showDialog<bool>(
+        context: context,
+        builder: (c) => AlertDialog(
+          title: const Text('Belum Disimpan'),
+          content: const Text(
+            'Anda memiliki perubahan yang belum disimpan (Undo/Redo history). Keluar sekarang akan mereset sesi edit ini.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () => Navigator.pop(c, true),
+              child: const Text('Keluar'),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldPop == true && mounted) {
+        Navigator.pop(context);
+      }
+    } else {
+      Navigator.pop(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -95,186 +129,185 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
         final bool isView = _controller.isViewMode;
         final colorScheme = Theme.of(context).colorScheme;
 
-        return Scaffold(
-          appBar: AppBar(
-            title: Column(
-              children: [
-                Text(
-                  isView ? "Mode Lihat" : "Arsitek Denah",
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+        // --- PERUBAHAN: Wrap dengan PopScope ---
+        return PopScope(
+          canPop: false,
+          onPopInvoked: _onWillPop,
+          child: Scaffold(
+            appBar: AppBar(
+              title: Column(
+                children: [
+                  Text(
+                    isView ? "Mode Lihat" : "Arsitek Denah",
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
+                  Text(
+                    _controller.activeFloor.name,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+              centerTitle: true,
+              backgroundColor: colorScheme.surface,
+              elevation: 1,
+              shadowColor: Colors.black12,
+              iconTheme: IconThemeData(color: colorScheme.onSurface),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.layers_outlined),
+                  tooltip: "Kelola Lantai",
+                  onPressed: () =>
+                      PlanEditorDialogs.showFloorManager(context, _controller),
                 ),
-                Text(
-                  _controller.activeFloor.name,
-                  style: TextStyle(
-                    fontSize: 11,
-                    // Gunakan onSurfaceVariant untuk teks sekunder agar terlihat di dark mode
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+                IconButton(
+                  icon: Icon(isView ? Icons.edit : Icons.visibility_outlined),
+                  tooltip: isView ? "Kembali ke Edit" : "Mode Presentasi",
+                  onPressed: _controller.toggleViewMode,
+                ),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert),
+                  onSelected: (v) {
+                    if (v == 'settings') {
+                      PlanEditorDialogs.showLayerSettings(context, _controller);
+                    } else if (v == 'export') {
+                      _exportImage();
+                    } else if (v == 'clear') {
+                      _controller.clearAll();
+                    }
+                  },
+                  itemBuilder: (ctx) => [
+                    const PopupMenuItem(
+                      value: 'settings',
+                      child: ListTile(
+                        leading: Icon(Icons.settings_display),
+                        title: Text('Tampilan & Ukuran'),
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                      ),
+                    ),
+                    if (!isView) ...[
+                      const PopupMenuItem(
+                        value: 'export',
+                        child: ListTile(
+                          leading: Icon(Icons.save_alt),
+                          title: Text('Export Gambar'),
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                        ),
+                      ),
+                      const PopupMenuDivider(),
+                      const PopupMenuItem(
+                        value: 'clear',
+                        child: ListTile(
+                          leading: Icon(
+                            Icons.delete_forever,
+                            color: Colors.red,
+                          ),
+                          title: Text(
+                            'Hapus Semua',
+                            style: TextStyle(color: Colors.red),
+                          ),
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
-            centerTitle: true,
-            // Hapus background putih paksa, gunakan default tema (atau surface)
-            backgroundColor: colorScheme.surface,
-            elevation: 1,
-            shadowColor: Colors.black12,
-            // Ikon menyesuaikan warna teks di atas surface
-            iconTheme: IconThemeData(color: colorScheme.onSurface),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.layers_outlined),
-                tooltip: "Kelola Lantai",
-                onPressed: () =>
-                    PlanEditorDialogs.showFloorManager(context, _controller),
-              ),
-              IconButton(
-                icon: Icon(isView ? Icons.edit : Icons.visibility_outlined),
-                tooltip: isView ? "Kembali ke Edit" : "Mode Presentasi",
-                onPressed: _controller.toggleViewMode,
-              ),
-              PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert),
-                onSelected: (v) {
-                  if (v == 'settings') {
-                    PlanEditorDialogs.showLayerSettings(context, _controller);
-                  } else if (v == 'export') {
-                    _exportImage();
-                  } else if (v == 'clear') {
-                    _controller.clearAll();
-                  }
-                },
-                itemBuilder: (ctx) => [
-                  const PopupMenuItem(
-                    value: 'settings',
-                    child: ListTile(
-                      leading: Icon(Icons.settings_display),
-                      title: Text('Tampilan & Ukuran'),
-                      contentPadding: EdgeInsets.zero,
-                      dense: true,
+            body: Stack(
+              children: [
+                Positioned.fill(child: PlanCanvasView(controller: _controller)),
+
+                if (!isView && _controller.selectedId != null)
+                  Positioned(
+                    bottom: 140,
+                    left: 16,
+                    right: 16,
+                    child: PlanSelectionBar(controller: _controller),
+                  ),
+
+                if (!isView)
+                  Positioned(
+                    bottom: 32,
+                    left: 16,
+                    right: 16,
+                    child: Center(
+                      child: PlanEditorToolbar(controller: _controller),
                     ),
                   ),
-                  if (!isView) ...[
-                    const PopupMenuItem(
-                      value: 'export',
-                      child: ListTile(
-                        leading: Icon(Icons.save_alt),
-                        title: Text('Export Gambar'),
-                        contentPadding: EdgeInsets.zero,
-                        dense: true,
-                      ),
-                    ),
-                    const PopupMenuDivider(),
-                    const PopupMenuItem(
-                      value: 'clear',
-                      child: ListTile(
-                        leading: Icon(Icons.delete_forever, color: Colors.red),
-                        title: Text(
-                          'Hapus Semua',
-                          style: TextStyle(color: Colors.red),
+
+                if (!isView && _controller.activeTool == PlanTool.eraser)
+                  Positioned(
+                    top: 16,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
                         ),
-                        contentPadding: EdgeInsets.zero,
-                        dense: true,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ],
-          ),
-          body: Stack(
-            children: [
-              // 1. CANVAS (LAYER PALING BAWAH)
-              Positioned.fill(child: PlanCanvasView(controller: _controller)),
-
-              // 2. SELECTION BAR (MUNCUL DI ATAS TOOLBAR UTAMA)
-              if (!isView && _controller.selectedId != null)
-                Positioned(
-                  // Posisi bottom disesuaikan agar tidak tertutup toolbar
-                  bottom: 140,
-                  left: 16,
-                  right: 16,
-                  child: PlanSelectionBar(controller: _controller),
-                ),
-
-              // 3. TOOLBAR UTAMA (LAYER ATAS, DI BAWAH LAYAR)
-              if (!isView)
-                Positioned(
-                  bottom: 32,
-                  left: 16,
-                  right: 16,
-                  child: Center(
-                    child: PlanEditorToolbar(controller: _controller),
-                  ),
-                ),
-
-              // 4. STATUS INDIKATOR (MISAL: ERASER AKTIF)
-              if (!isView && _controller.activeTool == PlanTool.eraser)
-                Positioned(
-                  top: 16,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.9),
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: const [
-                          BoxShadow(color: Colors.black26, blurRadius: 8),
-                        ],
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.delete_forever,
-                            color: Colors.white,
-                            size: 16,
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            "Mode Penghapus Aktif",
-                            style: TextStyle(
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: const [
+                            BoxShadow(color: Colors.black26, blurRadius: 8),
+                          ],
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.delete_forever,
                               color: Colors.white,
-                              fontWeight: FontWeight.bold,
+                              size: 16,
                             ),
-                          ),
-                        ],
+                            SizedBox(width: 8),
+                            Text(
+                              "Mode Penghapus Aktif",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
 
-              // 5. TEXT HINT
-              if (!isView && _controller.activeTool == PlanTool.text)
-                Positioned(
-                  top: 16,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black54,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Text(
-                        "Ketuk area kosong untuk menambah teks",
-                        style: TextStyle(color: Colors.white, fontSize: 12),
+                if (!isView && _controller.activeTool == PlanTool.text)
+                  Positioned(
+                    top: 16,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Text(
+                          "Ketuk area kosong untuk menambah teks",
+                          style: TextStyle(color: Colors.white, fontSize: 12),
+                        ),
                       ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         );
       },
