@@ -13,7 +13,8 @@ class PlanPortal {
   final double width;
   final PlanPortalType type;
   final Color color;
-  final bool flipX; // TAMBAHAN: Properti Flip
+  final bool flipX;
+  final String? referenceImage; // TAMBAHAN: Gambar Referensi
 
   PlanPortal({
     required this.id,
@@ -22,7 +23,8 @@ class PlanPortal {
     this.width = 40.0,
     required this.type,
     this.color = Colors.blueGrey,
-    this.flipX = false, // Default false
+    this.flipX = false,
+    this.referenceImage, // TAMBAHAN
   });
 
   Map<String, dynamic> toJson() => {
@@ -33,7 +35,8 @@ class PlanPortal {
     'w': width,
     'type': type.index,
     'col': color.value,
-    'flpX': flipX, // Simpan
+    'flpX': flipX,
+    'refImg': referenceImage, // SIMPAN
   };
 
   factory PlanPortal.fromJson(Map<String, dynamic> json) => PlanPortal(
@@ -43,7 +46,8 @@ class PlanPortal {
     width: (json['w'] as num?)?.toDouble() ?? 40.0,
     type: PlanPortalType.values[json['type'] ?? 0],
     color: json['col'] != null ? Color(json['col']) : Colors.blueGrey,
-    flipX: json['flpX'] ?? false, // Baca
+    flipX: json['flpX'] ?? false,
+    referenceImage: json['refImg'], // BACA
   );
 
   PlanPortal copyWith({
@@ -54,6 +58,7 @@ class PlanPortal {
     PlanPortalType? type,
     Color? color,
     bool? flipX,
+    String? referenceImage, // TAMBAHAN
   }) {
     return PlanPortal(
       id: id ?? this.id,
@@ -63,6 +68,7 @@ class PlanPortal {
       type: type ?? this.type,
       color: color ?? this.color,
       flipX: flipX ?? this.flipX,
+      referenceImage: referenceImage ?? this.referenceImage, // TAMBAHAN
     );
   }
 
@@ -133,8 +139,9 @@ class PlanGroup {
       );
     }
 
-    if (minX == double.infinity)
+    if (minX == double.infinity) {
       return Rect.fromCenter(center: Offset.zero, width: 40, height: 40);
+    }
 
     return Rect.fromLTRB(minX, minY, maxX, maxY);
   }
@@ -301,6 +308,7 @@ class Wall {
   final double thickness;
   final String description;
   final Color color;
+  final String? referenceImage; // TAMBAHAN
 
   Wall({
     required this.id,
@@ -309,6 +317,7 @@ class Wall {
     this.thickness = 2.0,
     this.description = 'Tembok',
     this.color = Colors.black,
+    this.referenceImage, // TAMBAHAN
   });
 
   Map<String, dynamic> toJson() => {
@@ -320,6 +329,7 @@ class Wall {
     'thick': thickness,
     'desc': description,
     'col': color.value,
+    'refImg': referenceImage, // SIMPAN
   };
 
   factory Wall.fromJson(Map<String, dynamic> json) => Wall(
@@ -329,6 +339,7 @@ class Wall {
     thickness: (json['thick'] as num?)?.toDouble() ?? 2.0,
     description: json['desc'] ?? 'Tembok',
     color: json['col'] != null ? Color(json['col']) : Colors.black,
+    referenceImage: json['refImg'], // BACA
   );
 
   Wall copyWith({
@@ -338,6 +349,7 @@ class Wall {
     Offset? start,
     Offset? end,
     Color? color,
+    String? referenceImage, // TAMBAHAN
   }) {
     return Wall(
       id: id ?? this.id,
@@ -346,6 +358,7 @@ class Wall {
       thickness: thickness ?? this.thickness,
       description: description ?? this.description,
       color: color ?? this.color,
+      referenceImage: referenceImage ?? this.referenceImage, // TAMBAHAN
     );
   }
 
@@ -365,6 +378,7 @@ class PlanObject {
   final double size;
   final String? imagePath;
   final ui.Image? cachedImage;
+  final String? referenceImage; // TAMBAHAN
 
   PlanObject({
     required this.id,
@@ -379,6 +393,7 @@ class PlanObject {
     this.size = 14.0,
     this.imagePath,
     this.cachedImage,
+    this.referenceImage, // TAMBAHAN
   });
 
   Map<String, dynamic> toJson() => {
@@ -394,6 +409,7 @@ class PlanObject {
     'navFloor': navTargetFloorId,
     'size': size,
     'imgPath': imagePath,
+    'refImg': referenceImage, // SIMPAN
   };
 
   factory PlanObject.fromJson(Map<String, dynamic> json) => PlanObject(
@@ -408,6 +424,7 @@ class PlanObject {
     navTargetFloorId: json['navFloor'],
     size: (json['size'] as num?)?.toDouble() ?? 14.0,
     imagePath: json['imgPath'],
+    referenceImage: json['refImg'], // BACA
   );
 
   PlanObject copyWith({
@@ -422,6 +439,7 @@ class PlanObject {
     double? size,
     String? imagePath,
     ui.Image? cachedImage,
+    String? referenceImage, // TAMBAHAN
   }) {
     return PlanObject(
       id: id ?? this.id,
@@ -436,6 +454,7 @@ class PlanObject {
       size: size ?? this.size,
       imagePath: imagePath ?? this.imagePath,
       cachedImage: cachedImage ?? this.cachedImage,
+      referenceImage: referenceImage ?? this.referenceImage, // TAMBAHAN
     );
   }
 
@@ -568,6 +587,7 @@ class PlanShape {
   final bool flipX;
   final String name;
   final String description;
+  final String? referenceImage; // TAMBAHAN
 
   PlanShape({
     required this.id,
@@ -579,6 +599,7 @@ class PlanShape {
     this.flipX = false,
     this.name = "Bentuk",
     this.description = "",
+    this.referenceImage, // TAMBAHAN
   });
 
   Map<String, dynamic> toJson() => {
@@ -594,6 +615,7 @@ class PlanShape {
     'flpX': flipX,
     'name': name,
     'desc': description,
+    'refImg': referenceImage, // SIMPAN
   };
 
   factory PlanShape.fromJson(Map<String, dynamic> json) => PlanShape(
@@ -606,6 +628,7 @@ class PlanShape {
     flipX: json['flpX'] ?? false,
     name: json['name'] ?? 'Bentuk',
     description: json['desc'] ?? '',
+    referenceImage: json['refImg'], // BACA
   );
 
   PlanShape copyWith({
@@ -617,6 +640,7 @@ class PlanShape {
     bool? flipX,
     String? name,
     String? description,
+    String? referenceImage, // TAMBAHAN
   }) {
     return PlanShape(
       id: id ?? this.id,
@@ -628,6 +652,7 @@ class PlanShape {
       flipX: flipX ?? this.flipX,
       name: name ?? this.name,
       description: description ?? this.description,
+      referenceImage: referenceImage ?? this.referenceImage, // TAMBAHAN
     );
   }
 

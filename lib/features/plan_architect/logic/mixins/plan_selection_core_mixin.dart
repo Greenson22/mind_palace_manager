@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'plan_variables.dart';
 import 'plan_state_mixin.dart';
 import '../../data/plan_models.dart';
-import '../plan_enums.dart'; // <--- TAMBAHKAN BARIS INI
+import '../plan_enums.dart';
 
 mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
   void toggleMultiSelectMode() {
@@ -242,6 +242,7 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         'type': 'Struktur',
         'isPath': false,
         'nav': null,
+        'refImage': p.referenceImage, // TAMBAHAN
       };
     } catch (_) {}
 
@@ -255,6 +256,7 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         'isPath': false,
         'isGroup': true,
         'nav': null,
+        // Grup sementara tidak support ref image
       };
     } catch (_) {}
     try {
@@ -266,6 +268,7 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         'type': 'Bentuk',
         'isPath': false,
         'nav': null,
+        'refImage': s.referenceImage, // TAMBAHAN
       };
     } catch (_) {}
     try {
@@ -288,6 +291,7 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         'type': 'Interior',
         'isPath': false,
         'nav': o.navTargetFloorId,
+        'refImage': o.referenceImage, // TAMBAHAN
       };
     } catch (_) {}
     try {
@@ -310,6 +314,7 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         'type': 'Struktur',
         'isPath': false,
         'nav': null,
+        'refImage': w.referenceImage, // TAMBAHAN
       };
     } catch (_) {}
     return null;

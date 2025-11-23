@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:io'; // TAMBAHAN IMPORT
+import 'package:file_picker/file_picker.dart'; // TAMBAHAN IMPORT
 import 'package:mind_palace_manager/features/plan_architect/logic/plan_controller.dart';
 import 'package:mind_palace_manager/features/plan_architect/data/plan_models.dart';
 import 'package:mind_palace_manager/features/plan_architect/presentation/dialogs/interior_picker_sheet.dart';
@@ -50,7 +52,6 @@ class PlanEditorDialogs {
                     setState(() {});
                   },
                 ),
-                // --- NEW SETTING: SHOW ZOOM BUTTONS ---
                 SwitchListTile(
                   title: const Text("Tombol Zoom (+/-)"),
                   subtitle: const Text("Sembunyikan jika mengganggu"),
@@ -60,7 +61,6 @@ class PlanEditorDialogs {
                     setState(() {});
                   },
                 ),
-                // --------------------------------------
                 if (controller.showGrid) ...[
                   const Padding(
                     padding: EdgeInsets.only(left: 16, top: 8),
@@ -166,7 +166,6 @@ class PlanEditorDialogs {
     );
   }
 
-  // ... (showFloorManager, showEditDialog, showColorPicker, showInteriorPicker, showViewModeInfo TETAP SAMA) ...
   static void showFloorManager(
     BuildContext context,
     PlanController controller,
@@ -267,6 +266,12 @@ class PlanEditorDialogs {
 
     final titleCtrl = TextEditingController(text: data['title']);
     final descCtrl = TextEditingController(text: data['desc']);
+
+    // --- LOGIKA BARU: GAMBAR REFERENSI ---
+    String? currentRefImage = data['refImage'];
+    String? newRefImage = currentRefImage;
+    // -------------------------------------
+
     final bool isPath = data['isPath'] ?? false;
     final bool isLabel = data['type'] == 'Label';
     final bool isWall = data['type'] == 'Struktur';
@@ -290,7 +295,75 @@ class PlanEditorDialogs {
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // --- WIDGET GAMBAR REFERENSI ---
+                if (!isLabel && !isPath) ...[
+                  const Text(
+                    "Wujud Asli / Referensi:",
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  GestureDetector(
+                    onTap: () async {
+                      FilePickerResult? result = await FilePicker.platform
+                          .pickFiles(type: FileType.image);
+                      if (result != null && result.files.single.path != null) {
+                        setState(() {
+                          newRefImage = result.files.single.path;
+                        });
+                      }
+                    },
+                    child: Container(
+                      height: 150,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade400),
+                        image: newRefImage != null
+                            ? DecorationImage(
+                                image: FileImage(File(newRefImage!)),
+                                fit: BoxFit.cover,
+                              )
+                            : null,
+                      ),
+                      child: newRefImage == null
+                          ? const Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.add_a_photo, color: Colors.grey),
+                                Text(
+                                  "Tambah Foto",
+                                  style: TextStyle(color: Colors.grey),
+                                ),
+                              ],
+                            )
+                          : null,
+                    ),
+                  ),
+                  if (newRefImage != null)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        icon: const Icon(
+                          Icons.delete,
+                          size: 16,
+                          color: Colors.red,
+                        ),
+                        label: const Text(
+                          "Hapus Foto",
+                          style: TextStyle(color: Colors.red, fontSize: 12),
+                        ),
+                        onPressed: () {
+                          setState(() => newRefImage = null);
+                        },
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                ],
+
+                // -------------------------------
                 TextField(
                   controller: titleCtrl,
                   decoration: InputDecoration(
@@ -382,6 +455,7 @@ class PlanEditorDialogs {
                   desc: descCtrl.text,
                   name: titleCtrl.text,
                   navTarget: selectedNavFloorId,
+                  referenceImage: newRefImage, // KIRIM REF IMAGE
                 );
                 if (isWall && lengthCtrl != null) {
                   final newLen = double.tryParse(
@@ -471,6 +545,9 @@ class PlanEditorDialogs {
     Map<String, dynamic> data,
   ) {
     final colorScheme = Theme.of(context).colorScheme;
+    // Ambil gambar referensi jika ada
+    String? refImage = data['refImage'];
+
     showModalBottomSheet(
       context: context,
       backgroundColor: colorScheme.surface,
@@ -483,6 +560,21 @@ class PlanEditorDialogs {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // --- TAMPILKAN GAMBAR REFERENSI DI MODE LIHAT ---
+            if (refImage != null && File(refImage).existsSync()) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.file(
+                  File(refImage),
+                  width: double.infinity,
+                  height: 200,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // ------------------------------------------------
             Text(
               data['title'],
               style: Theme.of(

@@ -88,6 +88,7 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
     String? name,
     String? navTarget,
     bool? isFilled,
+    String? referenceImage, // TAMBAHAN: PARAMETER BARU
   }) {
     if (selectedId == null) return;
 
@@ -105,6 +106,7 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
             name: name,
             navTargetFloorId: navTarget,
             size: stroke,
+            referenceImage: referenceImage, // UPDATE
           ),
       );
     } else if ((idx = walls.indexWhere((w) => w.id == selectedId)) != -1) {
@@ -114,6 +116,7 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
             color: color,
             thickness: stroke,
             description: desc,
+            referenceImage: referenceImage, // UPDATE
           ),
       );
     } else if ((idx = paths.indexWhere((p) => p.id == selectedId)) != -1) {
@@ -138,7 +141,11 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
     } else if ((idx = portals.indexWhere((p) => p.id == selectedId)) != -1) {
       updateActiveFloor(
         portals: List.from(portals)
-          ..[idx] = portals[idx].copyWith(color: color, width: stroke),
+          ..[idx] = portals[idx].copyWith(
+            color: color,
+            width: stroke,
+            referenceImage: referenceImage, // UPDATE
+          ),
       );
     } else if ((idx = shapes.indexWhere((s) => s.id == selectedId)) != -1) {
       PlanShape oldShape = shapes[idx];
@@ -162,6 +169,7 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
             name: name,
             rect: stroke != null ? newRect : null,
             isFilled: isFilled,
+            referenceImage: referenceImage, // UPDATE
           ),
       );
     }
@@ -209,7 +217,6 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
       updateSelectedAttribute(stroke: width);
 
   void bringToFront() {
-    // Implementasi sederhana untuk demo: (Pindahkan ke akhir list)
     if (selectedId == null) return;
     // ... (Logika reorder list - opsional)
   }
