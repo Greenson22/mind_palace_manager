@@ -11,7 +11,10 @@ import 'widgets/plan_selection_bar.dart';
 import 'widgets/plan_canvas_view.dart';
 
 class PlanEditorPage extends StatefulWidget {
-  const PlanEditorPage({super.key});
+  // Parameter opsional: jika diisi, editor berjalan dalam mode "Bangunan Denah"
+  final Directory? buildingDirectory;
+
+  const PlanEditorPage({super.key, this.buildingDirectory});
 
   @override
   State<PlanEditorPage> createState() => _PlanEditorPageState();
@@ -19,6 +22,36 @@ class PlanEditorPage extends StatefulWidget {
 
 class _PlanEditorPageState extends State<PlanEditorPage> {
   final PlanController _controller = PlanController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Jika dibuka dari bangunan, muat file plan.json
+    if (widget.buildingDirectory != null) {
+      _loadBuildingPlan();
+    }
+  }
+
+  Future<void> _loadBuildingPlan() async {
+    final planFile = p.join(widget.buildingDirectory!.path, 'plan.json');
+    await _controller.loadFromPath(planFile);
+  }
+
+  Future<void> _saveBuildingPlan() async {
+    if (widget.buildingDirectory != null) {
+      final planFile = p.join(widget.buildingDirectory!.path, 'plan.json');
+      await _controller.saveToPath(planFile);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Denah berhasil disimpan ke bangunan"),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 1),
+          ),
+        );
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -63,8 +96,14 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
 
       if (pngBytes != null) {
         final now = DateTime.now();
+        String prefix = "plan";
+        // Jika dalam mode bangunan, gunakan nama bangunan sebagai prefix
+        if (widget.buildingDirectory != null) {
+          prefix = "plan_${p.basename(widget.buildingDirectory!.path)}";
+        }
+
         final fileName =
-            'plan_${now.year}${now.month}${now.day}_${now.hour}${now.minute}${now.second}.png';
+            '${prefix}_${now.year}${now.month}${now.day}_${now.hour}${now.minute}${now.second}.png';
         final file = File(p.join(AppSettings.exportPath!, fileName));
         await file.writeAsBytes(pngBytes.buffer.asUint8List());
         if (mounted)
@@ -95,18 +134,28 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
         context: context,
         builder: (c) => AlertDialog(
           title: const Text('Belum Disimpan'),
-          content: const Text(
-            'Anda memiliki perubahan yang belum disimpan. Keluar sekarang akan mereset sesi edit ini.',
-          ),
+          content: const Text('Anda memiliki perubahan yang belum disimpan.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(c, false),
               child: const Text('Batal'),
             ),
+            // Opsi Simpan & Keluar khusus mode bangunan
+            if (widget.buildingDirectory != null)
+              TextButton(
+                onPressed: () async {
+                  await _saveBuildingPlan();
+                  if (mounted) Navigator.pop(c, true);
+                },
+                child: const Text(
+                  'Simpan & Keluar',
+                  style: TextStyle(color: Colors.green),
+                ),
+              ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
               onPressed: () => Navigator.pop(c, true),
-              child: const Text('Keluar'),
+              child: const Text('Keluar Tanpa Simpan'),
             ),
           ],
         ),
@@ -128,15 +177,20 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
         final bool isView = _controller.isViewMode;
         final colorScheme = Theme.of(context).colorScheme;
 
+        String title = isView ? "Mode Lihat" : "Arsitek Denah";
+        if (widget.buildingDirectory != null) {
+          title += " (${p.basename(widget.buildingDirectory!.path)})";
+        }
+
         return PopScope(
           canPop: false,
           onPopInvoked: _onWillPop,
           child: Scaffold(
             appBar: AppBar(
               title: Text(
-                isView ? "Mode Lihat" : "Arsitek Denah",
+                title,
                 style: const TextStyle(
-                  fontSize: 18,
+                  fontSize: 16, // Font agak kecil agar muat
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -146,7 +200,14 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
               shadowColor: Colors.black12,
               iconTheme: IconThemeData(color: colorScheme.onSurface),
               actions: [
-                // Tombol "Kelola Lantai" dihapus
+                // TOMBOL SIMPAN MANUAL (Mode Bangunan)
+                if (widget.buildingDirectory != null && !isView)
+                  IconButton(
+                    icon: const Icon(Icons.save, color: Colors.blue),
+                    tooltip: "Simpan Denah",
+                    onPressed: _saveBuildingPlan,
+                  ),
+
                 IconButton(
                   icon: Icon(isView ? Icons.edit : Icons.visibility_outlined),
                   tooltip: isView ? "Kembali ke Edit" : "Mode Presentasi",

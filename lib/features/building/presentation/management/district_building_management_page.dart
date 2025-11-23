@@ -1,4 +1,3 @@
-// lib/features/building/presentation/management/district_building_management_page.dart
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'dart:io';
@@ -14,6 +13,9 @@ import 'package:mind_palace_manager/features/building/presentation/map/district_
 
 // --- IMPORT TRANSISI AWAN ---
 import 'package:mind_palace_manager/features/settings/helpers/cloud_transition.dart';
+
+// --- IMPORT PLAN EDITOR (DENAH) ---
+import 'package:mind_palace_manager/features/plan_architect/presentation/plan_editor_page.dart';
 
 class DistrictBuildingManagementPage extends StatefulWidget {
   final Directory districtDirectory;
@@ -42,6 +44,9 @@ class _DistrictBuildingManagementPageState
       TextEditingController();
   String _buildingIconType = 'Default';
   String? _buildingIconImagePath;
+
+  // --- VARIABEL TIPE BANGUNAN (BARU) ---
+  String _selectedBuildingType = 'standard'; // 'standard' | 'plan'
 
   @override
   void initState() {
@@ -104,6 +109,7 @@ class _DistrictBuildingManagementPageState
     _buildingIconTextController.clear();
     _buildingIconType = 'Default';
     _buildingIconImagePath = null;
+    _selectedBuildingType = 'standard'; // Reset ke default
 
     return showDialog<void>(
       context: context,
@@ -115,6 +121,7 @@ class _DistrictBuildingManagementPageState
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     TextField(
                       controller: _buildingNameController,
@@ -124,6 +131,36 @@ class _DistrictBuildingManagementPageState
                       autofocus: true,
                     ),
                     const SizedBox(height: 16),
+
+                    // --- PILIHAN TIPE BANGUNAN ---
+                    const Text(
+                      "Tipe Bangunan:",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    RadioListTile<String>(
+                      title: const Text("Biasa (Ruangan & Navigasi)"),
+                      value: 'standard',
+                      groupValue: _selectedBuildingType,
+                      onChanged: (val) =>
+                          setDialogState(() => _selectedBuildingType = val!),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    RadioListTile<String>(
+                      title: const Text("Denah (Arsitek/Plan)"),
+                      value: 'plan',
+                      groupValue: _selectedBuildingType,
+                      onChanged: (val) =>
+                          setDialogState(() => _selectedBuildingType = val!),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    const Divider(),
+
+                    // --- PILIHAN IKON ---
+                    const Text(
+                      "Ikon Tampilan Luar:",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
                     DropdownButton<String>(
                       value: _buildingIconType,
                       isExpanded: true,
@@ -243,6 +280,7 @@ class _DistrictBuildingManagementPageState
       final jsonData = {
         "icon_type": iconType,
         "icon_data": iconData,
+        "type": _selectedBuildingType, // SIMPAN TIPE DI SINI
         "rooms": [],
       };
       await dataJsonFile.writeAsString(json.encode(jsonData));
@@ -262,6 +300,35 @@ class _DistrictBuildingManagementPageState
           context,
         ).showSnackBar(SnackBar(content: Text('Gagal membuat bangunan: $e')));
       }
+    }
+  }
+
+  // --- LOGIKA NAVIGASI BERDASARKAN TIPE ---
+  Future<void> _viewBuilding(Directory buildingDir) async {
+    String type = 'standard';
+    try {
+      final file = File(p.join(buildingDir.path, 'data.json'));
+      if (await file.exists()) {
+        final data = jsonDecode(await file.readAsString());
+        type = data['type'] ?? 'standard';
+      }
+    } catch (_) {}
+
+    if (type == 'plan') {
+      // Masuk ke Arsitek Denah (Editor)
+      // Tidak menggunakan CloudNavigation karena ini Editor
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => PlanEditorPage(buildingDirectory: buildingDir),
+        ),
+      );
+    } else {
+      // Masuk ke Viewer Biasa (Cloud Transition)
+      CloudNavigation.push(
+        context,
+        BuildingViewerPage(buildingDirectory: buildingDir),
+      );
     }
   }
 
@@ -725,7 +792,7 @@ class _DistrictBuildingManagementPageState
         return AlertDialog(
           title: const Text('Hapus Bangunan'),
           content: Text(
-            'Apakah Anda yakin ingin menghapus "$buildingName"?\n\nTindakan ini akan menghapus semua folder, ruangan, dan gambar di dalamnya secara permanen.',
+            'Apakah Anda yakin ingin menghapus "$buildingName"?\n\nTindakan ini akan menghapus semua data (ruangan/denah) di dalamnya.',
           ),
           actions: <Widget>[
             TextButton(
@@ -764,15 +831,6 @@ class _DistrictBuildingManagementPageState
     }
   }
 
-  void _viewBuilding(Directory buildingDir) {
-    // --- MENGGUNAKAN CLOUD TRANSITION ---
-    CloudNavigation.push(
-      context,
-      BuildingViewerPage(buildingDirectory: buildingDir),
-    );
-    // ------------------------------------
-  }
-
   void _editBuilding(Directory buildingDir) {
     Navigator.push(
       context,
@@ -783,12 +841,10 @@ class _DistrictBuildingManagementPageState
   }
 
   void _viewDistrictMap() {
-    // --- MENGGUNAKAN CLOUD TRANSITION ---
     CloudNavigation.push(
       context,
       DistrictMapViewerPage(districtDirectory: widget.districtDirectory),
     );
-    // ------------------------------------
   }
 
   void _openMapEditor() {
@@ -883,8 +939,8 @@ class _DistrictBuildingManagementPageState
         actions: [
           IconButton(
             icon: const Icon(Icons.map_outlined),
-            onPressed: _viewDistrictMap,
             tooltip: 'Lihat Peta Distrik',
+            onPressed: _viewDistrictMap,
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -895,7 +951,6 @@ class _DistrictBuildingManagementPageState
       ),
       body: _buildBody(),
 
-      // --- EXPANDABLE FAB (SPEED DIAL) ---
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -983,7 +1038,6 @@ class _DistrictBuildingManagementPageState
       );
 
     return ListView.builder(
-      // Padding bawah agar item terakhir tidak tertutup FAB
       padding: const EdgeInsets.only(bottom: 150),
       itemCount: _buildingFolders.length,
       itemBuilder: (context, index) {
@@ -1039,7 +1093,7 @@ class _DistrictBuildingManagementPageState
                   children: [
                     Icon(Icons.visibility, color: Colors.grey),
                     SizedBox(width: 8),
-                    Text('Lihat'),
+                    Text('Lihat / Masuk'),
                   ],
                 ),
               ),

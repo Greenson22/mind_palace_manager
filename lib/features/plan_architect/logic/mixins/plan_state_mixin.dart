@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'plan_variables.dart';
 import '../../data/plan_models.dart';
@@ -10,8 +11,35 @@ mixin PlanStateMixin on PlanVariables {
   bool get canUndo => historyIndex > 0;
   bool get canRedo => historyIndex < historyStack.length - 1;
 
+  // --- FITUR BARU: LOAD & SAVE DARI FILE SPESIFIK ---
+  Future<void> loadFromPath(String filePath) async {
+    final file = File(filePath);
+    if (await file.exists()) {
+      try {
+        final content = await file.readAsString();
+        loadState(content);
+      } catch (e) {
+        debugPrint("Gagal memuat denah: $e");
+      }
+    }
+  }
+
+  Future<void> saveToPath(String filePath) async {
+    final file = File(filePath);
+    // Simpan state aktif saat ini (floor 0)
+    final state = jsonEncode({
+      'floors': floors.map((f) => f.toJson()).toList(),
+      'activeIdx': 0,
+      'cc': canvasColor.value,
+    });
+    await file.writeAsString(state);
+    hasUnsavedChanges = false;
+    notifyListeners();
+  }
+  // --------------------------------------------------
+
   void initFloors() {
-    // --- UBAH: Pastikan hanya ada 1 lantai tetap ---
+    // Pastikan hanya ada 1 lantai tetap
     if (floors.isEmpty) {
       floors.add(PlanFloor(id: 'main_plan', name: 'Denah Utama'));
     }
