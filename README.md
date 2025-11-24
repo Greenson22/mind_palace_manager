@@ -1,68 +1,60 @@
 # 🧠 Mind Palace Manager
 
-**Mind Palace Manager** adalah aplikasi Flutter yang dirancang untuk membantu Anda membangun, memvisualisasikan, dan mengelola "Istana Pikiran" (Memory Palace) digital Anda secara offline dan aman.
+**Mind Palace Manager** adalah aplikasi Flutter canggih yang dirancang untuk membantu Anda membangun, memvisualisasikan, dan mengelola "Istana Pikiran" (Memory Palace) digital Anda secara offline, aman, dan kini dilengkapi dengan **alat kreatifitas bawaan**.
 
-Aplikasi ini mengimplementasikan teknik *Method of Loci* secara terstruktur, memungkinkan Anda menyimpan memori dalam hierarki spasial yang mendalam—mulai dari Peta Dunia, Wilayah, Distrik, hingga masuk ke dalam objek spesifik di dalam ruangan secara rekursif.
+Aplikasi ini tidak hanya mengimplementasikan teknik *Method of Loci* melalui hierarki spasial (Dunia -> Wilayah -> Distrik -> Bangunan -> Ruangan), tetapi juga memberikan Anda kebebasan untuk **mendesain sendiri** denah lantai dan **menggambar** aset visual tanpa perlu keluar dari aplikasi.
 
-## ✨ Fitur Unggulan
+## ✨ Fitur Baru (Update Terkini)
 
-### 🌍 Hierarki Spasial & Manajemen Memori
+### 🏠 Plan Architect (Arsitek Denah)
+Editor vektor *powerful* untuk membuat denah lantai dan struktur bangunan yang presisi.
+* **Alat Struktur Lengkap:** Gambar Tembok (*Walls*), Pintu, dan Jendela dengan pengukuran otomatis (meter).
+* **Pustaka Bentuk & Simbol:** Akses puluhan bentuk siap pakai (Panah, Simbol Flowchart, Furnitur, Poligon) untuk memperkaya visual denah.
+* **Manajemen Objek:** Dukungan *Multi-select*, *Grouping/Ungrouping*, Rotasi, Flip (Cermin), dan pengaturan Layer.
+* **Kustomisasi Tampilan:** Ubah warna kanvas, aktifkan *Grid/Snap*, dan atur background denah (Solid, Gradien, atau Gambar dengan efek Blur).
+* **Ekspor:** Simpan hasil desain denah Anda sebagai gambar PNG berkualitas tinggi.
 
-Kelola struktur ingatan Anda dengan kedalaman tanpa batas:
+### 🎨 Pixel Studio
+Kanvas *pixel art* terintegrasi untuk membuat ikon atau aset visual unik Anda sendiri.
+* **Alat Gambar:** Pensil, Penghapus, dan *Hand tool* untuk navigasi.
+* **Shape Tools:** Buat Garis, Kotak, dan Lingkaran dengan presisi piksel.
+* **Kontrol Penuh:** *Zoom* mendalam, *Undo/Redo*, dan pemilih warna (Color Picker).
 
-1.  **Dunia:** Peta global yang memuat berbagai wilayah.
-2.  **Wilayah (Region):** Area besar yang berisi distrik-distrik.
-3.  **Distrik (District):** Area lokal yang berisi bangunan.
-4.  **Bangunan (Building):** Struktur yang berisi ruangan-ruangan.
-5.  **Ruangan (Room):** Lokasi visual utama tempat navigasi terjadi.
-6.  **Objek Rekursif:** Item di dalam ruangan yang bisa berupa **Wadah** (Container) atau **Lokasi Imersif** (bisa dimasuki lagi menjadi ruangan baru).
+### 🏢 Manajemen Multi-Lantai (Multi-Plan)
+Bangunan tipe "Denah" kini mendukung struktur bertingkat yang kompleks.
+* **Banyak Lantai:** Satu bangunan dapat menampung banyak file denah (Lantai 1, Lantai 2, Atap, dll).
+* **Manajemen Fleksibel:** Buat baru, duplikasi (*copy*) denah yang sudah ada, ganti nama, dan atur urutan lantai (*Reorder*).
+* **Navigasi Antar Denah:** Hubungkan objek di satu lantai untuk melompat ke lantai lain secara interaktif.
 
-### ☁️ Visualisasi & Transisi Canggih
+---
 
-  * **Cloud Transition (Transisi Awan):** Efek transisi visual prosedural (membuka/menutup awan) saat berpindah antar peta atau ruangan, menciptakan pengalaman navigasi yang mulus.
-  * **Kustomisasi Pin & Ikon:** Ubah bentuk Pin (Bulat/Kotak/Tanpa Latar), atur ketebalan outline, warna, hingga penggunaan Emoji atau Gambar kustom sebagai penanda lokasi.
-  * **Animasi Navigasi:** Panah navigasi di dalam ruangan dilengkapi animasi denyut (*pulse*) untuk memudahkan identifikasi jalur.
+## 🌍 Fitur Utama Lainnya
+
+### Hierarki Spasial Mendalam
+Kelola memori Anda dalam struktur yang logis:
+1.  **Dunia & Wilayah:** Peta global yang memuat area-area besar.
+2.  **Distrik:** Area lokal tempat Anda menata bangunan.
+3.  **Bangunan & Ruangan:** Lokasi visual utama.
+4.  **Objek Rekursif:** Item dalam ruangan bisa berupa **Wadah** (Container) atau **Lokasi Imersif** yang bisa dimasuki lagi tanpa batas kedalaman.
 
 ### 🏭 Bank Bangunan (Gudang)
+* **Sistem Template:** Buat bangunan di "Gudang" tanpa harus menempatkannya langsung di peta.
+* **Deploy & Retract:** Tempatkan bangunan dari Bank ke Distrik mana saja, atau tarik kembali bangunan dari peta untuk disimpan.
+* **Kloning:** Salin bangunan beserta seluruh isinya antar Distrik dengan mudah.
 
-  * **Sistem Template:** Buat bangunan di "Gudang" (Bank) tanpa harus menempatkannya langsung di peta.
-  * **Deploy & Retract:** Tempatkan (*Deploy*) bangunan dari Bank ke Distrik mana saja, atau tarik kembali (*Retract*) bangunan dari peta ke Bank untuk disimpan.
-  * **Kloning:** Fitur untuk menyalin atau memindahkan bangunan dan seluruh isinya antar Distrik dengan mudah.
+### ☁️ Visualisasi & Transisi
+* **Cloud Transition:** Efek transisi prosedural (awan membuka/menutup) saat berpindah lokasi.
+* **Personalisasi Dashboard:** Atur wallpaper dengan mode Warna Solid, Gradien, Gambar Statis, atau **Slideshow** otomatis dari galeri ruangan Anda.
+* **Kustomisasi Pin:** Ubah bentuk Pin peta, warna, outline, hingga penggunaan ikon kustom.
 
-### 🎨 Personalisasi Dashboard
+### 🛠️ Editor Peta & Navigasi (WYSIWYG)
+* **Peta Interaktif:** Unggah gambar peta sendiri dan tempatkan lokasi (*Pin*) dengan sistem *Drag & Drop*.
+* **Editor Navigasi Ruangan:** Hubungkan ruangan menggunakan panah navigasi. Atur posisi dan rotasi panah secara visual.
+* **Preset Rotasi:** Simpan sudut rotasi favorit Anda untuk mempercepat penataan navigasi.
 
-  * **Slideshow Cerdas:** Jadikan dashboard Anda hidup dengan slideshow gambar ruangan yang diambil dari **Bangunan tertentu** atau seluruh **Distrik**.
-  * **Mode Wallpaper:** Pilihan latar belakang Warna Solid, Gradien, Gambar Statis, atau Slideshow.
-  * **Efek Visual:** Atur tingkat *Blur* pada wallpaper dan *Opacity* overlay agar teks tetap mudah dibaca.
-
-### 🛠️ Editor Peta & Ruangan (WYSIWYG)
-
-  * **Peta Interaktif:** Unggah gambar peta sendiri. Tempatkan lokasi dengan sistem *Drag & Drop*.
-  * **Editor Navigasi:** Hubungkan ruangan menggunakan sistem Panah Navigasi. Atur posisi (X,Y) dan rotasi panah secara visual langsung di layar.
-  * **Preset Sudut:** Simpan sudut rotasi panah favorit Anda untuk mempercepat proses editing.
-
-### 🔒 Privasi & Ekspor Data
-
-  * **100% Offline:** Semua data (gambar, JSON, struktur folder) disimpan secara lokal di perangkat Anda dalam folder `.buildings`.
-  * **Ekspor Fleksibel:** Fitur untuk mengekspor tampilan peta (screenshot PNG), file gambar asli, atau ikon bangunan ke penyimpanan eksternal.
-
-## 📱 Izin & Penyimpanan (Penting)
-
-Aplikasi ini memerlukan akses penuh ke penyimpanan untuk memanipulasi struktur folder yang kompleks.
-
-  * **Lokasi Penyimpanan:** Aplikasi akan meminta Anda memilih folder induk, lalu membuat folder sistem bernama `.buildings` di dalamnya.
-  * **Android 11+ (API 30+):** Wajib memberikan izin **"All Files Access"** (Manage External Storage) agar aplikasi dapat membaca, menulis, dan memindahkan folder bangunan secara bebas.
-  * **Android 10 ke bawah:** Memerlukan izin standar `READ/WRITE_EXTERNAL_STORAGE`.
-
-## 🛠️ Teknologi yang Digunakan
-
-Aplikasi ini dibangun menggunakan **Flutter** dengan pemanfaatan paket ekosistem Dart:
-
-  * **Manajemen State:** `setState` & `ValueNotifier` (Native approach).
-  * **File System:** `path_provider`, `file_picker` untuk manajemen direktori intensif.
-  * **Grafis:** `CustomPainter` untuk efek *Cloud Transition* dan *Canvas* rendering.
-  * **Permissions:** `permission_handler` & `device_info_plus` untuk logika izin Android yang kompleks.
-  * **Interaktivitas:** `InteractiveViewer` & `GestureDetector` untuk zoom/pan peta dan ruangan.
+### 🔒 Privasi & Keamanan Data
+* **100% Offline:** Seluruh data (gambar, JSON, struktur folder) disimpan lokal di perangkat Anda dalam folder `.buildings`.
+* **Izin Penyimpanan:** Aplikasi memerlukan akses penuh ke penyimpanan (*Manage External Storage* pada Android 11+) untuk mengelola struktur folder yang kompleks secara real-time.
 
 ## 🚀 Cara Instalasi
 
@@ -83,27 +75,19 @@ Aplikasi ini dibangun menggunakan **Flutter** dengan pemanfaatan paket ekosistem
 
 ## 📂 Struktur Folder Proyek
 
-  * `lib/main.dart`: Entry point aplikasi.
-  * `lib/app_shell.dart`: UI Dashboard & Logika Slideshow.
-  * `lib/app_settings.dart`: Singleton pengaturan global & Shared Preferences.
-  * `lib/permission_helper.dart`: Helper khusus izin Android 11+.
-  * `lib/features/`:
-      * `world/`: Logika Peta Dunia.
-      * `region/`: Manajemen Wilayah & Peta Wilayah.
-      * `building/`: Manajemen Distrik, Bangunan, Gudang, dan Viewer Ruangan.
-      * `objects/`: Logika Objek Rekursif & Editor Objek.
-      * `settings/`: Pengaturan, Wallpaper Manager, dan Transisi Awan.
+* `lib/main.dart`: Entry point.
+* `lib/features/`:
+    * `plan_architect/`: Editor denah vektor (Logic, Mixins, Painters, Widgets).
+    * `pixel_studio/`: Editor pixel art.
+    * `world/` & `region/`: Logika peta makro.
+    * `building/`: Manajemen bangunan, editor ruangan, dan viewer.
+    * `objects/`: Logika objek rekursif.
+    * `settings/`: Pengaturan aplikasi dan wallpaper.
+* `lib/app_settings.dart`: Singleton pengaturan global.
 
 ## 🤝 Kontribusi
 
-Kontribusi sangat diterima\! Jika Anda menemukan *bug* atau memiliki ide fitur baru:
-
-1.  Fork repositori ini.
-2.  Buat branch fitur baru (`git checkout -b fitur-baru`).
-3.  Commit perubahan Anda (`git commit -m 'Menambahkan fitur X'`).
-4.  Push ke branch (`git push origin fitur-baru`).
-5.  Buat Pull Request.
+Kontribusi sangat diterima! Jika Anda menemukan *bug* atau memiliki ide fitur baru, silakan buat *Pull Request* atau laporkan *Issue*.
 
 -----
-
 Dibuat dengan ❤️ menggunakan Flutter.
