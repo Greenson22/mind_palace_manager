@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
+import 'dart:ui' as ui;
+import 'dart:convert';
+import 'package:path/path.dart' as p;
+import 'package:mind_palace_manager/app_settings.dart';
 import 'package:mind_palace_manager/features/building/presentation/management/logic/district_building_logic.dart';
 import 'package:mind_palace_manager/features/plan_architect/presentation/plan_editor_page.dart';
+import 'package:mind_palace_manager/features/plan_architect/logic/plan_controller.dart';
+import 'package:mind_palace_manager/features/plan_architect/presentation/plan_painter.dart';
 
 class BuildingPlanListPage extends StatefulWidget {
   final Directory buildingDirectory;
@@ -236,6 +242,193 @@ class _BuildingPlanListPageState extends State<BuildingPlanListPage> {
     }
   }
 
+  // --- EXPORT GAMBAR ---
+  Future<void> _exportPlanImage(Map<String, dynamic> plan) async {
+    if (AppSettings.exportPath == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Atur folder export di Pengaturan dulu.")),
+      );
+      return;
+    }
+
+    final planFile = File(
+      p.join(widget.buildingDirectory.path, plan['filename']),
+    );
+    if (!await planFile.exists()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("File denah tidak ditemukan.")),
+      );
+      return;
+    }
+
+    try {
+      // Load Controller secara headless
+      final controller = PlanController();
+      await controller.loadFromPath(planFile.path);
+
+      final recorder = ui.PictureRecorder();
+      final exportSize = Size(controller.canvasWidth, controller.canvasHeight);
+      final canvas = Canvas(
+        recorder,
+        Rect.fromLTWH(0, 0, exportSize.width, exportSize.height),
+      );
+
+      // Gambar Background
+      canvas.drawRect(
+        Rect.fromLTWH(0, 0, exportSize.width, exportSize.height),
+        Paint()..color = controller.canvasColor,
+      );
+
+      // Gambar Konten
+      final painter = PlanPainter(controller: controller);
+      painter.paint(canvas, exportSize);
+
+      final picture = recorder.endRecording();
+      final img = await picture.toImage(
+        exportSize.width.toInt(),
+        exportSize.height.toInt(),
+      );
+      final pngBytes = await img.toByteData(format: ui.ImageByteFormat.png);
+
+      if (pngBytes != null) {
+        final now = DateTime.now();
+        final fileName =
+            'plan_${plan['name'].replaceAll(' ', '_')}_${now.millisecondsSinceEpoch}.png';
+        final file = File(p.join(AppSettings.exportPath!, fileName));
+        await file.writeAsBytes(pngBytes.buffer.asUint8List());
+        if (mounted)
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Berhasil diexport: ${file.path}"),
+              backgroundColor: Colors.green,
+            ),
+          );
+      }
+      controller.dispose();
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Gagal export: $e"),
+            backgroundColor: Colors.red,
+          ),
+        );
+    }
+  }
+
+  // --- PINDAH KE BANGUNAN LAIN ---
+  Future<void> _movePlanToAnotherBuilding(Map<String, dynamic> plan) async {
+    final districtDir = widget.buildingDirectory.parent;
+    List<Directory> buildings = [];
+    try {
+      buildings = districtDir
+          .listSync()
+          .whereType<Directory>()
+          .where(
+            (d) => d.path != widget.buildingDirectory.path,
+          ) // Exclude current
+          .toList();
+    } catch (_) {}
+
+    if (buildings.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Tidak ada bangunan lain di distrik ini."),
+        ),
+      );
+      return;
+    }
+
+    Directory? targetBuilding;
+    await showDialog(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text("Pindahkan Denah ke..."),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: buildings.length,
+            itemBuilder: (ctx, i) {
+              return ListTile(
+                leading: const Icon(Icons.business),
+                title: Text(p.basename(buildings[i].path)),
+                onTap: () {
+                  targetBuilding = buildings[i];
+                  Navigator.pop(c);
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c),
+            child: const Text("Batal"),
+          ),
+        ],
+      ),
+    );
+
+    if (targetBuilding != null) {
+      try {
+        // 1. Pindahkan File
+        final oldFile = File(
+          p.join(widget.buildingDirectory.path, plan['filename']),
+        );
+        final newFilename =
+            "moved_${DateTime.now().millisecondsSinceEpoch}_${plan['filename']}";
+        final newFile = File(p.join(targetBuilding!.path, newFilename));
+
+        await oldFile.copy(newFile.path);
+        await oldFile.delete();
+
+        // 2. Update Data JSON di Bangunan Lama (Hapus)
+        await _logic.deletePlan(
+          widget.buildingDirectory,
+          plan['id'],
+          plan['filename'],
+        ); // Hapus entry & file (file sdh dihapus di atas, tp safe)
+
+        // 3. Update Data JSON di Bangunan Baru (Tambah)
+        // Kita perlu instance logic baru atau fungsi helper, tapi kita bisa manual add entry
+        final targetJsonFile = File(p.join(targetBuilding!.path, 'data.json'));
+        if (await targetJsonFile.exists()) {
+          final content = await targetJsonFile.readAsString();
+          final data = json.decode(content);
+          List<dynamic> plans = data['plans'] ?? [];
+          plans.add({
+            'id': plan['id'], // Keep ID
+            'name': plan['name'],
+            'filename': newFilename,
+            'icon': plan['icon'],
+          });
+          data['plans'] = plans;
+          await targetJsonFile.writeAsString(json.encode(data));
+        }
+
+        _loadPlans();
+        if (mounted)
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                "Denah dipindahkan ke ${p.basename(targetBuilding!.path)}",
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+      } catch (e) {
+        if (mounted)
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Gagal memindahkan: $e"),
+              backgroundColor: Colors.red,
+            ),
+          );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -259,7 +452,7 @@ class _BuildingPlanListPageState extends State<BuildingPlanListPage> {
             )
           : ReorderableListView.builder(
               padding: const EdgeInsets.only(bottom: 80),
-              buildDefaultDragHandles: false,
+              buildDefaultDragHandles: true, // Aktifkan long-press drag
               itemCount: _plans.length,
               onReorder: (oldIdx, newIdx) async {
                 await _logic.reorderPlans(
@@ -296,24 +489,53 @@ class _BuildingPlanListPageState extends State<BuildingPlanListPage> {
                             style: TextStyle(color: Colors.green, fontSize: 12),
                           )
                         : null,
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit, color: Colors.grey),
-                          tooltip: "Edit Info",
-                          onPressed: () => _editPlanInfo(plan),
+                    // --- BAGIAN MENU BARU ---
+                    trailing: PopupMenuButton<String>(
+                      onSelected: (value) {
+                        if (value == 'edit') _editPlanInfo(plan);
+                        if (value == 'export') _exportPlanImage(plan);
+                        if (value == 'move') _movePlanToAnotherBuilding(plan);
+                        if (value == 'delete') _deletePlan(plan);
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'edit',
+                          child: ListTile(
+                            leading: Icon(Icons.edit, color: Colors.orange),
+                            title: Text("Edit Info"),
+                            contentPadding: EdgeInsets.zero,
+                            dense: true,
+                          ),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          tooltip: "Hapus",
-                          onPressed: () => _deletePlan(plan),
+                        const PopupMenuItem(
+                          value: 'export',
+                          child: ListTile(
+                            leading: Icon(Icons.image, color: Colors.blue),
+                            title: Text("Export Gambar"),
+                            contentPadding: EdgeInsets.zero,
+                            dense: true,
+                          ),
                         ),
-                        ReorderableDragStartListener(
-                          index: index,
-                          child: const Padding(
-                            padding: EdgeInsets.only(left: 8.0, right: 8.0),
-                            child: Icon(Icons.drag_handle, color: Colors.grey),
+                        const PopupMenuItem(
+                          value: 'move',
+                          child: ListTile(
+                            leading: Icon(
+                              Icons.drive_file_move,
+                              color: Colors.teal,
+                            ),
+                            title: Text("Pindahkan"),
+                            contentPadding: EdgeInsets.zero,
+                            dense: true,
+                          ),
+                        ),
+                        const PopupMenuDivider(),
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: ListTile(
+                            leading: Icon(Icons.delete, color: Colors.red),
+                            title: Text("Hapus"),
+                            contentPadding: EdgeInsets.zero,
+                            dense: true,
                           ),
                         ),
                       ],

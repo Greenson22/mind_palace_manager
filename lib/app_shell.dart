@@ -9,10 +9,13 @@ import 'dart:ui';
 import 'package:path/path.dart' as p;
 import 'package:mind_palace_manager/features/settings/helpers/wallpaper_image_loader.dart';
 
-// --- IMPORT YANG DIPERBAIKI ---
-import 'package:mind_palace_manager/features/building/presentation/management/building_management_page.dart'; //
-import 'package:mind_palace_manager/features/pixel_studio/presentation/pixel_studio_page.dart'; //
-import 'package:mind_palace_manager/features/plan_architect/presentation/plan_editor_page.dart'; //
+// --- IMPORT HALAMAN UTAMA ---
+import 'package:mind_palace_manager/features/building/presentation/management/building_management_page.dart';
+import 'package:mind_palace_manager/features/pixel_studio/presentation/pixel_studio_page.dart';
+// Import PlanEditorPage dihapus dari sini jika tidak digunakan langsung,
+// tapi mungkin masih dibutuhkan jika ada dependensi lain.
+// Untuk amannya biarkan saja atau hapus jika yakin tidak ada referensi lain.
+import 'package:mind_palace_manager/features/plan_architect/presentation/plan_editor_page.dart';
 
 class MainApp extends StatelessWidget {
   const MainApp({super.key});
@@ -370,7 +373,6 @@ class _DashboardPageState extends State<DashboardPage> {
                   icon: const Icon(Icons.business),
                   onPressed: () {
                     // Tombol ini akan membuka Halaman Manajemen Wilayah (Dunia Ingatan)
-                    // Karena di dalam sana ada daftar region -> distrik -> bangunan
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -400,25 +402,8 @@ class _DashboardPageState extends State<DashboardPage> {
                   label: const Text('Pixel Studio (PixlFlow)'),
                 ),
 
-                // --- TOMBOL ARSITEK DENAH (Plan Builder) ---
-                const SizedBox(height: 12),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.teal.shade50,
-                    foregroundColor: Colors.teal,
-                  ),
-                  icon: const Icon(Icons.architecture),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        // Membuka PlanEditorPage tanpa parameter directory = Mode Playground (tidak tersimpan di bangunan)
-                        builder: (context) => const PlanEditorPage(),
-                      ),
-                    );
-                  },
-                  label: const Text('Arsitek Denah (Plan Builder)'),
-                ),
+                // --- TOMBOL ARSITEK DENAH DIHAPUS DARI SINI ---
+                // Tombol "Arsitek Denah (Plan Builder)" telah dihapus sesuai permintaan.
 
                 // -----------------------------------
                 const SizedBox(height: 20),
