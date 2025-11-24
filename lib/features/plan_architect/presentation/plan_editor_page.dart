@@ -1,4 +1,3 @@
-// lib/features/plan_architect/presentation/plan_editor_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
@@ -12,6 +11,7 @@ import 'widgets/plan_editor_toolbar.dart';
 import 'widgets/plan_selection_bar.dart';
 import 'widgets/plan_canvas_view.dart';
 import 'package:mind_palace_manager/features/building/presentation/management/logic/district_building_logic.dart';
+import 'package:mind_palace_manager/features/building/presentation/management/building_plan_list_page.dart'; // Import Halaman List
 
 class PlanEditorPage extends StatefulWidget {
   // Parameter opsional: jika diisi, editor berjalan dalam mode "Bangunan Denah"
@@ -115,6 +115,144 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
         );
       }
     }
+  }
+
+  // --- BARU: KELOLA DAFTAR DENAH ---
+  void _openPlanList() {
+    if (widget.buildingDirectory == null) return;
+
+    // Simpan dulu sebelum pindah
+    _saveBuildingPlan();
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (c) => BuildingPlanListPage(
+          buildingDirectory: widget.buildingDirectory!,
+          buildingName: p.basename(widget.buildingDirectory!.path),
+        ),
+      ),
+    ).then((_) {
+      // Saat kembali, reload info siapa tahu nama/urutan berubah
+      // Untuk amannya kita tetap di file yang sama, tapi update namanya jika berubah
+      _refreshCurrentPlanInfo();
+    });
+  }
+
+  Future<void> _refreshCurrentPlanInfo() async {
+    if (widget.buildingDirectory == null) return;
+    final logic = DistrictBuildingLogic(widget.buildingDirectory!.parent);
+    final plans = await logic.getBuildingPlans(widget.buildingDirectory!);
+
+    try {
+      // Cari plan yang sedang dibuka berdasarkan filename
+      final currentPlan = plans.firstWhere(
+        (p) => p['filename'] == _currentFilename,
+      );
+      setState(() {
+        _currentPlanName = currentPlan['name'];
+      });
+    } catch (_) {
+      // Jika file yang sedang dibuka dihapus dari list, mungkin perlu exit atau warning
+    }
+  }
+
+  // --- BARU: UBAH INFO DENAH (NAMA/IKON) ---
+  Future<void> _editCurrentPlanInfo() async {
+    if (widget.buildingDirectory == null) return;
+
+    final logic = DistrictBuildingLogic(widget.buildingDirectory!.parent);
+    final plans = await logic.getBuildingPlans(widget.buildingDirectory!);
+
+    Map<String, dynamic>? currentPlan;
+    try {
+      currentPlan = plans.firstWhere((p) => p['filename'] == _currentFilename);
+    } catch (_) {
+      return;
+    }
+
+    final nameCtrl = TextEditingController(text: currentPlan['name']);
+    int currentIconCode = currentPlan['icon'] ?? Icons.map.codePoint;
+    IconData selectedIcon = IconData(
+      currentIconCode,
+      fontFamily: 'MaterialIcons',
+    );
+
+    if (!mounted) return;
+
+    await showDialog(
+      context: context,
+      builder: (c) => StatefulBuilder(
+        builder: (context, setStateDialog) {
+          return AlertDialog(
+            title: const Text("Edit Info Denah Ini"),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(labelText: "Nama"),
+                  autofocus: true,
+                ),
+                const SizedBox(height: 16),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text("Pilih Ikon:", style: TextStyle(fontSize: 12)),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 12,
+                  children:
+                      [
+                        Icons.layers,
+                        Icons.stairs,
+                        Icons.roofing,
+                        Icons.warehouse,
+                        Icons.bed,
+                        Icons.kitchen,
+                        Icons.deck,
+                        Icons.map,
+                        Icons.grid_view,
+                      ].map((icon) {
+                        return IconButton(
+                          icon: Icon(icon),
+                          color: selectedIcon == icon
+                              ? Colors.blue
+                              : Colors.grey,
+                          onPressed: () =>
+                              setStateDialog(() => selectedIcon = icon),
+                        );
+                      }).toList(),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(c),
+                child: const Text("Batal"),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (nameCtrl.text.isNotEmpty) {
+                    await logic.updatePlanInfo(
+                      widget.buildingDirectory!,
+                      currentPlan!['id'],
+                      nameCtrl.text.trim(),
+                      selectedIcon.codePoint,
+                    );
+                    setState(() {
+                      _currentPlanName = nameCtrl.text.trim();
+                    });
+                    if (mounted) Navigator.pop(c);
+                  }
+                },
+                child: const Text("Simpan"),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   @override
@@ -286,7 +424,11 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
                 PopupMenuButton<String>(
                   icon: const Icon(Icons.more_vert),
                   onSelected: (v) {
-                    if (v == 'settings') {
+                    if (v == 'manage_plans') {
+                      _openPlanList();
+                    } else if (v == 'edit_info') {
+                      _editCurrentPlanInfo();
+                    } else if (v == 'settings') {
                       PlanEditorDialogs.showLayerSettings(context, _controller);
                     } else if (v == 'export') {
                       _exportImage();
@@ -295,6 +437,29 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
                     }
                   },
                   itemBuilder: (ctx) => [
+                    // --- MENU TAMBAHAN PENTING ---
+                    if (widget.buildingDirectory != null) ...[
+                      const PopupMenuItem(
+                        value: 'manage_plans',
+                        child: ListTile(
+                          leading: Icon(Icons.layers, color: Colors.purple),
+                          title: Text('Kelola Daftar Denah'),
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'edit_info',
+                        child: ListTile(
+                          leading: Icon(Icons.edit, color: Colors.orange),
+                          title: Text('Ubah Info Denah Ini'),
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                        ),
+                      ),
+                      const PopupMenuDivider(),
+                    ],
+                    // -----------------------------
                     const PopupMenuItem(
                       value: 'settings',
                       child: ListTile(
@@ -304,16 +469,18 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
                         dense: true,
                       ),
                     ),
-                    if (!isView) ...[
-                      const PopupMenuItem(
-                        value: 'export',
-                        child: ListTile(
-                          leading: Icon(Icons.save_alt),
-                          title: Text('Export Gambar'),
-                          contentPadding: EdgeInsets.zero,
-                          dense: true,
-                        ),
+                    // Export selalu tampil (baik View maupun Edit mode)
+                    const PopupMenuItem(
+                      value: 'export',
+                      child: ListTile(
+                        leading: Icon(Icons.save_alt),
+                        title: Text('Export Gambar'),
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
                       ),
+                    ),
+                    // Hapus semua hanya di Edit Mode
+                    if (!isView) ...[
                       const PopupMenuDivider(),
                       const PopupMenuItem(
                         value: 'clear',
