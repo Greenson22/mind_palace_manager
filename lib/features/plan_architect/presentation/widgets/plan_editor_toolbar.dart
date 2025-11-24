@@ -1,7 +1,9 @@
+// lib/features/plan_architect/presentation/widgets/plan_editor_toolbar.dart
 import 'package:flutter/material.dart';
 import 'package:mind_palace_manager/features/plan_architect/logic/plan_controller.dart';
 import 'package:mind_palace_manager/features/plan_architect/data/plan_models.dart';
 import 'package:mind_palace_manager/features/plan_architect/presentation/dialogs/plan_editor_dialogs.dart';
+import '../dialogs/shape_picker_sheet.dart'; // IMPORT SHEET BARU
 
 class PlanEditorToolbar extends StatelessWidget {
   final PlanController controller;
@@ -63,7 +65,6 @@ class PlanEditorToolbar extends StatelessWidget {
                   onTap: () => controller.setTool(PlanTool.select),
                 ),
 
-                // --- TAMBAHAN: TOMBOL SELECT ALL ---
                 _buildIconButton(
                   context,
                   icon: Icons.select_all,
@@ -74,7 +75,6 @@ class PlanEditorToolbar extends StatelessWidget {
                   },
                 ),
 
-                // -----------------------------------
                 _buildIconButton(
                   context,
                   icon: Icons.checklist,
@@ -103,7 +103,6 @@ class PlanEditorToolbar extends StatelessWidget {
                   onTap: () => controller.setTool(PlanTool.wall),
                 ),
 
-                // --- TOMBOL BARU: PINTU & JENDELA ---
                 _buildToolBtn(
                   context,
                   icon: Icons.door_sliding_outlined,
@@ -119,76 +118,31 @@ class PlanEditorToolbar extends StatelessWidget {
                   onTap: () => controller.setTool(PlanTool.window),
                 ),
 
-                // -------------------------------------
-                PopupMenuButton<dynamic>(
-                  tooltip: "Pilih Bentuk",
-                  offset: const Offset(0, 40),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                // --- TOMBOL BENTUK (SHAPE) DIPERBARUI ---
+                InkWell(
+                  onTap: () {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (c) => DraggableScrollableSheet(
+                        initialChildSize: 0.6,
+                        minChildSize: 0.4,
+                        maxChildSize: 0.9,
+                        builder: (context, scrollController) {
+                          return ShapePickerSheet(controller: controller);
+                        },
+                      ),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(12),
                   child: _buildToolBtn(
                     context,
                     icon: Icons.category,
                     label: "Bentuk",
                     isActive: controller.activeTool == PlanTool.shape,
-                    onTap: null,
+                    onTap: null, // Tap ditangani oleh InkWell pembungkus
                   ),
-                  onSelected: (val) {
-                    if (val is PlanShapeType) {
-                      controller.selectShape(val);
-                    } else if (val == 'toggle_fill') {
-                      controller.setShapeFilled(!controller.shapeFilled);
-                    }
-                  },
-                  itemBuilder: (ctx) => [
-                    _buildPopupItem(
-                      PlanShapeType.rectangle,
-                      Icons.crop_square,
-                      "Kotak",
-                    ),
-                    _buildPopupItem(
-                      PlanShapeType.circle,
-                      Icons.circle_outlined,
-                      "Bulat",
-                    ),
-                    _buildPopupItem(
-                      PlanShapeType.triangle,
-                      Icons.change_history,
-                      "Segitiga",
-                    ),
-                    _buildPopupItem(
-                      PlanShapeType.hexagon,
-                      Icons.hexagon_outlined,
-                      "Segienam",
-                    ),
-                    _buildPopupItem(
-                      PlanShapeType.star,
-                      Icons.star_border,
-                      "Bintang",
-                    ),
-                    const PopupMenuDivider(),
-                    PopupMenuItem(
-                      enabled: false,
-                      child: StatefulBuilder(
-                        builder: (context, setState) {
-                          return SwitchListTile(
-                            title: const Text(
-                              "Isi Warna (Solid)",
-                              style: TextStyle(fontSize: 14),
-                            ),
-                            value: controller.shapeFilled,
-                            onChanged: (val) {
-                              controller.setShapeFilled(val);
-                              setState(() {});
-                              Navigator.pop(ctx);
-                            },
-                            contentPadding: EdgeInsets.zero,
-                            dense: true,
-                          );
-                        },
-                      ),
-                    ),
-                  ],
                 ),
 
                 InkWell(
@@ -414,19 +368,6 @@ class PlanEditorToolbar extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  PopupMenuItem<PlanShapeType> _buildPopupItem(
-    PlanShapeType value,
-    IconData icon,
-    String text,
-  ) {
-    return PopupMenuItem(
-      value: value,
-      child: Row(
-        children: [Icon(icon, size: 20), const SizedBox(width: 12), Text(text)],
       ),
     );
   }

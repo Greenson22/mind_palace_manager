@@ -1,8 +1,10 @@
+// lib/features/plan_architect/presentation/plan_painter.dart
 import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
 import 'dart:math' as math;
 import '../logic/plan_controller.dart';
 import '../data/plan_models.dart';
+import 'utils/plan_shapes_helper.dart'; // IMPORT HELPER BARU
 
 class PlanPainter extends CustomPainter {
   final PlanController controller;
@@ -29,11 +31,8 @@ class PlanPainter extends CustomPainter {
     // 2. Walls (Layer Bawah)
     if (controller.layerWalls) {
       final Paint wallPaint = Paint()..strokeCap = StrokeCap.square;
-
-      // Paint untuk Highlight Seleksi Tembok
       final Paint highlightPaint = Paint()
-        ..color = Colors.blueAccent
-            .withOpacity(0.4) // Biru transparan
+        ..color = Colors.blueAccent.withOpacity(0.4)
         ..strokeCap = StrokeCap.round
         ..style = PaintingStyle.stroke;
 
@@ -48,15 +47,12 @@ class PlanPainter extends CustomPainter {
             controller.multiSelectedIds.contains(wall.id);
 
         if (isSel) {
-          // Gambar garis highlight tebal di bawah tembok asli
           highlightPaint.strokeWidth = wall.thickness + 12.0;
           canvas.drawLine(wall.start, wall.end, highlightPaint);
         }
 
         wallPaint.color = wall.color;
         wallPaint.strokeWidth = wall.thickness;
-
-        // Gambar tembok asli
         canvas.drawLine(wall.start, wall.end, wallPaint);
 
         if (showDims) {
@@ -64,7 +60,6 @@ class PlanPainter extends CustomPainter {
         }
       }
 
-      // Preview saat menggambar tembok
       if (isDrawingWall &&
           controller.tempStart != null &&
           controller.tempEnd != null) {
@@ -110,7 +105,7 @@ class PlanPainter extends CustomPainter {
         _drawGroup(canvas, group, isSel);
       }
 
-      // Shapes
+      // Shapes (MENGGUNAKAN HELPER BARU DI SINI)
       for (var shape in controller.shapes) {
         bool isSel =
             (controller.selectedId == shape.id) ||
@@ -203,6 +198,7 @@ class PlanPainter extends CustomPainter {
           canvas.drawPoints(ui.PointMode.points, path.points, pathPaint);
         }
       }
+
       // Freehand Preview
       if (controller.activeTool == PlanTool.freehand &&
           controller.currentPathPoints.isNotEmpty) {
@@ -285,7 +281,49 @@ class PlanPainter extends CustomPainter {
     }
   }
 
+  // --- METHOD BARU: MENGGUNAKAN HELPER ---
+  void _drawShape(Canvas canvas, PlanShape shape, bool isSelected) {
+    canvas.save();
+    final center = shape.rect.center;
+    canvas.translate(center.dx, center.dy);
+    canvas.rotate(shape.rotation);
+
+    if (shape.flipX) {
+      canvas.scale(-1.0, 1.0);
+    }
+
+    // Kembalikan ke koordinat lokal relatif terhadap (0,0) di center untuk rotasi yang benar
+    canvas.translate(-center.dx, -center.dy);
+
+    final Paint fillPaint = Paint()
+      ..color = isSelected
+          ? Colors.blue.withOpacity(0.5)
+          : shape.color.withOpacity(
+              shape.isFilled
+                  ? (shape.color.opacity == 1.0 ? 1.0 : shape.color.opacity)
+                  : 0.0,
+            )
+      ..style = PaintingStyle.fill;
+
+    final Paint borderPaint = Paint()
+      ..color = isSelected ? Colors.blue : shape.color
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+
+    // PANGGIL HELPER UNTUK MENGGAMBAR PATH
+    PlanShapesHelper.drawShape(
+      canvas,
+      shape.type,
+      shape.rect,
+      fillPaint,
+      borderPaint,
+    );
+
+    canvas.restore();
+  }
+
   void _drawPortal(Canvas canvas, PlanPortal portal, bool isSelected) {
+    // ... (Kode _drawPortal sama seperti sebelumnya) ...
     canvas.save();
     canvas.translate(portal.position.dx, portal.position.dy);
     canvas.rotate(portal.rotation);
@@ -394,11 +432,7 @@ class PlanPainter extends CustomPainter {
 
     // --- DRAW PORTALS IN GROUP ---
     for (var portal in group.portals) {
-      _drawPortal(
-        canvas,
-        portal,
-        false,
-      ); // false karena highlight grup sudah ada
+      _drawPortal(canvas, portal, false);
     }
 
     for (var shp in group.shapes) _drawShape(canvas, shp, false);
@@ -491,91 +525,6 @@ class PlanPainter extends CustomPainter {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
     for (double y = 0; y <= size.height; y += step)
       canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
-  }
-
-  void _drawShape(Canvas canvas, PlanShape shape, bool isSelected) {
-    canvas.save();
-    final center = shape.rect.center;
-    canvas.translate(center.dx, center.dy);
-    canvas.rotate(shape.rotation);
-
-    if (shape.flipX) {
-      canvas.scale(-1.0, 1.0);
-    }
-
-    canvas.translate(-center.dx, -center.dy);
-
-    final Paint fillPaint = Paint()
-      ..color = isSelected
-          ? Colors.blue.withOpacity(0.5)
-          : shape.color.withOpacity(
-              shape.isFilled
-                  ? (shape.color.opacity == 1.0 ? 1.0 : shape.color.opacity)
-                  : 0.0,
-            )
-      ..style = PaintingStyle.fill;
-
-    final Paint borderPaint = Paint()
-      ..color = isSelected ? Colors.blue : shape.color
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke;
-
-    if (shape.type == PlanShapeType.rectangle) {
-      canvas.drawRect(shape.rect, fillPaint);
-      canvas.drawRect(shape.rect, borderPaint);
-    } else if (shape.type == PlanShapeType.circle) {
-      canvas.drawOval(shape.rect, fillPaint);
-      canvas.drawOval(shape.rect, borderPaint);
-    } else if (shape.type == PlanShapeType.triangle) {
-      final path = Path();
-      path.moveTo(shape.rect.center.dx, shape.rect.top);
-      path.lineTo(shape.rect.right, shape.rect.bottom);
-      path.lineTo(shape.rect.left, shape.rect.bottom);
-      path.close();
-      canvas.drawPath(path, fillPaint);
-      canvas.drawPath(path, borderPaint);
-    } else if (shape.type == PlanShapeType.hexagon) {
-      final path = Path();
-      final width = shape.rect.width;
-      final height = shape.rect.height;
-      final centerX = shape.rect.center.dx;
-      final centerY = shape.rect.center.dy;
-      for (int i = 0; i < 6; i++) {
-        double angle = (60 * i - 30) * (math.pi / 180);
-        double x = centerX + width / 2 * math.cos(angle);
-        double y = centerY + height / 2 * math.sin(angle);
-        if (i == 0)
-          path.moveTo(x, y);
-        else
-          path.lineTo(x, y);
-      }
-      path.close();
-      canvas.drawPath(path, fillPaint);
-      canvas.drawPath(path, borderPaint);
-    } else if (shape.type == PlanShapeType.star) {
-      _drawStar(canvas, shape.rect, fillPaint, borderPaint);
-    }
-    canvas.restore();
-  }
-
-  void _drawStar(Canvas canvas, Rect rect, Paint fill, Paint border) {
-    final center = rect.center;
-    final radius = math.min(rect.width, rect.height) / 2;
-    final innerRadius = radius / 2.5;
-    final path = Path();
-    for (int i = 0; i < 10; i++) {
-      double angle = (i * 36) * (math.pi / 180) - (math.pi / 2);
-      double r = (i % 2 == 0) ? radius : innerRadius;
-      double x = center.dx + r * math.cos(angle);
-      double y = center.dy + r * math.sin(angle);
-      if (i == 0)
-        path.moveTo(x, y);
-      else
-        path.lineTo(x, y);
-    }
-    path.close();
-    canvas.drawPath(path, fill);
-    canvas.drawPath(path, border);
   }
 
   void _drawWallLabel(Canvas canvas, Wall wall) {

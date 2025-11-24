@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
+// IMPORT ENUM DARI LOGIC AGAR TIPE-NYA SAMA
 import '../logic/plan_enums.dart';
 
-// --- ENUM ---
-enum PlanShapeType { rectangle, circle, triangle, hexagon, star }
+// HAPUS DEFINISI ENUM LAMA DI SINI (enum PlanShapeType { ... }) KARENA SUDAH ADA DI plan_enums.dart
 
 // --- KELAS PLAN PORTAL (Pintu & Jendela) ---
 class PlanPortal {
@@ -16,7 +16,7 @@ class PlanPortal {
   final bool flipX;
   final String? referenceImage;
   final String? navTargetFloorId;
-  final String description; // BARU: Field Description
+  final String description;
 
   PlanPortal({
     required this.id,
@@ -28,7 +28,7 @@ class PlanPortal {
     this.flipX = false,
     this.referenceImage,
     this.navTargetFloorId,
-    this.description = '', // Default kosong
+    this.description = '',
   });
 
   Map<String, dynamic> toJson() => {
@@ -42,7 +42,7 @@ class PlanPortal {
     'flpX': flipX,
     'refImg': referenceImage,
     'nav': navTargetFloorId,
-    'desc': description, // Simpan
+    'desc': description,
   };
 
   factory PlanPortal.fromJson(Map<String, dynamic> json) => PlanPortal(
@@ -58,7 +58,7 @@ class PlanPortal {
     flipX: json['flpX'] ?? false,
     referenceImage: json['refImg'],
     navTargetFloorId: json['nav'],
-    description: json['desc'] ?? '', // Load
+    description: json['desc'] ?? '',
   );
 
   PlanPortal copyWith({
@@ -104,7 +104,7 @@ class PlanGroup {
   final List<PlanPortal> portals;
   final String name;
   final bool isSavedAsset;
-  final String description; // BARU: Field Description
+  final String description;
 
   PlanGroup({
     required this.id,
@@ -119,11 +119,10 @@ class PlanGroup {
     this.portals = const [],
     this.name = "Grup",
     this.isSavedAsset = false,
-    this.description = '', // Default
+    this.description = '',
   });
 
   Rect getBounds() {
-    // (Logika getBounds tetap sama seperti sebelumnya...)
     if (objects.isEmpty &&
         shapes.isEmpty &&
         paths.isEmpty &&
@@ -191,7 +190,7 @@ class PlanGroup {
     'flpX': flipX,
     'name': name,
     'isSaved': isSavedAsset,
-    'desc': description, // Simpan
+    'desc': description,
     'objects': objects.map((e) => e.toJson()).toList(),
     'shapes': shapes.map((e) => e.toJson()).toList(),
     'paths': paths.map((e) => e.toJson()).toList(),
@@ -210,7 +209,7 @@ class PlanGroup {
     flipX: json['flpX'] ?? false,
     name: json['name'] ?? "Grup",
     isSavedAsset: json['isSaved'] ?? false,
-    description: json['desc'] ?? '', // Load
+    description: json['desc'] ?? '',
     objects:
         (json['objects'] as List?)
             ?.map((e) => PlanObject.fromJson(e))
@@ -269,7 +268,6 @@ class PlanGroup {
   PlanGroup moveBy(Offset delta) => copyWith(position: position + delta);
 }
 
-// ... (Kelas PlanFloor, Wall, PlanObject, PlanLabel, PlanPath, PlanShape tetap sama, pastikan deskripsi PlanObject sudah ada) ...
 class PlanFloor {
   final String id;
   final String name;
@@ -694,23 +692,38 @@ class PlanShape {
     'refImg': referenceImage,
   };
 
-  factory PlanShape.fromJson(Map<String, dynamic> json) => PlanShape(
-    id: json['id'],
-    rect: Rect.fromLTWH(
-      (json['l'] as num).toDouble(),
-      (json['t'] as num).toDouble(),
-      (json['w'] as num).toDouble(),
-      (json['h'] as num).toDouble(),
-    ),
-    type: PlanShapeType.values[json['type']],
-    color: Color(json['color']),
-    isFilled: json['filled'] ?? true,
-    rotation: (json['rot'] as num?)?.toDouble() ?? 0.0,
-    flipX: json['flpX'] ?? false,
-    name: json['name'] ?? 'Bentuk',
-    description: json['desc'] ?? '',
-    referenceImage: json['refImg'],
-  );
+  factory PlanShape.fromJson(Map<String, dynamic> json) {
+    // HANDLE INDEX JIKA ENUM BERUBAH URUTAN
+    // Karena kita mengganti struktur enum, kita harus hati-hati.
+    // Namun, karena PlanShapeType sekarang diimport dari plan_enums.dart,
+    // kita menggunakan index dari enum baru.
+    // JIKA index tersimpan melebihi panjang enum, fallback ke rectangle (0).
+    int typeIndex = json['type'] ?? 0;
+    PlanShapeType shapeType;
+    if (typeIndex >= 0 && typeIndex < PlanShapeType.values.length) {
+      shapeType = PlanShapeType.values[typeIndex];
+    } else {
+      shapeType = PlanShapeType.rectangle;
+    }
+
+    return PlanShape(
+      id: json['id'],
+      rect: Rect.fromLTWH(
+        (json['l'] as num).toDouble(),
+        (json['t'] as num).toDouble(),
+        (json['w'] as num).toDouble(),
+        (json['h'] as num).toDouble(),
+      ),
+      type: shapeType,
+      color: Color(json['color']),
+      isFilled: json['filled'] ?? true,
+      rotation: (json['rot'] as num?)?.toDouble() ?? 0.0,
+      flipX: json['flpX'] ?? false,
+      name: json['name'] ?? 'Bentuk',
+      description: json['desc'] ?? '',
+      referenceImage: json['refImg'],
+    );
+  }
 
   PlanShape copyWith({
     String? id,

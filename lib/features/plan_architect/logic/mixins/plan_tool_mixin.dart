@@ -1,3 +1,4 @@
+// lib/features/plan_architect/logic/mixins/plan_tool_mixin.dart
 import 'package:flutter/material.dart';
 import 'package:mind_palace_manager/app_settings.dart';
 import 'plan_variables.dart';
@@ -29,7 +30,7 @@ mixin PlanToolMixin on PlanVariables {
     setTool(PlanTool.object);
   }
 
-  // --- UPDATE: Set Shape Type & Style ---
+  // --- UPDATE: Menerima Enum Baru ---
   void selectShape(PlanShapeType type) {
     selectedShapeType = type;
     setTool(PlanTool.shape);
