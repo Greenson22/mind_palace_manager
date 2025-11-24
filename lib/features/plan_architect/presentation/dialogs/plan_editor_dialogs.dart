@@ -31,11 +31,43 @@ class PlanEditorDialogs {
     Colors.white,
   ];
 
+  // --- HELPER BARU: MENAMPILKAN GAMBAR FULL SCREEN ---
+  static void _showFullScreenImage(BuildContext context, String imagePath) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.9), // Latar belakang gelap
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: EdgeInsets.zero, // Memenuhi layar
+        child: Stack(
+          children: [
+            // 1. Interactive Viewer untuk Zoom & Pan
+            Positioned.fill(
+              child: InteractiveViewer(
+                minScale: 0.1,
+                maxScale: 5.0,
+                child: Image.file(File(imagePath), fit: BoxFit.contain),
+              ),
+            ),
+            // 2. Tombol Tutup (X)
+            Positioned(
+              top: 40,
+              right: 20,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                onPressed: () => Navigator.pop(ctx),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   static void showLayerSettings(
     BuildContext context,
     PlanController controller,
   ) {
-    // ... (Kode showLayerSettings tetap sama, disalin untuk kelengkapan) ...
     final colorScheme = Theme.of(context).colorScheme;
     showDialog(
       context: context,
@@ -168,7 +200,6 @@ class PlanEditorDialogs {
     );
   }
 
-  // --- UPDATE: TERIMA BUILDING DIRECTORY UNTUK LOAD PLANS ---
   static void showEditDialog(
     BuildContext context,
     PlanController controller, {
@@ -185,12 +216,11 @@ class PlanEditorDialogs {
 
     final bool isPath = data['isPath'] ?? false;
     final bool isLabel = data['type'] == 'Label';
-    final bool isWall = data['title'] == 'Tembok'; // Perbaikan deteksi tembok
+    final bool isWall = data['title'] == 'Tembok';
     final bool canNavigate =
-        data['type'] == 'Interior' ||
-        data['type'] == 'Struktur'; // Objek & Pintu bisa navigasi
+        data['type'] == 'Interior' || data['type'] == 'Struktur';
 
-    String? selectedNavFloorId = data['nav']; // ID Denah Tujuan (bukan nama)
+    String? selectedNavFloorId = data['nav'];
 
     TextEditingController? lengthCtrl;
     if (isWall) {
@@ -202,30 +232,11 @@ class PlanEditorDialogs {
       } catch (_) {}
     }
 
-    // Load daftar plans jika buildingDirectory ada
-    List<Map<String, dynamic>> availablePlans = [];
-
-    // Menggunakan StatefulBuilder agar bisa update state saat plans dimuat
     showDialog(
       context: context,
       builder: (dialogContext) {
-        // Load plans asynchronous
-        if (buildingDirectory != null && canNavigate) {
-          DistrictBuildingLogic(
-            buildingDirectory.parent,
-          ).getBuildingPlans(buildingDirectory).then((plans) {
-            // Kita tidak bisa panggil setState di luar builder secara langsung
-            // Tapi karena kita akan rebuild dropdown, FutureBuilder lebih tepat
-            // atau biarkan user menunggu sebentar.
-            // Disini kita pakai hack sedikit: list diisi, lalu UI direbuild saat interaksi
-            // Agar proper, kita load dulu di luar, atau pakai FutureBuilder di dalam.
-            availablePlans = plans;
-          });
-        }
-
         return StatefulBuilder(
           builder: (context, setState) {
-            // Widget Dropdown Navigasi
             Widget buildNavDropdown() {
               if (!canNavigate || buildingDirectory == null) {
                 return const SizedBox.shrink();
@@ -247,7 +258,6 @@ class PlanEditorDialogs {
                   }
 
                   final plans = snapshot.data!;
-                  // Tambahkan opsi "Tidak Ada"
                   final List<DropdownMenuItem<String?>> items = [
                     const DropdownMenuItem(
                       value: null,
@@ -258,7 +268,7 @@ class PlanEditorDialogs {
                   items.addAll(
                     plans.map(
                       (p) => DropdownMenuItem(
-                        value: p['id'], // Simpan ID plan
+                        value: p['id'],
                         child: Text("Pindah ke: ${p['name']}"),
                       ),
                     ),
@@ -318,6 +328,7 @@ class PlanEditorDialogs {
                             });
                           }
                         },
+                        // --- DI SINI MODE EDIT, JADI TAP UNTUK GANTI ---
                         child: Container(
                           height: 150,
                           width: double.infinity,
@@ -399,7 +410,6 @@ class PlanEditorDialogs {
                       ),
                     ],
 
-                    // --- DROPDOWN NAVIGASI ---
                     buildNavDropdown(),
 
                     if (isPath) ...[
@@ -436,7 +446,7 @@ class PlanEditorDialogs {
                     controller.updateSelectedAttribute(
                       desc: descCtrl.text,
                       name: titleCtrl.text,
-                      navTarget: selectedNavFloorId, // Simpan ID target
+                      navTarget: selectedNavFloorId,
                       referenceImage: newRefImage,
                     );
                     if (isWall && lengthCtrl != null) {
@@ -462,7 +472,6 @@ class PlanEditorDialogs {
     BuildContext context,
     Function(Color) onColorSelected,
   ) {
-    // ... (Tetap sama) ...
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -503,7 +512,6 @@ class PlanEditorDialogs {
     BuildContext context,
     PlanController controller,
   ) {
-    // ... (Tetap sama) ...
     final colorScheme = Theme.of(context).colorScheme;
     showModalBottomSheet(
       context: context,
@@ -526,6 +534,7 @@ class PlanEditorDialogs {
     );
   }
 
+  // --- MODIFIED: SUPPORTS FULL SCREEN IMAGE TAP ---
   static void showViewModeInfo(
     BuildContext context,
     Map<String, dynamic> data,
@@ -546,13 +555,47 @@ class PlanEditorDialogs {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (refImage != null && File(refImage).existsSync()) ...[
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.file(
-                  File(refImage),
-                  width: double.infinity,
-                  height: 200,
-                  fit: BoxFit.cover,
+              Stack(
+                children: [
+                  GestureDetector(
+                    // --- AKSI TAP GAMBAR: BUKA FULL SCREEN ---
+                    onTap: () => _showFullScreenImage(context, refImage),
+                    child: Hero(
+                      tag: refImage, // Efek Hero sederhana
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.file(
+                          File(refImage),
+                          width: double.infinity,
+                          height: 200,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Icon(
+                        Icons.fullscreen,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              const Center(
+                child: Text(
+                  "Ketuk gambar untuk memperbesar",
+                  style: TextStyle(fontSize: 10, color: Colors.grey),
                 ),
               ),
               const SizedBox(height: 16),
