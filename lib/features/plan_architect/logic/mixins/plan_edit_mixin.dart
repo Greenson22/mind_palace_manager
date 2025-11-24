@@ -5,6 +5,7 @@ import 'plan_state_mixin.dart';
 import '../../data/plan_models.dart';
 
 mixin PlanEditMixin on PlanVariables, PlanStateMixin {
+  // ... (duplicateSelected, updateSelectedWallLength, etc tetap sama) ...
   void duplicateSelected() {
     if (selectedId == null) return;
     final offset = const Offset(20, 20);
@@ -95,7 +96,12 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
     int idx;
     if ((idx = groups.indexWhere((g) => g.id == selectedId)) != -1) {
       updateActiveFloor(
-        groups: List.from(groups)..[idx] = groups[idx].copyWith(name: name),
+        // Update Name AND Description for Groups
+        groups: List.from(groups)
+          ..[idx] = groups[idx].copyWith(
+            name: name,
+            description: desc, // PERBAIKAN: Menyimpan deskripsi grup
+          ),
       );
     } else if ((idx = objects.indexWhere((o) => o.id == selectedId)) != -1) {
       updateActiveFloor(
@@ -145,6 +151,7 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
           ..[idx] = portals[idx].copyWith(
             color: color,
             width: stroke,
+            description: desc, // PERBAIKAN: Menyimpan deskripsi portal
             referenceImage: referenceImage,
             navTargetFloorId: navTarget,
           ),
@@ -178,6 +185,7 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
     saveState();
   }
 
+  // ... (Fungsi lain di mixin ini tetap sama) ...
   void updateSelectedWallLength(double newLengthInMeters) {
     if (selectedId == null) return;
     int idx = walls.indexWhere((w) => w.id == selectedId);
@@ -219,6 +227,7 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
       updateSelectedAttribute(stroke: width);
 
   void bringToFront() {
+    // ... (Sama seperti sebelumnya) ...
     if (selectedId == null) return;
 
     int gIdx = groups.indexWhere((g) => g.id == selectedId);
@@ -231,7 +240,7 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
       saveState();
       return;
     }
-
+    // ... (Logic objek lain sama)
     int oIdx = objects.indexWhere((o) => o.id == selectedId);
     if (oIdx != -1) {
       final item = objects[oIdx];
@@ -242,7 +251,6 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
       saveState();
       return;
     }
-
     int sIdx = shapes.indexWhere((s) => s.id == selectedId);
     if (sIdx != -1) {
       final item = shapes[sIdx];
@@ -253,7 +261,6 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
       saveState();
       return;
     }
-
     int pIdx = paths.indexWhere((p) => p.id == selectedId);
     if (pIdx != -1) {
       final item = paths[pIdx];
@@ -264,7 +271,6 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
       saveState();
       return;
     }
-
     int lIdx = labels.indexWhere((l) => l.id == selectedId);
     if (lIdx != -1) {
       final item = labels[lIdx];
@@ -275,7 +281,6 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
       saveState();
       return;
     }
-
     int portIdx = portals.indexWhere((p) => p.id == selectedId);
     if (portIdx != -1) {
       final item = portals[portIdx];
@@ -289,6 +294,7 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
   }
 
   void sendToBack() {
+    // ... (Sama seperti sebelumnya) ...
     if (selectedId == null) return;
 
     int gIdx = groups.indexWhere((g) => g.id == selectedId);
@@ -301,7 +307,6 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
       saveState();
       return;
     }
-
     int oIdx = objects.indexWhere((o) => o.id == selectedId);
     if (oIdx != -1) {
       final item = objects[oIdx];
@@ -312,7 +317,6 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
       saveState();
       return;
     }
-
     int sIdx = shapes.indexWhere((s) => s.id == selectedId);
     if (sIdx != -1) {
       final item = shapes[sIdx];
@@ -323,7 +327,6 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
       saveState();
       return;
     }
-
     int pIdx = paths.indexWhere((p) => p.id == selectedId);
     if (pIdx != -1) {
       final item = paths[pIdx];
@@ -334,7 +337,6 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
       saveState();
       return;
     }
-
     int lIdx = labels.indexWhere((l) => l.id == selectedId);
     if (lIdx != -1) {
       final item = labels[lIdx];
@@ -345,7 +347,6 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
       saveState();
       return;
     }
-
     int portIdx = portals.indexWhere((p) => p.id == selectedId);
     if (portIdx != -1) {
       final item = portals[portIdx];
@@ -358,26 +359,22 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
     }
   }
 
-  // --- FITUR GABUNG TEMBOK (DIKEMBALIKAN) ---
   void mergeSelectedWalls() {
-    // 1. Kumpulkan tembok yang sedang dipilih
+    // ... (Logic merge wall tetap sama) ...
     final selectedWallIds = <String>[];
     if (selectedId != null) selectedWallIds.add(selectedId!);
     selectedWallIds.addAll(multiSelectedIds);
 
-    // Filter objek yang benar-benar tembok
     final targetWalls = walls
         .where((w) => selectedWallIds.contains(w.id))
         .toList();
 
-    // Batasi fitur ini hanya untuk 2 tembok
     if (targetWalls.length != 2) return;
 
     final w1 = targetWalls[0];
     final w2 = targetWalls[1];
 
     if (_areWallsMergeable(w1, w2)) {
-      // Cari titik terluar
       final points = [w1.start, w1.end, w2.start, w2.end];
       double maxDist = -1.0;
       Offset pStart = points[0];
@@ -394,14 +391,12 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
         }
       }
 
-      // Buat tembok baru
       final newWall = w1.copyWith(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         start: pStart,
         end: pEnd,
       );
 
-      // Update list: Hapus 2 lama, tambah 1 baru
       final newWallList = List<Wall>.from(walls)
         ..removeWhere((w) => w.id == w1.id || w.id == w2.id)
         ..add(newWall);
@@ -417,14 +412,12 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
   }
 
   bool _areWallsMergeable(Wall w1, Wall w2) {
-    // 1. Cek kesejajaran
     final v1 = w1.end - w1.start;
     final v2 = w2.end - w2.start;
     final crossProd = v1.dx * v2.dy - v1.dy * v2.dx;
 
-    if (crossProd.abs() > 200) return false; // Toleransi
+    if (crossProd.abs() > 200) return false;
 
-    // 2. Cek sentuhan
     const double touchThreshold = 20.0;
     bool touching = false;
     if ((w1.start - w2.start).distance < touchThreshold)

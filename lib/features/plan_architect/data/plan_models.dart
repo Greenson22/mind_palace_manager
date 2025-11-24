@@ -16,6 +16,7 @@ class PlanPortal {
   final bool flipX;
   final String? referenceImage;
   final String? navTargetFloorId;
+  final String description; // BARU: Field Description
 
   PlanPortal({
     required this.id,
@@ -27,6 +28,7 @@ class PlanPortal {
     this.flipX = false,
     this.referenceImage,
     this.navTargetFloorId,
+    this.description = '', // Default kosong
   });
 
   Map<String, dynamic> toJson() => {
@@ -40,11 +42,11 @@ class PlanPortal {
     'flpX': flipX,
     'refImg': referenceImage,
     'nav': navTargetFloorId,
+    'desc': description, // Simpan
   };
 
   factory PlanPortal.fromJson(Map<String, dynamic> json) => PlanPortal(
     id: json['id'],
-    // PENGAMAN: Menggunakan (as num).toDouble() agar aman untuk Int/Double
     position: Offset(
       (json['x'] as num).toDouble(),
       (json['y'] as num).toDouble(),
@@ -56,6 +58,7 @@ class PlanPortal {
     flipX: json['flpX'] ?? false,
     referenceImage: json['refImg'],
     navTargetFloorId: json['nav'],
+    description: json['desc'] ?? '', // Load
   );
 
   PlanPortal copyWith({
@@ -68,6 +71,7 @@ class PlanPortal {
     bool? flipX,
     String? referenceImage,
     String? navTargetFloorId,
+    String? description,
   }) {
     return PlanPortal(
       id: id ?? this.id,
@@ -79,12 +83,14 @@ class PlanPortal {
       flipX: flipX ?? this.flipX,
       referenceImage: referenceImage ?? this.referenceImage,
       navTargetFloorId: navTargetFloorId ?? this.navTargetFloorId,
+      description: description ?? this.description,
     );
   }
 
   PlanPortal moveBy(Offset delta) => copyWith(position: position + delta);
 }
 
+// --- KELAS PLAN GROUP ---
 class PlanGroup {
   final String id;
   final Offset position;
@@ -98,6 +104,7 @@ class PlanGroup {
   final List<PlanPortal> portals;
   final String name;
   final bool isSavedAsset;
+  final String description; // BARU: Field Description
 
   PlanGroup({
     required this.id,
@@ -112,9 +119,11 @@ class PlanGroup {
     this.portals = const [],
     this.name = "Grup",
     this.isSavedAsset = false,
+    this.description = '', // Default
   });
 
   Rect getBounds() {
+    // (Logika getBounds tetap sama seperti sebelumnya...)
     if (objects.isEmpty &&
         shapes.isEmpty &&
         paths.isEmpty &&
@@ -182,6 +191,7 @@ class PlanGroup {
     'flpX': flipX,
     'name': name,
     'isSaved': isSavedAsset,
+    'desc': description, // Simpan
     'objects': objects.map((e) => e.toJson()).toList(),
     'shapes': shapes.map((e) => e.toJson()).toList(),
     'paths': paths.map((e) => e.toJson()).toList(),
@@ -192,7 +202,6 @@ class PlanGroup {
 
   factory PlanGroup.fromJson(Map<String, dynamic> json) => PlanGroup(
     id: json['id'],
-    // PENGAMAN KOORDINAT
     position: Offset(
       (json['x'] as num).toDouble(),
       (json['y'] as num).toDouble(),
@@ -201,6 +210,7 @@ class PlanGroup {
     flipX: json['flpX'] ?? false,
     name: json['name'] ?? "Grup",
     isSavedAsset: json['isSaved'] ?? false,
+    description: json['desc'] ?? '', // Load
     objects:
         (json['objects'] as List?)
             ?.map((e) => PlanObject.fromJson(e))
@@ -237,6 +247,7 @@ class PlanGroup {
     List<PlanPortal>? portals,
     String? name,
     bool? isSavedAsset,
+    String? description,
   }) {
     return PlanGroup(
       id: id ?? this.id,
@@ -251,12 +262,14 @@ class PlanGroup {
       portals: portals ?? this.portals,
       name: name ?? this.name,
       isSavedAsset: isSavedAsset ?? this.isSavedAsset,
+      description: description ?? this.description,
     );
   }
 
   PlanGroup moveBy(Offset delta) => copyWith(position: position + delta);
 }
 
+// ... (Kelas PlanFloor, Wall, PlanObject, PlanLabel, PlanPath, PlanShape tetap sama, pastikan deskripsi PlanObject sudah ada) ...
 class PlanFloor {
   final String id;
   final String name;
@@ -382,7 +395,6 @@ class Wall {
 
   factory Wall.fromJson(Map<String, dynamic> json) => Wall(
     id: json['id'],
-    // PENGAMAN KOORDINAT
     start: Offset(
       (json['sx'] as num).toDouble(),
       (json['sy'] as num).toDouble(),
@@ -461,7 +473,7 @@ class PlanObject {
     'rot': rotation,
     'flpX': flipX,
     'col': color.value,
-    'nav': navTargetFloorId, // KUNCI YANG KONSISTEN
+    'nav': navTargetFloorId,
     'size': size,
     'imgPath': imagePath,
     'refImg': referenceImage,
@@ -469,22 +481,16 @@ class PlanObject {
 
   factory PlanObject.fromJson(Map<String, dynamic> json) => PlanObject(
     id: json['id'],
-    // PENGAMAN PENTING: Mengubah int ke double secara paksa
     position: Offset(
       (json['x'] as num).toDouble(),
       (json['y'] as num).toDouble(),
     ),
-    // PERBAIKAN UTAMA: Tambahkan fallback string kosong jika null
     name: json['name'] ?? 'Objek',
-    // PERBAIKAN BUG: Ubah json['description'] menjadi json['desc'] dan berikan fallback string kosong
     description: json['desc'] ?? '',
-    // PENGAMAN: Berikan icon default jika null (misal: icon kotak/help)
     iconCodePoint: json['icon'] ?? Icons.help_outline.codePoint,
-
     rotation: (json['rot'] as num?)?.toDouble() ?? 0.0,
     flipX: json['flpX'] ?? false,
     color: json['col'] != null ? Color(json['col']) : Colors.black87,
-    // MEMBACA DUA KEMUNGKINAN KUNCI (Kompatibilitas)
     navTargetFloorId: json['nav'] ?? json['navFloor'],
     size: (json['size'] as num?)?.toDouble() ?? 14.0,
     imagePath: json['imgPath'],
@@ -551,7 +557,6 @@ class PlanLabel {
 
   factory PlanLabel.fromJson(Map<String, dynamic> json) => PlanLabel(
     id: json['id'],
-    // PENGAMAN KOORDINAT
     position: Offset(
       (json['x'] as num).toDouble(),
       (json['y'] as num).toDouble(),
@@ -613,10 +618,8 @@ class PlanPath {
     id: json['id'],
     points: (json['points'] as List)
         .map(
-          (p) => Offset(
-            (p['dx'] as num).toDouble(), // PENGAMAN
-            (p['dy'] as num).toDouble(), // PENGAMAN
-          ),
+          (p) =>
+              Offset((p['dx'] as num).toDouble(), (p['dy'] as num).toDouble()),
         )
         .toList(),
     color: Color(json['color']),
@@ -693,7 +696,6 @@ class PlanShape {
 
   factory PlanShape.fromJson(Map<String, dynamic> json) => PlanShape(
     id: json['id'],
-    // PENGAMAN KOORDINAT RECT
     rect: Rect.fromLTWH(
       (json['l'] as num).toDouble(),
       (json['t'] as num).toDouble(),

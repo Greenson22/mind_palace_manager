@@ -6,13 +6,13 @@ import '../../data/plan_models.dart';
 import '../plan_enums.dart';
 
 mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
-  // ... (toggleMultiSelectMode, selectAll, selectInRect tetap sama) ...
+  // ... (toggleMultiSelectMode, selectAll, selectInRect, findNavigableItemAt, handleSelection, isPointNearLine, isPointNearPath, deleteSelected, getRawSelectedItems TETAP SAMA) ...
   void toggleMultiSelectMode() {
     isMultiSelectMode = !isMultiSelectMode;
     if (!isMultiSelectMode) {
       multiSelectedIds.clear();
     }
-    selectedId = null; // Reset single selection
+    selectedId = null;
     notifyListeners();
   }
 
@@ -20,7 +20,6 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
     isMultiSelectMode = true;
     selectedId = null;
     multiSelectedIds.clear();
-
     for (var w in walls) multiSelectedIds.add(w.id);
     for (var o in objects) multiSelectedIds.add(o.id);
     for (var s in shapes) multiSelectedIds.add(s.id);
@@ -28,7 +27,6 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
     for (var l in labels) multiSelectedIds.add(l.id);
     for (var g in groups) multiSelectedIds.add(g.id);
     for (var p in portals) multiSelectedIds.add(p.id);
-
     notifyListeners();
   }
 
@@ -37,39 +35,20 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
       isMultiSelectMode = true;
       selectedId = null;
     }
-
     final Set<String> newSelections = {};
-
-    for (var w in walls) {
-      if (rect.contains(w.start) && rect.contains(w.end)) {
+    for (var w in walls)
+      if (rect.contains(w.start) && rect.contains(w.end))
         newSelections.add(w.id);
-      }
-    }
-    for (var o in objects) {
-      if (rect.contains(o.position)) {
-        newSelections.add(o.id);
-      }
-    }
-    for (var s in shapes) {
-      if (rect.overlaps(s.rect.inflate(5.0))) {
-        newSelections.add(s.id);
-      }
-    }
-    for (var g in groups) {
-      if (rect.contains(g.position)) {
-        newSelections.add(g.id);
-      }
-    }
-    for (var p in portals) {
-      if (rect.contains(p.position)) {
-        newSelections.add(p.id);
-      }
-    }
-    for (var l in labels) {
-      if (rect.contains(l.position)) {
-        newSelections.add(l.id);
-      }
-    }
+    for (var o in objects)
+      if (rect.contains(o.position)) newSelections.add(o.id);
+    for (var s in shapes)
+      if (rect.overlaps(s.rect.inflate(5.0))) newSelections.add(s.id);
+    for (var g in groups)
+      if (rect.contains(g.position)) newSelections.add(g.id);
+    for (var p in portals)
+      if (rect.contains(p.position)) newSelections.add(p.id);
+    for (var l in labels)
+      if (rect.contains(l.position)) newSelections.add(l.id);
     for (var p in paths) {
       for (var pt in p.points) {
         if (rect.contains(pt)) {
@@ -78,44 +57,35 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         }
       }
     }
-
     multiSelectedIds.addAll(newSelections);
     notifyListeners();
   }
 
-  // --- UPDATE: Cek Tembok untuk Navigasi ---
   Map<String, String>? findNavigableItemAt(Offset pos) {
-    // Cek Portals
     for (var p in portals.reversed) {
       if ((p.position - pos).distance < (p.width / 2 + 5)) {
-        if (p.navTargetFloorId != null) {
+        if (p.navTargetFloorId != null)
           return {'id': p.id, 'targetPlanId': p.navTargetFloorId!};
-        }
         return null;
       }
     }
-    // Cek Objects
     for (var obj in objects.reversed) {
       if ((obj.position - pos).distance < 25.0) {
-        if (obj.navTargetFloorId != null) {
+        if (obj.navTargetFloorId != null)
           return {'id': obj.id, 'targetPlanId': obj.navTargetFloorId!};
-        }
         return null;
       }
     }
-    // Cek Walls (Baru)
     for (var wall in walls) {
       if (isPointNearLine(pos, wall.start, wall.end, 15.0)) {
-        if (wall.navTargetFloorId != null) {
+        if (wall.navTargetFloorId != null)
           return {'id': wall.id, 'targetPlanId': wall.navTargetFloorId!};
-        }
         return null;
       }
     }
     return null;
   }
 
-  // ... (handleSelection, isPointNearLine, isPointNearPath, deleteSelected, getRawSelectedItems tetap sama) ...
   void handleSelection(Offset pos) {
     String? hitId;
     for (var lbl in labels.reversed) {
@@ -182,11 +152,10 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
 
     if (isMultiSelectMode) {
       if (hitId != null) {
-        if (multiSelectedIds.contains(hitId)) {
+        if (multiSelectedIds.contains(hitId))
           multiSelectedIds.remove(hitId);
-        } else {
+        else
           multiSelectedIds.add(hitId);
-        }
       }
       selectedId = null;
     } else {
@@ -210,9 +179,8 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
   bool isPointNearPath(Offset p, PlanPath path) {
     if (path.points.length < 2) return false;
     for (int i = 0; i < path.points.length - 1; i++) {
-      if (isPointNearLine(p, path.points[i], path.points[i + 1], 10.0)) {
+      if (isPointNearLine(p, path.points[i], path.points[i + 1], 10.0))
         return true;
-      }
     }
     return false;
   }
@@ -222,7 +190,6 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
     final idsToDelete = isMultiSelectMode
         ? multiSelectedIds.toList()
         : [selectedId!];
-
     updateActiveFloor(
       shapes: List.from(shapes)..removeWhere((s) => idsToDelete.contains(s.id)),
       labels: List.from(labels)..removeWhere((l) => idsToDelete.contains(l.id)),
@@ -234,7 +201,6 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
       portals: List.from(portals)
         ..removeWhere((p) => idsToDelete.contains(p.id)),
     );
-
     selectedId = null;
     multiSelectedIds.clear();
     saveState();
@@ -242,7 +208,6 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
 
   Map<String, List<Map<String, dynamic>>> getRawSelectedItems() {
     if (selectedId == null && multiSelectedIds.isEmpty) return {};
-
     final ids = isMultiSelectMode ? multiSelectedIds.toList() : [selectedId!];
     final Map<String, List<Map<String, dynamic>>> result = {
       'objects': [],
@@ -253,33 +218,25 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
       'paths': [],
       'groups': [],
     };
-
-    for (var item in objects) {
+    for (var item in objects)
       if (ids.contains(item.id)) result['objects']!.add(item.toJson());
-    }
-    for (var item in walls) {
+    for (var item in walls)
       if (ids.contains(item.id)) result['walls']!.add(item.toJson());
-    }
-    for (var item in portals) {
+    for (var item in portals)
       if (ids.contains(item.id)) result['portals']!.add(item.toJson());
-    }
-    for (var item in shapes) {
+    for (var item in shapes)
       if (ids.contains(item.id)) result['shapes']!.add(item.toJson());
-    }
-    for (var item in labels) {
+    for (var item in labels)
       if (ids.contains(item.id)) result['labels']!.add(item.toJson());
-    }
-    for (var item in paths) {
+    for (var item in paths)
       if (ids.contains(item.id)) result['paths']!.add(item.toJson());
-    }
-    for (var item in groups) {
+    for (var item in groups)
       if (ids.contains(item.id)) result['groups']!.add(item.toJson());
-    }
     result.removeWhere((key, value) => value.isEmpty);
     return result;
   }
 
-  // --- UPDATE: Sertakan 'nav' untuk Walls ---
+  // --- UPDATE: Sertakan 'desc' untuk Grup dan Portal ---
   Map<String, dynamic>? getSelectedItemData() {
     if (selectedId == null) return null;
 
@@ -288,7 +245,9 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
       return {
         'id': p.id,
         'title': p.type == PlanPortalType.door ? 'Pintu' : 'Jendela',
-        'desc': 'Lebar: ${p.width.toInt()}',
+        'desc': p.description.isNotEmpty
+            ? p.description
+            : 'Lebar: ${p.width.toInt()}', // Gunakan deskripsi jika ada
         'type': 'Struktur',
         'isPath': false,
         'nav': p.navTargetFloorId,
@@ -301,7 +260,7 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
       return {
         'id': g.id,
         'title': g.name,
-        'desc': "Grup",
+        'desc': g.description, // Ambil deskripsi grup
         'type': 'Grup',
         'isPath': false,
         'isGroup': true,
@@ -362,7 +321,7 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         'desc': w.description,
         'type': 'Struktur',
         'isPath': false,
-        'nav': w.navTargetFloorId, // Baru: Sertakan nav
+        'nav': w.navTargetFloorId,
         'refImage': w.referenceImage,
       };
     } catch (_) {}
