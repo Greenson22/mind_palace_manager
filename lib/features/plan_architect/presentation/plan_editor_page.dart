@@ -1,4 +1,6 @@
+// lib/features/plan_architect/presentation/plan_editor_page.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:path/path.dart' as p;
@@ -65,8 +67,7 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
   }
 
   Future<void> _saveBuildingPlan() async {
-    // --- PERUBAHAN: Cek apakah ada perubahan sebelum menyimpan ---
-    // Jika tidak ada perubahan (hanya lihat), return langsung (tidak save & tidak notif)
+    // Cek apakah ada perubahan sebelum menyimpan
     if (!_controller.hasUnsavedChanges) return;
 
     if (widget.buildingDirectory != null) {
@@ -107,9 +108,6 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
       });
 
       await _loadBuildingPlan(_currentFilename);
-
-      // --- PERUBAHAN: Notifikasi "Berpindah ke..." DIHILANGKAN ---
-      // Tidak ada ScaffoldMessenger di sini.
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -252,23 +250,30 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
           canPop: false,
           onPopInvoked: _onWillPop,
           child: Scaffold(
+            // --- TRANSPARENT APPBAR SETTINGS ---
+            extendBodyBehindAppBar: true,
             appBar: AppBar(
               title: Text(
                 title,
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  shadows: [Shadow(color: Colors.black, blurRadius: 4)],
                 ),
               ),
               centerTitle: true,
-              backgroundColor: colorScheme.surface,
-              elevation: 1,
-              shadowColor: Colors.black12,
-              iconTheme: IconThemeData(color: colorScheme.onSurface),
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              iconTheme: const IconThemeData(
+                color: Colors.white,
+                shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+              ),
+              systemOverlayStyle: SystemUiOverlayStyle.light,
               actions: [
                 if (widget.buildingDirectory != null && !isView)
                   IconButton(
-                    icon: const Icon(Icons.save, color: Colors.blue),
+                    icon: const Icon(Icons.save, color: Colors.lightBlueAccent),
                     tooltip: "Simpan Denah",
                     onPressed: _saveBuildingPlan,
                   ),
@@ -335,7 +340,7 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
                 Positioned.fill(
                   child: PlanCanvasView(
                     controller: _controller,
-                    onNavigate: _handleNavigation, // --- CALLBACK NAVIGASI ---
+                    onNavigate: _handleNavigation,
                   ),
                 ),
 
@@ -363,7 +368,7 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
 
                 if (!isView && _controller.activeTool == PlanTool.eraser)
                   Positioned(
-                    top: 16,
+                    top: 100, // Turunkan karena AppBar transparan
                     left: 0,
                     right: 0,
                     child: Center(
@@ -403,7 +408,7 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
 
                 if (!isView && _controller.activeTool == PlanTool.text)
                   Positioned(
-                    top: 16,
+                    top: 100, // Turunkan karena AppBar transparan
                     left: 0,
                     right: 0,
                     child: Center(

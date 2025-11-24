@@ -1,6 +1,8 @@
+// lib/features/plan_architect/presentation/widgets/plan_canvas_view.dart
 import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
 import 'dart:math' as math;
+import 'dart:io';
 import 'package:mind_palace_manager/app_settings.dart';
 import 'package:mind_palace_manager/features/plan_architect/logic/plan_controller.dart';
 import 'package:mind_palace_manager/features/plan_architect/presentation/plan_painter.dart';
@@ -64,72 +66,102 @@ class PlanCanvasView extends StatelessWidget {
     final bool isView = controller.isViewMode;
     final bool allowPan = isHand || isView;
 
-    // Ambil setting dinamis dari AppSettings
+    // --- AMBIL SETTING DARI APPSETTINGS ---
     final double blurSigma = AppSettings.planBackgroundBlur;
     final double overlayOpacity = AppSettings.planBackgroundOpacity;
     final double scaleMultiplier = AppSettings.planBackgroundScale;
+    final bool enableBlur = AppSettings.planEnableBlur;
+    final String bgMode = AppSettings.planBackgroundMode;
+
+    // 1. Logic Background Widget
+    Widget backgroundLayer;
+
+    if (bgMode == 'solid') {
+      backgroundLayer = Container(color: Color(AppSettings.planSolidColor));
+    } else if (bgMode == 'gradient') {
+      backgroundLayer = Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(AppSettings.planGradientColor1),
+              Color(AppSettings.planGradientColor2),
+            ],
+          ),
+        ),
+      );
+    } else if (bgMode == 'image' && AppSettings.planBackgroundImage != null) {
+      final file = File(AppSettings.planBackgroundImage!);
+      if (file.existsSync()) {
+        backgroundLayer = Image.file(
+          file,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
+        );
+      } else {
+        backgroundLayer = Container(color: const Color(0xFF121212));
+      }
+    } else {
+      // Default Mode: Denah itu sendiri yang di-blur (Logic Lama)
+      backgroundLayer = LayoutBuilder(
+        builder: (context, constraints) {
+          final double scaleX = constraints.maxWidth / controller.canvasWidth;
+          final double scaleY = constraints.maxHeight / controller.canvasHeight;
+          final double finalScale = math.max(scaleX, scaleY) * scaleMultiplier;
+
+          return Transform.scale(
+            scale: finalScale,
+            alignment: Alignment.center,
+            child: Center(
+              child: SizedBox(
+                width: controller.canvasWidth,
+                height: controller.canvasHeight,
+                child: RepaintBoundary(
+                  child: CustomPaint(
+                    painter: PlanPainter(controller: controller),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    }
 
     return Stack(
       children: [
-        // 1. BACKGROUND: DYNAMIC BLURRED PLAN
+        // --- LAYER 1: BACKGROUND UTAMA ---
         Positioned.fill(
           child: Stack(
             children: [
-              // A. Base Hitam
-              Container(color: const Color(0xFF121212)),
+              // A. Base Background
+              Positioned.fill(child: backgroundLayer),
 
-              // B. Denah Background (Scaled)
-              // Hanya render jika blur > 0 atau opacity tidak penuh
-              if (blurSigma > 0 || overlayOpacity < 1.0)
+              // B. Efek Blur (Jika Diaktifkan & Sigma > 0)
+              if (enableBlur && blurSigma > 0)
                 Positioned.fill(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      // Hitung scale dasar agar cover layar
-                      final double scaleX =
-                          constraints.maxWidth / controller.canvasWidth;
-                      final double scaleY =
-                          constraints.maxHeight / controller.canvasHeight;
-
-                      // Scale dasar dikali dengan multiplier dari setting
-                      final double finalScale =
-                          math.max(scaleX, scaleY) * scaleMultiplier;
-
-                      return Transform.scale(
-                        scale: finalScale,
-                        alignment: Alignment.center,
-                        child: Center(
-                          child: SizedBox(
-                            width: controller.canvasWidth,
-                            height: controller.canvasHeight,
-                            child: RepaintBoundary(
-                              child: CustomPaint(
-                                painter: PlanPainter(controller: controller),
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
+                  child: BackdropFilter(
+                    filter: ui.ImageFilter.blur(
+                      sigmaX: blurSigma,
+                      sigmaY: blurSigma,
+                    ),
+                    child: Container(color: Colors.transparent),
                   ),
                 ),
 
-              // C. Efek Blur dan Overlay
+              // C. Overlay Gelap/Terang
               Positioned.fill(
-                child: BackdropFilter(
-                  filter: ui.ImageFilter.blur(
-                    sigmaX: blurSigma,
-                    sigmaY: blurSigma,
-                  ),
-                  child: Container(
-                    color: Colors.black.withOpacity(overlayOpacity),
-                  ),
+                child: Container(
+                  color: Colors.black.withOpacity(overlayOpacity),
                 ),
               ),
             ],
           ),
         ),
 
-        // 2. INTERACTIVE VIEWER (FOREGROUND)
+        // --- LAYER 2: INTERACTIVE VIEWER (CANVAS ASLI) ---
         InteractiveViewer(
           transformationController: controller.transformController,
           boundaryMargin: const EdgeInsets.all(double.infinity),
@@ -171,10 +203,10 @@ class PlanCanvasView extends StatelessWidget {
           ),
         ),
 
-        // 4. TOMBOL ZOOM (KANAN ATAS)
+        // --- LAYER 3: TOMBOL ZOOM ---
         Positioned(
           right: 16,
-          top: 16,
+          top: 100, // Turunkan sedikit karena AppBar transparan
           child: Column(
             children: [
               if (controller.showZoomButtons) ...[

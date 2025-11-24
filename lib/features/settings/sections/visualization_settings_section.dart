@@ -4,6 +4,7 @@ import 'package:mind_palace_manager/app_settings.dart';
 import 'package:mind_palace_manager/features/settings/widgets/settings_helpers.dart';
 import 'package:mind_palace_manager/features/settings/dialogs/color_picker_dialog.dart';
 import 'package:mind_palace_manager/features/settings/about_page.dart';
+import 'package:file_picker/file_picker.dart';
 
 class VisualizationSettingsSection extends StatefulWidget {
   final String currentMapPinShape;
@@ -77,6 +78,11 @@ class _VisualizationSettingsSectionState
   late double _planBackgroundBlur;
   late double _planBackgroundOpacity;
   late double _planBackgroundScale;
+  late bool _planEnableBlur;
+  late String _planBackgroundMode;
+  late Color _planSolidColor;
+  late Color _planGradient1;
+  late Color _planGradient2;
 
   @override
   void initState() {
@@ -114,6 +120,19 @@ class _VisualizationSettingsSectionState
     _planBackgroundBlur = AppSettings.planBackgroundBlur;
     _planBackgroundOpacity = AppSettings.planBackgroundOpacity;
     _planBackgroundScale = AppSettings.planBackgroundScale;
+    _planEnableBlur = AppSettings.planEnableBlur;
+    _planBackgroundMode = AppSettings.planBackgroundMode;
+    _planSolidColor = Color(AppSettings.planSolidColor);
+    _planGradient1 = Color(AppSettings.planGradientColor1);
+    _planGradient2 = Color(AppSettings.planGradientColor2);
+  }
+
+  Future<void> _pickPlanBackgroundImage() async {
+    var res = await FilePicker.platform.pickFiles(type: FileType.image);
+    if (res != null && res.files.single.path != null) {
+      await AppSettings.savePlanBackgroundImage(res.files.single.path!);
+      widget.setStateCallback(() {});
+    }
   }
 
   @override
@@ -197,26 +216,133 @@ class _VisualizationSettingsSectionState
         const SizedBox(height: 24),
 
         // --- Tampilan Arsitek Denah (BARU) ---
-        buildSectionHeader(context, 'Tampilan Arsitek Denah'),
+        buildSectionHeader(context, 'Latar Belakang Denah (Arsitek)'),
         buildSettingsCard([
-          buildSliderTile(
-            icon: Icons.blur_on,
-            color: Colors.indigo,
-            title: 'Kekuatan Blur Background',
-            value: _planBackgroundBlur,
-            min: 0.0,
-            max: 50.0,
-            divisions: 50,
+          ListTile(
+            leading: const Icon(Icons.wallpaper, color: Colors.indigo),
+            title: const Text('Mode Background'),
+            trailing: DropdownButton<String>(
+              value: _planBackgroundMode,
+              underline: const SizedBox(),
+              onChanged: (val) async {
+                if (val != null) {
+                  await AppSettings.savePlanBackgroundMode(val);
+                  widget.setStateCallback(() => _planBackgroundMode = val);
+                }
+              },
+              items: const [
+                DropdownMenuItem(
+                  value: 'default',
+                  child: Text('Self (Denah Blur)'),
+                ),
+                DropdownMenuItem(value: 'solid', child: Text('Warna Solid')),
+                DropdownMenuItem(value: 'gradient', child: Text('Gradien')),
+                DropdownMenuItem(value: 'image', child: Text('Gambar Custom')),
+              ],
+            ),
+          ),
+
+          // Kontrol Sesuai Mode
+          if (_planBackgroundMode == 'solid')
+            ListTile(
+              leading: const Icon(Icons.color_lens, color: Colors.indigo),
+              title: const Text('Pilih Warna'),
+              trailing: buildColorCircle(_planSolidColor, () {
+                showColorPickerDialog(
+                  context,
+                  'Pilih Warna Solid',
+                  _planSolidColor,
+                  (c) async {
+                    await AppSettings.savePlanSolidColor(c.value);
+                    widget.setStateCallback(() => _planSolidColor = c);
+                  },
+                );
+              }),
+            ),
+          if (_planBackgroundMode == 'gradient')
+            ListTile(
+              leading: const Icon(Icons.gradient, color: Colors.indigo),
+              title: const Text('Atur Gradien'),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  buildColorCircle(_planGradient1, () {
+                    showColorPickerDialog(
+                      context,
+                      'Warna Awal',
+                      _planGradient1,
+                      (c) async {
+                        await AppSettings.savePlanGradientColors(
+                          c.value,
+                          _planGradient2.value,
+                        );
+                        widget.setStateCallback(() => _planGradient1 = c);
+                      },
+                    );
+                  }),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.arrow_right_alt),
+                  const SizedBox(width: 8),
+                  buildColorCircle(_planGradient2, () {
+                    showColorPickerDialog(
+                      context,
+                      'Warna Akhir',
+                      _planGradient2,
+                      (c) async {
+                        await AppSettings.savePlanGradientColors(
+                          _planGradient1.value,
+                          c.value,
+                        );
+                        widget.setStateCallback(() => _planGradient2 = c);
+                      },
+                    );
+                  }),
+                ],
+              ),
+            ),
+          if (_planBackgroundMode == 'image')
+            ListTile(
+              leading: const Icon(Icons.image, color: Colors.indigo),
+              title: const Text('Pilih Gambar'),
+              trailing: ElevatedButton(
+                onPressed: _pickPlanBackgroundImage,
+                child: const Text('Galeri'),
+              ),
+            ),
+
+          const Divider(indent: 56),
+
+          // Toggle Blur
+          SwitchListTile(
+            secondary: const Icon(Icons.blur_on, color: Colors.indigo),
+            title: const Text('Aktifkan Efek Blur'),
+            value: _planEnableBlur,
             onChanged: (val) async {
-              widget.setStateCallback(() => _planBackgroundBlur = val);
-              await AppSettings.savePlanBackgroundBlur(val);
+              await AppSettings.savePlanEnableBlur(val);
+              widget.setStateCallback(() => _planEnableBlur = val);
             },
           ),
+
+          if (_planEnableBlur)
+            buildSliderTile(
+              icon: Icons.blur_linear,
+              color: Colors.indigo,
+              title: 'Kekuatan Blur',
+              value: _planBackgroundBlur,
+              min: 0.0,
+              max: 50.0,
+              divisions: 50,
+              onChanged: (val) async {
+                widget.setStateCallback(() => _planBackgroundBlur = val);
+                await AppSettings.savePlanBackgroundBlur(val);
+              },
+            ),
+
           const Divider(indent: 56),
           buildSliderTile(
             icon: Icons.brightness_medium,
             color: Colors.indigo,
-            title: 'Kegelapan Overlay (Opacity)',
+            title: 'Kegelapan Overlay',
             value: _planBackgroundOpacity,
             min: 0.0,
             max: 1.0,
@@ -226,20 +352,21 @@ class _VisualizationSettingsSectionState
               await AppSettings.savePlanBackgroundOpacity(val);
             },
           ),
-          const Divider(indent: 56),
-          buildSliderTile(
-            icon: Icons.zoom_out_map,
-            color: Colors.indigo,
-            title: 'Skala Gambar Background',
-            value: _planBackgroundScale,
-            min: 0.5,
-            max: 3.0,
-            divisions: 25,
-            onChanged: (val) async {
-              widget.setStateCallback(() => _planBackgroundScale = val);
-              await AppSettings.savePlanBackgroundScale(val);
-            },
-          ),
+
+          if (_planBackgroundMode == 'default')
+            buildSliderTile(
+              icon: Icons.zoom_out_map,
+              color: Colors.indigo,
+              title: 'Skala Gambar Background',
+              value: _planBackgroundScale,
+              min: 0.5,
+              max: 3.0,
+              divisions: 25,
+              onChanged: (val) async {
+                widget.setStateCallback(() => _planBackgroundScale = val);
+                await AppSettings.savePlanBackgroundScale(val);
+              },
+            ),
         ]),
 
         const SizedBox(height: 24),

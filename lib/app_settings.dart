@@ -76,6 +76,15 @@ class AppSettings {
   static const String _planBackgroundOpacityKey = 'planBackgroundOpacity';
   static const String _planBackgroundScaleKey = 'planBackgroundScale';
 
+  // --- UPDATE TERBARU: BACKGROUND MODE ---
+  static const String _planBackgroundModeKey =
+      'planBackgroundMode'; // 'default', 'solid', 'gradient', 'image'
+  static const String _planBackgroundImageKey = 'planBackgroundImage';
+  static const String _planSolidColorKey = 'planSolidColor';
+  static const String _planGradientColor1Key = 'planGradientColor1';
+  static const String _planGradientColor2Key = 'planGradientColor2';
+  static const String _planEnableBlurKey = 'planEnableBlur';
+
   // --- VARIABLES ---
   static String? baseBuildingsPath;
   static String mapPinShape = 'Bulat';
@@ -144,6 +153,14 @@ class AppSettings {
   static double planBackgroundBlur = 30.0;
   static double planBackgroundOpacity = 0.6;
   static double planBackgroundScale = 1.0;
+
+  // --- UPDATE TERBARU VARIABLES ---
+  static String planBackgroundMode = 'default';
+  static String? planBackgroundImage;
+  static int planSolidColor = 0xFF121212; // Default Gelap
+  static int planGradientColor1 = Colors.blue.shade900.value;
+  static int planGradientColor2 = Colors.black.value;
+  static bool planEnableBlur = true;
 
   static Future<void> loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
@@ -232,9 +249,18 @@ class AppSettings {
     planBackgroundBlur = prefs.getDouble(_planBackgroundBlurKey) ?? 30.0;
     planBackgroundOpacity = prefs.getDouble(_planBackgroundOpacityKey) ?? 0.6;
     planBackgroundScale = prefs.getDouble(_planBackgroundScaleKey) ?? 1.0;
+
+    planBackgroundMode = prefs.getString(_planBackgroundModeKey) ?? 'default';
+    planBackgroundImage = prefs.getString(_planBackgroundImageKey);
+    planSolidColor = prefs.getInt(_planSolidColorKey) ?? 0xFF121212;
+    planGradientColor1 =
+        prefs.getInt(_planGradientColor1Key) ?? Colors.blue.shade900.value;
+    planGradientColor2 =
+        prefs.getInt(_planGradientColor2Key) ?? Colors.black.value;
+    planEnableBlur = prefs.getBool(_planEnableBlurKey) ?? true;
   }
 
-  // ... (SAVE FUNCTIONS LAMA) ...
+  // ... (SAVE FUNCTIONS LAMA TETAP DIPERTAHANKAN, DISALIN DI BAWAH) ...
   static Future<void> saveBackgroundMode(String mode) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_wallpaperModeKey, mode);
@@ -570,6 +596,38 @@ class AppSettings {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble(_planBackgroundScaleKey, value);
     planBackgroundScale = value;
+  }
+
+  static Future<void> savePlanBackgroundMode(String mode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_planBackgroundModeKey, mode);
+    planBackgroundMode = mode;
+  }
+
+  static Future<void> savePlanBackgroundImage(String path) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_planBackgroundImageKey, path);
+    planBackgroundImage = path;
+  }
+
+  static Future<void> savePlanSolidColor(int color) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_planSolidColorKey, color);
+    planSolidColor = color;
+  }
+
+  static Future<void> savePlanGradientColors(int c1, int c2) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_planGradientColor1Key, c1);
+    await prefs.setInt(_planGradientColor2Key, c2);
+    planGradientColor1 = c1;
+    planGradientColor2 = c2;
+  }
+
+  static Future<void> savePlanEnableBlur(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_planEnableBlurKey, value);
+    planEnableBlur = value;
   }
 
   static ThemeMode _getThemeModeFromString(String themeString) {
