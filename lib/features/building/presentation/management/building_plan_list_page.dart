@@ -44,7 +44,6 @@ class _BuildingPlanListPageState extends State<BuildingPlanListPage> {
     });
   }
 
-  // ... (Function _addPlan TETAP SAMA) ...
   Future<void> _addPlan() async {
     final nameCtrl = TextEditingController();
     IconData selectedIcon = Icons.layers;
@@ -136,7 +135,6 @@ class _BuildingPlanListPageState extends State<BuildingPlanListPage> {
     ).then((_) => _loadPlans());
   }
 
-  // ... (Function _editPlanInfo, _deletePlan TETAP SAMA) ...
   Future<void> _editPlanInfo(Map<String, dynamic> plan) async {
     final nameCtrl = TextEditingController(text: plan['name']);
     int currentIconCode = plan['icon'] ?? Icons.map.codePoint;
@@ -243,7 +241,6 @@ class _BuildingPlanListPageState extends State<BuildingPlanListPage> {
     }
   }
 
-  // --- FITUR DUPLIKAT ---
   Future<void> _duplicatePlan(Map<String, dynamic> plan) async {
     setState(() => _isLoading = true);
     try {
@@ -263,10 +260,9 @@ class _BuildingPlanListPageState extends State<BuildingPlanListPage> {
         ).showSnackBar(SnackBar(content: Text("Gagal menyalin: $e")));
       }
     }
-    _loadPlans(); // Refresh & stop loading
+    _loadPlans();
   }
 
-  // --- FITUR JADIKAN UTAMA (DEFAULT) ---
   Future<void> _makeDefault(int index) async {
     if (index == 0) return;
     setState(() => _isLoading = true);
@@ -282,7 +278,6 @@ class _BuildingPlanListPageState extends State<BuildingPlanListPage> {
     }
   }
 
-  // ... (Function _exportPlanImage, _movePlanToAnotherBuilding TETAP SAMA) ...
   Future<void> _exportPlanImage(Map<String, dynamic> plan) async {
     if (AppSettings.exportPath == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -353,23 +348,46 @@ class _BuildingPlanListPageState extends State<BuildingPlanListPage> {
     }
   }
 
+  // --- PINDAH KE BANGUNAN LAIN (FILTERED: HANYA TIPE DENAH) ---
   Future<void> _movePlanToAnotherBuilding(Map<String, dynamic> plan) async {
     final districtDir = widget.buildingDirectory.parent;
-    List<Directory> buildings = [];
-    try {
-      buildings = districtDir
-          .listSync()
-          .whereType<Directory>()
-          .where((d) => d.path != widget.buildingDirectory.path)
-          .toList();
-    } catch (_) {}
+    List<Directory> validTargetBuildings = [];
 
-    if (buildings.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Tidak ada bangunan lain di distrik ini."),
-        ),
-      );
+    try {
+      final entities = districtDir.listSync();
+      for (var entity in entities) {
+        // Skip file & skip bangunan asal
+        if (entity is Directory &&
+            entity.path != widget.buildingDirectory.path) {
+          // Cek Metadata Bangunan
+          final dataFile = File(p.join(entity.path, 'data.json'));
+          if (await dataFile.exists()) {
+            try {
+              final content = await dataFile.readAsString();
+              final data = json.decode(content);
+              // FILTER UTAMA: Hanya yang bertipe 'plan'
+              if (data['type'] == 'plan') {
+                validTargetBuildings.add(entity);
+              }
+            } catch (_) {}
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error filtering buildings: $e");
+    }
+
+    if (validTargetBuildings.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              "Tidak ada bangunan bertipe 'Denah' lain di distrik ini.",
+            ),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
       return;
     }
 
@@ -382,13 +400,16 @@ class _BuildingPlanListPageState extends State<BuildingPlanListPage> {
           width: double.maxFinite,
           child: ListView.builder(
             shrinkWrap: true,
-            itemCount: buildings.length,
+            itemCount: validTargetBuildings.length,
             itemBuilder: (ctx, i) {
               return ListTile(
-                leading: const Icon(Icons.business),
-                title: Text(p.basename(buildings[i].path)),
+                leading: const Icon(
+                  Icons.architecture,
+                  color: Colors.indigo,
+                ), // Icon khusus Denah
+                title: Text(p.basename(validTargetBuildings[i].path)),
                 onTap: () {
-                  targetBuilding = buildings[i];
+                  targetBuilding = validTargetBuildings[i];
                   Navigator.pop(c);
                 },
               );
@@ -406,6 +427,7 @@ class _BuildingPlanListPageState extends State<BuildingPlanListPage> {
 
     if (targetBuilding != null) {
       try {
+        // 1. Pindahkan File
         final oldFile = File(
           p.join(widget.buildingDirectory.path, plan['filename']),
         );
@@ -416,12 +438,14 @@ class _BuildingPlanListPageState extends State<BuildingPlanListPage> {
         await oldFile.copy(newFile.path);
         await oldFile.delete();
 
+        // 2. Update JSON Asal (Hapus)
         await _logic.deletePlan(
           widget.buildingDirectory,
           plan['id'],
           plan['filename'],
         );
 
+        // 3. Update JSON Tujuan (Tambah)
         final targetJsonFile = File(p.join(targetBuilding!.path, 'data.json'));
         if (await targetJsonFile.exists()) {
           final content = await targetJsonFile.readAsString();
@@ -519,7 +543,6 @@ class _BuildingPlanListPageState extends State<BuildingPlanListPage> {
                             style: TextStyle(color: Colors.green, fontSize: 12),
                           )
                         : null,
-                    // --- MENU LENGKAP ---
                     trailing: PopupMenuButton<String>(
                       onSelected: (value) {
                         if (value == 'edit') _editPlanInfo(plan);
@@ -549,7 +572,7 @@ class _BuildingPlanListPageState extends State<BuildingPlanListPage> {
                               dense: true,
                             ),
                           ),
-                          if (index != 0) // Hanya tampilkan jika bukan default
+                          if (index != 0)
                             const PopupMenuItem(
                               value: 'default',
                               child: ListTile(
