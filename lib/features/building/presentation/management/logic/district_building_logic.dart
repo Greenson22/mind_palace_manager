@@ -191,7 +191,9 @@ class DistrictBuildingLogic {
     await removeBuildingFromMapData(name);
   }
 
-  // --- LOGIKA BARU: MANAJEMEN MULTI-DENAH ---
+  // ============================================================
+  // LOGIKA BARU: MANAJEMEN MULTI-DENAH
+  // ============================================================
 
   // 1. Ambil Daftar Denah (dengan migrasi otomatis untuk plan lama)
   Future<List<Map<String, dynamic>>> getBuildingPlans(
@@ -262,6 +264,73 @@ class DistrictBuildingLogic {
       'name': name,
       'filename': filename,
       'icon': iconCodePoint,
+    });
+
+    data['plans'] = plans;
+    await jsonFile.writeAsString(json.encode(data));
+  }
+
+  // --- FITUR BARU: DUPLIKAT DENAH ---
+  Future<void> duplicatePlan(
+    Directory buildingDir,
+    String originalPlanId,
+  ) async {
+    final jsonFile = File(p.join(buildingDir.path, 'data.json'));
+    if (!await jsonFile.exists()) return;
+
+    final data = json.decode(await jsonFile.readAsString());
+    List<dynamic> plans = data['plans'] ?? [];
+
+    final originalPlan = plans.firstWhere(
+      (p) => p['id'] == originalPlanId,
+      orElse: () => null,
+    );
+    if (originalPlan == null) return;
+
+    // Setup Data Baru
+    final newId = DateTime.now().millisecondsSinceEpoch.toString();
+    final newFilename = 'plan_$newId.json';
+    final newName = "${originalPlan['name']} (Salinan)";
+
+    // Copy File Fisik
+    final originalFile = File(
+      p.join(buildingDir.path, originalPlan['filename']),
+    );
+    final newFile = File(p.join(buildingDir.path, newFilename));
+
+    if (await originalFile.exists()) {
+      // Baca konten, ubah nama lantai internal, lalu simpan
+      try {
+        final content = await originalFile.readAsString();
+        final planData = json.decode(content);
+        if (planData['floors'] != null &&
+            (planData['floors'] as List).isNotEmpty) {
+          planData['floors'][0]['name'] = newName;
+        }
+        await newFile.writeAsString(json.encode(planData));
+      } catch (_) {
+        // Fallback jika gagal parse: copy mentah
+        await originalFile.copy(newFile.path);
+      }
+    } else {
+      // Buat baru jika file asli hilang
+      await newFile.writeAsString(
+        json.encode({
+          'floors': [
+            {'id': 'main', 'name': newName},
+          ],
+          'activeIdx': 0,
+          'cc': Colors.white.value,
+        }),
+      );
+    }
+
+    // Tambah ke Daftar
+    plans.add({
+      'id': newId,
+      'name': newName,
+      'filename': newFilename,
+      'icon': originalPlan['icon'],
     });
 
     data['plans'] = plans;
