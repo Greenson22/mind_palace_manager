@@ -42,3 +42,6 @@ flutter_launcher_icons:
   # (Opsional tapi direkomendasikan untuk Android 8+)
   # adaptive_icon_background: "#FFFFFF" # Ganti dengan warna latar belakang
   # adaptive_icon_foreground: "assets/icon/icon-foreground.png" # Ganti dengan gambar foreground (jika ikon Anda tidak transparan)
+
+  # Membuat apk release
+  # flutter build apk --release --no-tree-shake-icons
