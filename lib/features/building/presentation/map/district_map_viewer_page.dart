@@ -12,6 +12,11 @@ import 'package:mind_palace_manager/features/building/presentation/management/di
 // --- IMPORT TRANSISI AWAN ---
 import 'package:mind_palace_manager/features/settings/helpers/cloud_transition.dart';
 
+// --- IMPORT BARU UNTUK DENAH ---
+import 'package:mind_palace_manager/features/plan_architect/presentation/plan_editor_page.dart';
+import 'package:mind_palace_manager/features/building/presentation/management/building_plan_list_page.dart';
+import 'package:mind_palace_manager/features/building/presentation/management/logic/district_building_logic.dart';
+
 class DistrictMapViewerPage extends StatefulWidget {
   final Directory districtDirectory;
 
@@ -98,28 +103,90 @@ class _DistrictMapViewerPageState extends State<DistrictMapViewerPage> {
     }
   }
 
-  void _navigateToBuilding(String buildingFolderName) {
+  // --- FUNGSI NAVIGASI DIPERBARUI ---
+  Future<void> _navigateToBuilding(String buildingFolderName) async {
     final buildingDir = Directory(
       p.join(widget.districtDirectory.path, buildingFolderName),
     );
 
-    if (!buildingDir.existsSync()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Error: Folder bangunan "$buildingFolderName" tidak ditemukan.',
+    if (!await buildingDir.exists()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Error: Folder bangunan "$buildingFolderName" tidak ditemukan.',
+            ),
+            backgroundColor: Colors.red,
           ),
-          backgroundColor: Colors.red,
-        ),
-      );
+        );
+      }
       return;
     }
 
-    // --- MENGGUNAKAN CLOUD TRANSITION ---
-    CloudNavigation.push(
-      context,
-      BuildingViewerPage(buildingDirectory: buildingDir),
-    );
+    // 1. Cek Tipe Bangunan dari data.json
+    String type = 'standard';
+    try {
+      final file = File(p.join(buildingDir.path, 'data.json'));
+      if (await file.exists()) {
+        final data = jsonDecode(await file.readAsString());
+        type = data['type'] ?? 'standard';
+      }
+    } catch (e) {
+      print("Gagal membaca tipe bangunan: $e");
+    }
+
+    if (!mounted) return;
+
+    if (type == 'plan') {
+      // --- JIKA TIPE DENAH ---
+      // Load daftar denah menggunakan logic
+      final logic = DistrictBuildingLogic(widget.districtDirectory);
+      try {
+        final plans = await logic.getBuildingPlans(buildingDir);
+
+        if (!mounted) return;
+
+        if (plans.isEmpty) {
+          // Jika tidak ada denah, arahkan ke halaman manajemen agar user bisa membuatnya
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (c) => BuildingPlanListPage(
+                buildingDirectory: buildingDir,
+                buildingName: p.basename(buildingDir.path),
+              ),
+            ),
+          );
+        } else {
+          // Buka denah PERTAMA (Index 0) dalam Mode Lihat (initialViewMode: true)
+          final firstPlan = plans[0];
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PlanEditorPage(
+                buildingDirectory: buildingDir,
+                initialViewMode: true, // Langsung mode presentasi
+                planFilename: firstPlan['filename'],
+                planName: firstPlan['name'],
+              ),
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Gagal memuat data denah: $e')),
+          );
+        }
+      }
+    } else {
+      // --- JIKA TIPE STANDARD (RUANGAN) ---
+      // Gunakan Cloud Transition seperti biasa
+      CloudNavigation.push(
+        context,
+        BuildingViewerPage(buildingDirectory: buildingDir),
+      );
+    }
   }
 
   void _openBuildingList() {
