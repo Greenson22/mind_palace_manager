@@ -814,6 +814,23 @@ class PlanEditorDialogs {
       context: context,
       builder: (c) => StatefulBuilder(
         builder: (context, setDialogState) {
+          // --- LOGIKA TEMA & KONTRAS (PERBAIKAN) ---
+          // Cek apakah mode gelap aktif
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+
+          // Jika Dark Mode: Gunakan background Ungu Gelap (agar teks terang terbaca)
+          // Jika Light Mode: Gunakan background Ungu Muda (agar teks gelap terbaca)
+          final containerColor = isDark
+              ? Colors.purple.shade900.withOpacity(0.3)
+              : Colors.purple.shade50;
+
+          final borderColor = isDark
+              ? Colors.purple.shade700
+              : Colors.purple.shade100;
+
+          final titleColor = isDark ? Colors.purple.shade200 : Colors.purple;
+          // ---------------------------------------
+
           return AlertDialog(
             title: const Row(
               children: [
@@ -831,20 +848,20 @@ class PlanEditorDialogs {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.purple.shade50,
+                      color: containerColor, // Warna Dinamis
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.purple.shade100),
+                      border: Border.all(color: borderColor), // Border Dinamis
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           "1. Tentukan Spesifikasi:",
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: Colors.purple,
+                            color: titleColor,
                           ),
-                        ),
+                        ), // Warna Judul Dinamis
                         const SizedBox(height: 8),
 
                         // Dropdown Tipe Ruangan
@@ -944,10 +961,14 @@ class PlanEditorDialogs {
                           icon: const Icon(Icons.copy, size: 16),
                           label: const Text("Salin Prompt"),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: Colors.purple,
+                            backgroundColor: isDark
+                                ? Colors.purple.shade800
+                                : Colors.white,
+                            foregroundColor: isDark
+                                ? Colors.white
+                                : Colors.purple,
                             elevation: 0,
-                            side: const BorderSide(color: Colors.purple),
+                            side: BorderSide(color: borderColor),
                             minimumSize: const Size(double.infinity, 36),
                           ),
                           onPressed: () {
