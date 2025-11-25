@@ -5,7 +5,6 @@ import 'plan_state_mixin.dart';
 import '../../data/plan_models.dart';
 
 mixin PlanEditMixin on PlanVariables, PlanStateMixin {
-  // ... (duplicateSelected, updateSelectedWallLength, etc tetap sama) ...
   void duplicateSelected() {
     if (selectedId == null) return;
     final offset = const Offset(20, 20);
@@ -95,13 +94,88 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
 
     int idx;
     if ((idx = groups.indexWhere((g) => g.id == selectedId)) != -1) {
+      PlanGroup group = groups[idx];
+
+      // --- LOGIKA BARU: RESIZE GROUP (SCALING) ---
+      if (stroke != null) {
+        // 1. Hitung ukuran saat ini
+        final currentRect = group.getBounds();
+        final currentWidth = currentRect.width;
+
+        // 2. Hitung faktor skala (Target Width / Current Width)
+        // Cegah pembagian dengan 0
+        if (currentWidth > 0.1) {
+          final scaleFactor = stroke / currentWidth;
+
+          // Batasi skala agar tidak terlalu ekstrem dalam satu langkah
+          if (scaleFactor > 0.01 && scaleFactor < 100) {
+            // Helper function untuk scale posisi relatif
+            // Posisi relatif child terhadap (0,0) grup akan dikalikan scaleFactor
+
+            final newObjects = group.objects.map((o) {
+              return o.copyWith(
+                position: o.position * scaleFactor,
+                size: o.size * scaleFactor,
+              );
+            }).toList();
+
+            final newShapes = group.shapes.map((s) {
+              // Scale rect: left, top, width, height
+              final newRect = Rect.fromLTWH(
+                s.rect.left * scaleFactor,
+                s.rect.top * scaleFactor,
+                s.rect.width * scaleFactor,
+                s.rect.height * scaleFactor,
+              );
+              return s.copyWith(rect: newRect);
+            }).toList();
+
+            final newPaths = group.paths.map((p) {
+              final newPoints = p.points.map((pt) => pt * scaleFactor).toList();
+              return p.copyWith(
+                points: newPoints,
+                strokeWidth: p.strokeWidth * scaleFactor,
+              );
+            }).toList();
+
+            final newWalls = group.walls.map((w) {
+              return w.copyWith(
+                start: w.start * scaleFactor,
+                end: w.end * scaleFactor,
+                thickness: w.thickness * scaleFactor,
+              );
+            }).toList();
+
+            final newPortals = group.portals.map((p) {
+              return p.copyWith(
+                position: p.position * scaleFactor,
+                width: p.width * scaleFactor,
+              );
+            }).toList();
+
+            final newLabels = group.labels.map((l) {
+              return l.copyWith(
+                position: l.position * scaleFactor,
+                fontSize: l.fontSize * scaleFactor,
+              );
+            }).toList();
+
+            group = group.copyWith(
+              objects: newObjects,
+              shapes: newShapes,
+              paths: newPaths,
+              walls: newWalls,
+              portals: newPortals,
+              labels: newLabels,
+            );
+          }
+        }
+      }
+      // -------------------------------------------
+
       updateActiveFloor(
-        // Update Name AND Description for Groups
         groups: List.from(groups)
-          ..[idx] = groups[idx].copyWith(
-            name: name,
-            description: desc, // PERBAIKAN: Menyimpan deskripsi grup
-          ),
+          ..[idx] = group.copyWith(name: name, description: desc),
       );
     } else if ((idx = objects.indexWhere((o) => o.id == selectedId)) != -1) {
       updateActiveFloor(
@@ -151,7 +225,7 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
           ..[idx] = portals[idx].copyWith(
             color: color,
             width: stroke,
-            description: desc, // PERBAIKAN: Menyimpan deskripsi portal
+            description: desc,
             referenceImage: referenceImage,
             navTargetFloorId: navTarget,
           ),
@@ -185,7 +259,6 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
     saveState();
   }
 
-  // ... (Fungsi lain di mixin ini tetap sama) ...
   void updateSelectedWallLength(double newLengthInMeters) {
     if (selectedId == null) return;
     int idx = walls.indexWhere((w) => w.id == selectedId);
@@ -227,7 +300,6 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
       updateSelectedAttribute(stroke: width);
 
   void bringToFront() {
-    // ... (Sama seperti sebelumnya) ...
     if (selectedId == null) return;
 
     int gIdx = groups.indexWhere((g) => g.id == selectedId);
@@ -240,7 +312,7 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
       saveState();
       return;
     }
-    // ... (Logic objek lain sama)
+    // ... (Logic objek lain)
     int oIdx = objects.indexWhere((o) => o.id == selectedId);
     if (oIdx != -1) {
       final item = objects[oIdx];
@@ -294,7 +366,6 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
   }
 
   void sendToBack() {
-    // ... (Sama seperti sebelumnya) ...
     if (selectedId == null) return;
 
     int gIdx = groups.indexWhere((g) => g.id == selectedId);
@@ -360,7 +431,6 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
   }
 
   void mergeSelectedWalls() {
-    // ... (Logic merge wall tetap sama) ...
     final selectedWallIds = <String>[];
     if (selectedId != null) selectedWallIds.add(selectedId!);
     selectedWallIds.addAll(multiSelectedIds);

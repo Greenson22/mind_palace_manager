@@ -32,8 +32,22 @@ class PlanSelectionBar extends StatelessWidget {
     bool isGroup = data != null ? (data['isGroup'] ?? false) : false;
 
     double currentSize = 2.0;
-    if (data != null && !isGroup) {
-      if (data['type'] == 'Struktur') {
+    if (data != null) {
+      // --- LOGIKA BARU: Ambil ukuran untuk Grup ---
+      if (isGroup) {
+        try {
+          // Cari grup yang sedang dipilih
+          final group = controller.groups.firstWhere(
+            (g) => g.id == controller.selectedId,
+          );
+          // Gunakan lebar bounding box grup sebagai referensi ukuran slider
+          currentSize = group.getBounds().width;
+        } catch (_) {
+          currentSize = 50.0;
+        }
+      }
+      // --- Logika Existing untuk Tipe Lain ---
+      else if (data['type'] == 'Struktur') {
         try {
           final wall = controller.walls.firstWhere(
             (w) => w.id == controller.selectedId,
@@ -68,14 +82,10 @@ class PlanSelectionBar extends StatelessWidget {
               .fontSize;
         } catch (_) {}
       } else if (data['type'] == 'Bentuk') {
-        // Untuk bentuk, kita coba ambil lebar rect sebagai referensi 'size'
         try {
           final shape = controller.shapes.firstWhere(
             (s) => s.id == controller.selectedId,
           );
-          // Menggunakan lebar / 10 sebagai representasi nilai slider (karena logic di mixin dikali 10)
-          // Atau kita bisa set default jika logika slider berbeda.
-          // Di PlanEditMixin: newWidth = stroke * 10;
           currentSize = shape.rect.width / 10.0;
         } catch (_) {
           currentSize = 5.0;
@@ -97,6 +107,9 @@ class PlanSelectionBar extends StatelessWidget {
         canMerge = true;
       }
     }
+
+    // Batas Maksimal Slider (Lebih besar untuk Grup agar leluasa resize)
+    double maxSliderVal = isGroup ? 500.0 : 150.0;
 
     return Container(
       constraints: const BoxConstraints(maxWidth: 600),
@@ -162,7 +175,7 @@ class PlanSelectionBar extends StatelessWidget {
                   onPressed: () => PlanEditorDialogs.showEditDialog(
                     context,
                     controller,
-                    buildingDirectory: buildingDirectory, // Pass directory
+                    buildingDirectory: buildingDirectory,
                   ),
                   style: OutlinedButton.styleFrom(
                     visualDensity: VisualDensity.compact,
@@ -183,6 +196,7 @@ class PlanSelectionBar extends StatelessWidget {
           if (data != null)
             Row(
               children: [
+                // Warna disembunyikan untuk grup karena kompleks
                 if (!isGroup)
                   _buildQuickAction(
                     context,
@@ -194,69 +208,71 @@ class PlanSelectionBar extends StatelessWidget {
                     ),
                   ),
                 const SizedBox(width: 8),
-                if (!isGroup)
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // --- MODIFIKASI: Tampilkan Nilai Ukuran ---
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                (data['type'] == 'Struktur' && currentSize > 10)
-                                    ? "Lebar Objek"
-                                    : "Ukuran",
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
+
+                // --- UPDATE: SLIDER SEKARANG MUNCUL UNTUK GRUP JUGA ---
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              isGroup
+                                  ? "Skala (Lebar)"
+                                  : ((data['type'] == 'Struktur' &&
+                                            currentSize > 10)
+                                        ? "Lebar Objek"
+                                        : "Ukuran"),
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: colorScheme.onSurfaceVariant,
                               ),
-                              Text(
-                                currentSize.toStringAsFixed(1),
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: colorScheme.primary,
-                                ),
+                            ),
+                            Text(
+                              currentSize.toStringAsFixed(1),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: colorScheme.primary,
                               ),
-                            ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(
+                        height: 24,
+                        child: SliderTheme(
+                          data: SliderTheme.of(context).copyWith(
+                            thumbShape: const RoundSliderThumbShape(
+                              enabledThumbRadius: 6,
+                            ),
+                            overlayShape: const RoundSliderOverlayShape(
+                              overlayRadius: 12,
+                            ),
+                            trackHeight: 2,
+                          ),
+                          child: Slider(
+                            value: currentSize.clamp(1.0, maxSliderVal),
+                            min: 1.0,
+                            max: maxSliderVal,
+                            divisions: maxSliderVal.toInt() - 1,
+                            onChanged: (v) =>
+                                controller.updateSelectedStrokeWidth(v),
                           ),
                         ),
-                        // ------------------------------------------
-                        SizedBox(
-                          height: 24,
-                          child: SliderTheme(
-                            data: SliderTheme.of(context).copyWith(
-                              thumbShape: const RoundSliderThumbShape(
-                                enabledThumbRadius: 6,
-                              ),
-                              overlayShape: const RoundSliderOverlayShape(
-                                overlayRadius: 12,
-                              ),
-                              trackHeight: 2,
-                            ),
-                            child: Slider(
-                              value: currentSize.clamp(1.0, 150.0),
-                              min: 1.0,
-                              max: 150.0,
-                              divisions: 149,
-                              onChanged: (v) =>
-                                  controller.updateSelectedStrokeWidth(v),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
+                ),
               ],
             ),
 
           const SizedBox(height: 8),
 
-          // 3. PAD PENGGESER
+          // 3. PAD PENGGESER (NUDGE)
           Container(
             padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
             decoration: BoxDecoration(
@@ -417,12 +433,24 @@ class PlanSelectionBar extends StatelessWidget {
                     },
                   ),
 
+                // --- UPDATE: TOMBOL SIMPAN DENGAN FEEDBACK ---
                 if (data != null && (isGroup || (data['isPath'] == true)))
                   _buildQuickAction(
                     context,
                     icon: Icons.bookmark_add,
                     label: "Simpan",
-                    onTap: controller.saveCurrentSelectionToLibrary,
+                    onTap: () {
+                      controller.saveCurrentSelectionToLibrary();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            "Item disimpan ke Library (Tab Custom)",
+                          ),
+                          duration: Duration(seconds: 1),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    },
                   ),
 
                 _buildQuickAction(
