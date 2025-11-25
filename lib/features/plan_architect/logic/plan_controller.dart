@@ -1,7 +1,7 @@
 // lib/features/plan_architect/logic/plan_controller.dart
 import 'dart:convert';
-import 'dart:math' as math; // Ditambahkan untuk random ID
 import 'dart:ui'; // Import UI untuk Color
+import 'dart:math' as math; // Ditambahkan untuk random ID & PI
 import 'package:flutter/material.dart';
 import 'package:mind_palace_manager/app_settings.dart';
 import '../data/plan_models.dart';
@@ -53,7 +53,7 @@ class PlanController extends PlanVariables
     }
   }
 
-  // --- FITUR GENERATIVE UI (AI IMPORT OBJEK) ---
+  // --- FITUR GENERATIVE UI (AI IMPORT OBJEK TUNGGAL) ---
   void importInteriorFromJson(String jsonString) {
     try {
       // 1. Validasi Parsing JSON Dasar
@@ -213,7 +213,7 @@ class PlanController extends PlanVariables
     }
   }
 
-  // --- FITUR BARU: IMPORT DENAH LENGKAP DARI AI ---
+  // --- FITUR BARU: IMPORT DENAH LENGKAP (TEMBOK + PORTAL + LOCI) ---
   void importFullPlanFromJson(String jsonString) {
     try {
       // 1. Parsing JSON
@@ -234,11 +234,9 @@ class PlanController extends PlanVariables
 
       final Map<String, dynamic> data = decoded;
 
-      // Bersihkan denah saat ini (Opsional, uncomment jika ingin reset total)
-      // clearAll();
-
       List<Wall> newWalls = [];
-      List<PlanObject> newObjects = [];
+      List<PlanPortal> newPortals = []; // Khusus Pintu/Jendela
+      List<PlanObject> newObjects = []; // Khusus Interior/Loci
       List<PlanLabel> newLabels = [];
 
       // 2. Parse Walls (Tembok)
@@ -258,25 +256,59 @@ class PlanController extends PlanVariables
                 (w['ex'] as num).toDouble(),
                 (w['ey'] as num).toDouble(),
               ),
-              thickness: 4.0, // Default tebal tembok
+              thickness: 4.0,
               color: Colors.black,
             ),
           );
         }
       }
 
-      // 3. Parse Loci (Objek Memori)
+      // 3. Parse Portals (Pintu & Jendela)
+      if (data.containsKey('portals') && data['portals'] is List) {
+        final List portalsData = data['portals'];
+        for (var p in portalsData) {
+          String typeStr = (p['type'] ?? 'door').toString().toLowerCase();
+          PlanPortalType portalType = typeStr.contains('window')
+              ? PlanPortalType.window
+              : PlanPortalType.door;
+
+          // AI memberikan rotasi dalam derajat (0, 90, 180, 270)
+          // Kita konversi ke Radian
+          double rotDeg = (p['rot'] as num?)?.toDouble() ?? 0.0;
+          double rotRad = rotDeg * (math.pi / 180.0);
+
+          newPortals.add(
+            PlanPortal(
+              id:
+                  DateTime.now().millisecondsSinceEpoch.toString() +
+                  math.Random().nextInt(1000).toString(),
+              position: Offset(
+                (p['x'] as num).toDouble(),
+                (p['y'] as num).toDouble(),
+              ),
+              rotation: rotRad,
+              width: 40.0, // Ukuran standar
+              type: portalType,
+              color: Colors.brown,
+            ),
+          );
+        }
+      }
+
+      // 4. Parse Loci (Objek Interior)
       if (data.containsKey('loci') && data['loci'] is List) {
         final List lociData = data['loci'];
         for (var l in lociData) {
-          // Mapping icon string ke IconData (Sederhana)
+          // Mapping icon string ke IconData
           IconData icon = Icons.circle;
           String iconName = (l['icon'] ?? '').toString().toLowerCase();
-          if (iconName.contains('door'))
-            icon = Icons.door_front_door;
-          else if (iconName.contains('window'))
-            icon = Icons.window;
-          else if (iconName.contains('bed'))
+
+          // Cek jika AI salah memasukkan pintu/jendela ke Loci
+          if (iconName.contains('door') || iconName.contains('window')) {
+            continue;
+          }
+
+          if (iconName.contains('bed'))
             icon = Icons.bed;
           else if (iconName.contains('chair'))
             icon = Icons.chair;
@@ -288,8 +320,11 @@ class PlanController extends PlanVariables
             icon = Icons.shelves;
           else if (iconName.contains('plant'))
             icon = Icons.local_florist;
+          else if (iconName.contains('sofa'))
+            icon = Icons.weekend;
+          else if (iconName.contains('bath') || iconName.contains('toilet'))
+            icon = Icons.bathtub;
 
-          // Gunakan nomor urut jika ada
           String name = l['name'] ?? "Loci";
 
           newObjects.add(
@@ -309,7 +344,7 @@ class PlanController extends PlanVariables
             ),
           );
 
-          // Tambah label angka/nama di dekat objek
+          // Tambah label
           newLabels.add(
             PlanLabel(
               id:
@@ -327,16 +362,17 @@ class PlanController extends PlanVariables
         }
       }
 
-      if (newWalls.isEmpty && newObjects.isEmpty) {
+      if (newWalls.isEmpty && newObjects.isEmpty && newPortals.isEmpty) {
         throw Exception(
-          "JSON tidak berisi data 'walls' atau 'loci' yang valid.",
+          "JSON tidak berisi data valid (walls, portals, atau loci).",
         );
       }
 
-      // 4. Update State
+      // 5. Update State (Merge dengan yang ada)
       updateActiveFloor(
         walls: [...walls, ...newWalls],
         objects: [...objects, ...newObjects],
+        portals: [...portals, ...newPortals],
         labels: [...labels, ...newLabels],
       );
       saveState();

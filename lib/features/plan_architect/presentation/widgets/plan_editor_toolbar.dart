@@ -94,7 +94,7 @@ class PlanEditorToolbar extends StatelessWidget {
                     color: Colors.green,
                   ),
 
-                // --- ADD THIS BUTTON ---
+                // --- TOMBOL AI GENERATOR ---
                 InkWell(
                   onTap: () => PlanEditorDialogs.showAiPlanGenerator(
                     context,
@@ -107,7 +107,7 @@ class PlanEditorToolbar extends StatelessWidget {
                       horizontal: 10,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.purple.shade50, // Warna pembeda
+                      color: Colors.purple.shade50,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: Colors.purple.shade100),
                     ),
@@ -133,9 +133,8 @@ class PlanEditorToolbar extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 4),
-                // -----------------------
 
-                // --- STRUKTUR ---
+                // -----------------------
                 _buildToolBtn(
                   context,
                   icon: Icons.grid_view,
@@ -159,7 +158,6 @@ class PlanEditorToolbar extends StatelessWidget {
                   onTap: () => controller.setTool(PlanTool.window),
                 ),
 
-                // --- TOMBOL BENTUK (SHAPE) DIPERBARUI ---
                 InkWell(
                   onTap: () {
                     showModalBottomSheet(
@@ -182,7 +180,7 @@ class PlanEditorToolbar extends StatelessWidget {
                     icon: Icons.category,
                     label: "Bentuk",
                     isActive: controller.activeTool == PlanTool.shape,
-                    onTap: null, // Tap ditangani oleh InkWell pembungkus
+                    onTap: null,
                   ),
                 ),
 

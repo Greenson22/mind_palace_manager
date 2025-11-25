@@ -814,22 +814,15 @@ class PlanEditorDialogs {
       context: context,
       builder: (c) => StatefulBuilder(
         builder: (context, setDialogState) {
-          // --- LOGIKA TEMA & KONTRAS (PERBAIKAN) ---
-          // Cek apakah mode gelap aktif
           final isDark = Theme.of(context).brightness == Brightness.dark;
 
-          // Jika Dark Mode: Gunakan background Ungu Gelap (agar teks terang terbaca)
-          // Jika Light Mode: Gunakan background Ungu Muda (agar teks gelap terbaca)
           final containerColor = isDark
               ? Colors.purple.shade900.withOpacity(0.3)
               : Colors.purple.shade50;
-
           final borderColor = isDark
               ? Colors.purple.shade700
               : Colors.purple.shade100;
-
           final titleColor = isDark ? Colors.purple.shade200 : Colors.purple;
-          // ---------------------------------------
 
           return AlertDialog(
             title: const Row(
@@ -848,9 +841,9 @@ class PlanEditorDialogs {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: containerColor, // Warna Dinamis
+                      color: containerColor,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: borderColor), // Border Dinamis
+                      border: Border.all(color: borderColor),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -861,10 +854,9 @@ class PlanEditorDialogs {
                             fontWeight: FontWeight.bold,
                             color: titleColor,
                           ),
-                        ), // Warna Judul Dinamis
+                        ),
                         const SizedBox(height: 8),
 
-                        // Dropdown Tipe Ruangan
                         DropdownButtonFormField<String>(
                           value: roomType,
                           decoration: const InputDecoration(
@@ -894,7 +886,6 @@ class PlanEditorDialogs {
 
                         const SizedBox(height: 8),
 
-                        // Dropdown Bentuk
                         DropdownButtonFormField<String>(
                           value: roomShape,
                           decoration: const InputDecoration(
@@ -922,7 +913,6 @@ class PlanEditorDialogs {
 
                         const SizedBox(height: 12),
 
-                        // Slider Loci
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -944,7 +934,6 @@ class PlanEditorDialogs {
                           onChanged: (v) => setDialogState(() => lociCount = v),
                         ),
 
-                        // Context Tambahan
                         TextField(
                           decoration: const InputDecoration(
                             labelText: "Info Tambahan (Opsional)",
@@ -956,7 +945,6 @@ class PlanEditorDialogs {
 
                         const SizedBox(height: 12),
 
-                        // Tombol Copy Prompt
                         ElevatedButton.icon(
                           icon: const Icon(Icons.copy, size: 16),
                           label: const Text("Salin Prompt"),
@@ -972,37 +960,36 @@ class PlanEditorDialogs {
                             minimumSize: const Size(double.infinity, 36),
                           ),
                           onPressed: () {
+                            // --- PROMPT DIPERBARUI UNTUK PORTALS ---
                             final prompt =
                                 """
-Saya sedang membuat Memory Palace. Tolong buatkan kode JSON untuk denah lantai aplikasi.
-Spesifikasi:
-- Ruangan: $roomType
-- Bentuk: $roomShape
-- Jumlah Loci (Titik Memori): ${lociCount.toInt()}
-- Detail: $additionalContext
+Saya membuat Memory Palace. Buatkan JSON denah lantai.
+Spesifikasi: $roomType, Bentuk: $roomShape, Loci: ${lociCount.toInt()}. Detail: $additionalContext.
+Canvas: 0-500 (Pusat ~250,250).
 
-Koordinat Kanvas: 0 sampai 500 (Tengah kira-kira 250,250).
-Format JSON WAJIB seperti ini (HANYA JSON murni, tanpa markdown):
+Format JSON WAJIB (Hanya JSON murni):
 {
   "walls": [
-    {"sx": 100, "sy": 100, "ex": 400, "ey": 100}, 
-    {"sx": 400, "sy": 100, "ex": 400, "ey": 400},
-    ... (lanjutkan tembok menutup ruangan sesuai bentuk)
+    {"sx": 100, "sy": 100, "ex": 400, "ey": 100},
+    ... (lanjutkan tembok menutup ruangan)
+  ],
+  "portals": [
+    {"type": "door", "x": 120, "y": 100, "rot": 0},
+    {"type": "window", "x": 400, "y": 250, "rot": 90}
+    // rot: Rotasi dalam derajat (0=Atas/Datar, 90=Kanan/Tegak, dst).
+    // Letakkan pintu/jendela TEPAT di garis tembok.
   ],
   "loci": [
-    {"name": "1. Pintu Masuk", "x": 120, "y": 120, "icon": "door", "desc": "Titik awal"},
-    {"name": "2. [Nama Objek]", "x": [koordinat], "y": [koordinat], "icon": "[tipe_objek: bed/chair/tv/table/shelf]", "desc": "[deskripsi singkat]"},
-    ... (total ${lociCount.toInt()} item, urutkan searah jarum jam)
+    {"name": "1. [Nama]", "x": 120, "y": 120, "icon": "[tipe: bed/chair/tv/etc]", "desc": "..."},
+    ... (total ${lociCount.toInt()} item interior, urutkan searah jarum jam)
   ]
 }
-Pastikan tembok terhubung rapi. Sebarkan loci di pinggir tembok atau tengah ruangan secara logis.
+PENTING: Pisahkan Pintu/Jendela ke array "portals". Gunakan "loci" hanya untuk furniture/objek memori.
 """;
                             Clipboard.setData(ClipboardData(text: prompt));
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text(
-                                  "Prompt disalin! Tempel ke AI (Gemini/ChatGPT).",
-                                ),
+                                content: Text("Prompt disalin! Tempel ke AI."),
                               ),
                             );
                           },
@@ -1015,7 +1002,6 @@ Pastikan tembok terhubung rapi. Sebarkan loci di pinggir tembok atau tengah ruan
                   const Divider(),
                   const SizedBox(height: 8),
 
-                  // --- BAGIAN 2: IMPORT JSON ---
                   const Text(
                     "2. Paste Hasil JSON di Sini:",
                     style: TextStyle(fontWeight: FontWeight.bold),
@@ -1023,13 +1009,14 @@ Pastikan tembok terhubung rapi. Sebarkan loci di pinggir tembok atau tengah ruan
                   const SizedBox(height: 8),
                   TextField(
                     controller: jsonCtrl,
-                    maxLines: 5,
+                    maxLines: 6,
                     style: const TextStyle(
                       fontFamily: 'monospace',
                       fontSize: 11,
                     ),
                     decoration: const InputDecoration(
-                      hintText: '{"walls": [...], "loci": [...]}',
+                      hintText:
+                          '{"walls": [...], "portals": [...], "loci": [...]}',
                       border: OutlineInputBorder(),
                       filled: true,
                     ),
