@@ -1,5 +1,6 @@
 // lib/features/plan_architect/logic/plan_controller.dart
 import 'dart:convert';
+import 'dart:ui'; // Import UI untuk Color
 import 'package:flutter/material.dart';
 import 'package:mind_palace_manager/app_settings.dart';
 import '../data/plan_models.dart';
@@ -54,75 +55,129 @@ class PlanController extends PlanVariables
   // --- FITUR GENERATIVE UI (AI IMPORT) ---
   void importInteriorFromJson(String jsonString) {
     try {
-      final Map<String, dynamic> data = jsonDecode(jsonString);
+      // 1. Validasi Parsing JSON Dasar
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(jsonString);
+      } catch (e) {
+        throw FormatException(
+          "Format JSON tidak valid. Pastikan tidak ada teks lain selain kode JSON.\nDetail: $e",
+        );
+      }
+
+      if (decoded is! Map<String, dynamic>) {
+        throw const FormatException(
+          "JSON harus berupa Object {}, bukan Array [] atau string biasa.",
+        );
+      }
+
+      final Map<String, dynamic> data = decoded;
       final String name = data['name'] ?? 'Objek AI';
+
+      // 2. Validasi Key 'elements'
+      if (!data.containsKey('elements')) {
+        throw const FormatException(
+          "JSON tidak memiliki key 'elements'. Pastikan struktur JSON sesuai template.",
+        );
+      }
+
       final List<dynamic> elements = data['elements'] ?? [];
+      if (elements.isEmpty) {
+        throw const FormatException(
+          "List 'elements' kosong. Tidak ada objek untuk digambar.",
+        );
+      }
 
       List<PlanShape> shapes = [];
       List<PlanPath> paths = [];
 
       final String groupId = DateTime.now().millisecondsSinceEpoch.toString();
+      // Posisi tengah canvas
       final Offset centerPos = Offset(canvasWidth / 2, canvasHeight / 2);
 
-      for (var el in elements) {
-        String type = el['type'];
-
-        double x = (el['x'] as num).toDouble();
-        double y = (el['y'] as num).toDouble();
-
-        // Parsing Warna
-        String colorStr = el['color'].toString();
-        if (colorStr.startsWith('#')) {
-          colorStr = colorStr.replaceAll('#', '0xFF');
-        }
-        if (!colorStr.startsWith('0x')) {
-          if (colorStr.length == 6) colorStr = '0xFF$colorStr';
-        }
-
-        Color color;
+      // 3. Loop Elements dengan Error Catching per item
+      for (int i = 0; i < elements.length; i++) {
         try {
-          color = Color(int.parse(colorStr));
-        } catch (_) {
-          color = Colors.black;
-        }
+          var el = elements[i];
+          if (el is! Map) continue; // Skip jika bukan object
 
-        if (type == 'shape') {
-          double w = (el['w'] as num).toDouble();
-          double h = (el['h'] as num).toDouble();
+          String type = el['type'] ?? 'unknown';
 
-          String shapeTypeStr = el['shapeType'] ?? 'rectangle';
-          PlanShapeType shapeType = PlanShapeType.values.firstWhere(
-            (e) => e.toString().split('.').last == shapeTypeStr,
-            orElse: () => PlanShapeType.rectangle,
-          );
+          double x = (el['x'] as num?)?.toDouble() ?? 0.0;
+          double y = (el['y'] as num?)?.toDouble() ?? 0.0;
 
-          shapes.add(
-            PlanShape(
-              id: "${groupId}_s_${shapes.length}",
-              rect: Rect.fromCenter(center: Offset(x, y), width: w, height: h),
-              type: shapeType,
-              color: color,
-              isFilled: el['filled'] ?? true,
-              name: "Bagian $name",
-            ),
-          );
-        } else if (type == 'path') {
-          List<dynamic> pointsData = el['points'];
-          List<Offset> points = pointsData.map((p) {
-            return Offset((p[0] as num).toDouble(), (p[1] as num).toDouble());
-          }).toList();
+          // Parsing Warna yang Fleksibel
+          String colorStr = el['color'].toString();
+          if (colorStr.startsWith('#')) {
+            colorStr = colorStr.replaceAll('#', '0xFF');
+          } else if (!colorStr.startsWith('0x') && colorStr.length == 6) {
+            // Asumsi hex tanpa prefix (e.g., FFFFFF)
+            colorStr = '0xFF$colorStr';
+          }
 
-          paths.add(
-            PlanPath(
-              id: "${groupId}_p_${paths.length}",
-              points: points,
-              color: color,
-              strokeWidth: (el['width'] as num?)?.toDouble() ?? 2.0,
-            ),
-          );
+          Color color;
+          try {
+            color = Color(int.parse(colorStr));
+          } catch (_) {
+            color = Colors.black;
+          }
+
+          if (type == 'shape') {
+            double w = (el['w'] as num?)?.toDouble() ?? 20.0;
+            double h = (el['h'] as num?)?.toDouble() ?? 20.0;
+
+            String shapeTypeStr = el['shapeType'] ?? 'rectangle';
+
+            // Mencari Enum yang cocok
+            PlanShapeType shapeType = PlanShapeType.values.firstWhere(
+              (e) => e.toString().split('.').last == shapeTypeStr,
+              orElse: () => PlanShapeType.rectangle,
+            );
+
+            shapes.add(
+              PlanShape(
+                id: "${groupId}_s_${shapes.length}",
+                rect: Rect.fromCenter(
+                  center: Offset(x, y),
+                  width: w,
+                  height: h,
+                ),
+                type: shapeType,
+                color: color,
+                isFilled: el['filled'] ?? true,
+                name: "Bagian $name",
+              ),
+            );
+          } else if (type == 'path') {
+            List<dynamic> pointsData = el['points'] ?? [];
+            if (pointsData.isEmpty) continue;
+
+            List<Offset> points = pointsData.map((p) {
+              if (p is List && p.length >= 2) {
+                return Offset(
+                  (p[0] as num).toDouble(),
+                  (p[1] as num).toDouble(),
+                );
+              }
+              return Offset.zero;
+            }).toList();
+
+            paths.add(
+              PlanPath(
+                id: "${groupId}_p_${paths.length}",
+                points: points,
+                color: color,
+                strokeWidth: (el['width'] as num?)?.toDouble() ?? 2.0,
+              ),
+            );
+          }
+        } catch (e) {
+          debugPrint("Error parsing element index $i: $e");
+          // Lanjutkan ke elemen berikutnya (skip yang error)
         }
       }
 
+      // 4. Cek apakah ada hasil
       if (shapes.isNotEmpty || paths.isNotEmpty) {
         final newGroup = PlanGroup(
           id: groupId,
@@ -146,9 +201,14 @@ class PlanController extends PlanVariables
 
         saveState();
         notifyListeners();
+      } else {
+        throw Exception(
+          "Gagal memproses elemen. Tidak ada shape atau path yang valid ditemukan dalam JSON.",
+        );
       }
     } catch (e) {
-      debugPrint("Gagal import JSON AI: $e");
+      // Rethrow agar UI bisa menangkap pesan error asli
+      rethrow;
     }
   }
 }

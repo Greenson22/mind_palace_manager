@@ -1,6 +1,6 @@
 // lib/features/plan_architect/presentation/dialogs/interior_picker_sheet.dart
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/services.dart'; // Untuk Clipboard
 import 'package:mind_palace_manager/app_settings.dart';
 import 'package:mind_palace_manager/features/plan_architect/logic/plan_controller.dart';
 import 'package:mind_palace_manager/features/plan_architect/data/interior_data.dart';
@@ -689,6 +689,7 @@ Gunakan kombinasi shape sederhana (rectangle, circle, roundedRect) untuk membent
     );
   }
 
+  // --- METHOD IMPORT JSON DENGAN ERROR HANDLING BARU ---
   void _showImportJsonDialog(BuildContext context) {
     final jsonCtrl = TextEditingController();
     showDialog(
@@ -715,20 +716,94 @@ Gunakan kombinasi shape sederhana (rectangle, circle, roundedRect) untuk membent
             onPressed: () {
               if (jsonCtrl.text.trim().isNotEmpty) {
                 try {
+                  // Coba Import
                   widget.controller.importInteriorFromJson(jsonCtrl.text);
+
+                  // Tutup Dialog Import
                   Navigator.pop(c);
+                  // Tutup Sheet Interior Picker
                   Navigator.pop(context);
+
+                  // Sukses
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Objek AI berhasil dibuat!")),
+                    const SnackBar(
+                      content: Text("Berhasil! Objek AI telah dibuat."),
+                      backgroundColor: Colors.green,
+                    ),
                   );
                 } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("Gagal import JSON: $e")),
-                  );
+                  // Tutup Dialog Import dulu
+                  Navigator.pop(c);
+
+                  // Tampilkan Dialog Error Khusus
+                  _showErrorDialog(context, e.toString());
                 }
               }
             },
             child: const Text("Buat Objek"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- Helper Dialog Error ---
+  void _showErrorDialog(BuildContext context, String errorMsg) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.error_outline, color: Colors.red),
+            SizedBox(width: 8),
+            Text("Gagal Import"),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Terjadi kesalahan saat memproses kode JSON. Silakan salin error di bawah dan berikan ke AI untuk diperbaiki.",
+                style: TextStyle(fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade400),
+                ),
+                child: Text(
+                  errorMsg,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontFamily: 'monospace',
+                    color: Colors.red,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton.icon(
+            icon: const Icon(Icons.copy),
+            label: const Text("Salin Error"),
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: errorMsg));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text("Pesan error disalin ke clipboard"),
+                ),
+              );
+            },
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Tutup"),
           ),
         ],
       ),
