@@ -1,4 +1,6 @@
+// lib/features/plan_architect/presentation/dialogs/interior_picker_sheet.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // PENTING: Untuk fitur Copy/Paste Clipboard
 import 'package:mind_palace_manager/app_settings.dart';
 import 'package:mind_palace_manager/features/plan_architect/logic/plan_controller.dart';
 import 'package:mind_palace_manager/features/plan_architect/data/interior_data.dart';
@@ -84,6 +86,7 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
       child: Column(
         children: [
           const SizedBox(height: 8),
+          // Handle Bar
           Container(
             width: 40,
             height: 4,
@@ -92,6 +95,7 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
+          // Search Bar
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: TextField(
@@ -118,6 +122,7 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
               onChanged: (val) => setState(() => _searchQuery = val),
             ),
           ),
+          // Tabs Content
           Expanded(
             child: isSearching
                 ? _buildSearchResults()
@@ -137,7 +142,7 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
                         Expanded(
                           child: TabBarView(
                             children: [
-                              _buildRecentAndCustomTab(),
+                              _buildRecentAndCustomTab(), // Tab pertama yang diubah
                               _buildFavoritesTab(),
                               _buildGrid(_getItemsByCategory('Furnitur')),
                               _buildGrid(_getItemsByCategory('Elektronik')),
@@ -165,16 +170,18 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
 
   Widget _buildSearchResults() {
     final results = _getFilteredItems();
-    if (results.isEmpty)
+    if (results.isEmpty) {
       return Center(
         child: Text(
           "Tidak ditemukan interior '$_searchQuery'",
           style: TextStyle(color: widget.colorScheme.onSurfaceVariant),
         ),
       );
+    }
     return _buildGrid(results);
   }
 
+  // --- TAB CUSTOM: TEMPAT TOMBOL AI BARU ---
   Widget _buildRecentAndCustomTab() {
     final recents = _getRecents();
     final savedCustoms = widget.controller.savedCustomInteriors;
@@ -183,6 +190,58 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
       controller: widget.scrollController,
       padding: const EdgeInsets.all(16),
       children: [
+        // --- [BARU] TOMBOL 1: AI GENERATOR ---
+        InkWell(
+          onTap: () => _showAiPromptGenerator(context),
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.purple.shade50, Colors.blue.shade50],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.purple.withOpacity(0.3)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.auto_awesome,
+                  size: 28,
+                  color: Colors.purple.shade700,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Buat Interior Baru via AI",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.purple.shade900,
+                        ),
+                      ),
+                      Text(
+                        "1. Buat Prompt -> 2. Paste ke Gemini -> 3. Import JSON",
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.purple.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // --- TOMBOL 2: Buat dari Gambar (Existing) ---
         InkWell(
           onTap: () {
             Navigator.pop(context);
@@ -235,7 +294,7 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
         if (savedCustoms.isNotEmpty) ...[
           const SizedBox(height: 24),
           const Text(
-            "Interior Buatan Saya (Custom)",
+            "Interior Buatan Saya (Custom & AI)",
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
@@ -421,6 +480,165 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
                 color: Colors.red.withOpacity(0.8),
               ),
             ),
+        ],
+      ),
+    );
+  }
+
+  // --- [BARU] FUNGSI DIALOG: GENERATE PROMPT ---
+  void _showAiPromptGenerator(BuildContext context) {
+    final textCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text("AI Interior Generator"),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Apa yang ingin Anda buat? (Misal: Sofa L Merah, Meja Kerja Kayu)",
+                style: TextStyle(fontSize: 13, color: Colors.grey),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: textCtrl,
+                decoration: const InputDecoration(
+                  hintText: "Deskripsi detail...",
+                  border: OutlineInputBorder(),
+                ),
+                autofocus: true,
+              ),
+              const SizedBox(height: 16),
+              const Divider(),
+              const Text(
+                "Langkah Selanjutnya:",
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+
+              // Tombol Salin Prompt
+              ElevatedButton.icon(
+                icon: const Icon(Icons.copy),
+                label: const Text("1. Salin Prompt & Buka AI"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.purple.shade50,
+                  foregroundColor: Colors.purple,
+                  alignment: Alignment.centerLeft,
+                ),
+                onPressed: () {
+                  if (textCtrl.text.isEmpty) return;
+
+                  // --- PROMPT RAHASIA UNTUK GEMINI ---
+                  final prompt =
+                      """
+Saya membutuhkan struktur data JSON untuk aplikasi desain denah. 
+Tolong buatkan objek: "${textCtrl.text}".
+Hasilkan HANYA kode JSON mentah (tanpa markdown ```json).
+Format JSON harus seperti ini:
+{
+  "name": "Nama Objek",
+  "elements": [
+    {
+      "type": "shape", 
+      "shapeType": "rectangle" (pilihan: rectangle, roundedRect, circle, triangle),
+      "x": 0.0 (koordinat relatif X dari tengah),
+      "y": 0.0 (koordinat relatif Y dari tengah),
+      "w": 50.0 (lebar),
+      "h": 50.0 (tinggi),
+      "color": "#RRGGBB",
+      "filled": true
+    },
+    {
+      "type": "path",
+      "points": [[0,0], [10,10]], 
+      "color": "#RRGGBB",
+      "width": 2.0
+    }
+  ]
+}
+Gunakan kombinasi shape sederhana (rectangle, circle, roundedRect) untuk membentuk visualisasi "${textCtrl.text}" dari pandangan atas (top-down view/denah).
+""";
+                  // Salin ke Clipboard
+                  Clipboard.setData(ClipboardData(text: prompt));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        "Prompt disalin! Tempel ke Gemini/ChatGPT sekarang.",
+                      ),
+                    ),
+                  );
+                },
+              ),
+
+              const SizedBox(height: 8),
+
+              // Tombol Import JSON
+              ElevatedButton.icon(
+                icon: const Icon(Icons.download),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green.shade50,
+                  foregroundColor: Colors.green.shade800,
+                  alignment: Alignment.centerLeft,
+                ),
+                label: const Text("2. Import JSON Hasil AI"),
+                onPressed: () {
+                  Navigator.pop(c);
+                  _showImportJsonDialog(context);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // --- [BARU] FUNGSI DIALOG: IMPORT JSON ---
+  void _showImportJsonDialog(BuildContext context) {
+    final jsonCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text("Paste JSON dari AI"),
+        content: TextField(
+          controller: jsonCtrl,
+          maxLines: 8,
+          decoration: const InputDecoration(
+            hintText:
+                'Paste kode JSON di sini...\nContoh: {"name": "Sofa", ...}',
+            border: OutlineInputBorder(),
+            filled: true,
+          ),
+          style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c),
+            child: const Text("Batal"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (jsonCtrl.text.trim().isNotEmpty) {
+                // Panggil fungsi di Controller
+                try {
+                  widget.controller.importInteriorFromJson(jsonCtrl.text);
+                  Navigator.pop(c); // Tutup Dialog Import
+                  Navigator.pop(context); // Tutup Sheet Utama
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Objek AI berhasil dibuat!")),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Gagal import JSON: $e")),
+                  );
+                }
+              }
+            },
+            child: const Text("Buat Objek"),
+          ),
         ],
       ),
     );
