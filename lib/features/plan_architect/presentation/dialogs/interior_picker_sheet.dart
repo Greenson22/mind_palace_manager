@@ -227,7 +227,7 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
                         ),
                       ),
                       Text(
-                        "1. Buat Prompt -> 2. Paste ke Gemini -> 3. Import JSON",
+                        "1. Tulis Deskripsi -> 2. Copy Prompt -> 3. Import JSON",
                         style: TextStyle(
                           fontSize: 10,
                           color: Colors.purple.shade700,
@@ -325,7 +325,6 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
                   widget.controller.placeSavedItem(customItem, center);
                   Navigator.pop(context);
                 },
-                // --- FITUR BARU: HAPUS INTERIOR CUSTOM ---
                 onLongPress: () {
                   showDialog(
                     context: context,
@@ -363,7 +362,6 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
                     ),
                   );
                 },
-                // -----------------------------------------
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
                   decoration: BoxDecoration(
@@ -533,54 +531,113 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
   // --- FUNGSI DIALOG: GENERATE PROMPT ---
   void _showAiPromptGenerator(BuildContext context) {
     final textCtrl = TextEditingController();
+    String detailLevel = 'medium'; // Default: Menengah
 
     showDialog(
       context: context,
-      builder: (c) => AlertDialog(
-        title: const Text("AI Interior Generator"),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                "Apa yang ingin Anda buat? (Misal: Sofa L Merah, Meja Kerja Kayu)",
-                style: TextStyle(fontSize: 13, color: Colors.grey),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: textCtrl,
-                decoration: const InputDecoration(
-                  hintText: "Deskripsi detail...",
-                  border: OutlineInputBorder(),
-                ),
-                autofocus: true,
-              ),
-              const SizedBox(height: 16),
-              const Divider(),
-              const Text(
-                "Langkah Selanjutnya:",
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
+      builder: (c) => StatefulBuilder(
+        builder: (context, setStateDialog) {
+          return AlertDialog(
+            title: const Text("AI Interior Generator"),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Apa yang ingin Anda buat?",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const Text(
+                    "Contoh: Grand Piano Hitam, Meja Billiard, Kasur Tingkat",
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: textCtrl,
+                    decoration: const InputDecoration(
+                      hintText: "Deskripsi detail...",
+                      border: OutlineInputBorder(),
+                    ),
+                    autofocus: true,
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 16),
 
-              // Tombol Salin Prompt
-              ElevatedButton.icon(
-                icon: const Icon(Icons.copy),
-                label: const Text("1. Salin Prompt & Buka AI"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.purple.shade50,
-                  foregroundColor: Colors.purple,
-                  alignment: Alignment.centerLeft,
-                ),
-                onPressed: () {
-                  if (textCtrl.text.isEmpty) return;
+                  // --- PILIHAN TINGKAT DETAIL ---
+                  const Text(
+                    "Tingkat Kedetailan:",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  DropdownButtonFormField<String>(
+                    value: detailLevel,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12),
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'low',
+                        child: Text("Sederhana (Low)"),
+                      ),
+                      DropdownMenuItem(
+                        value: 'medium',
+                        child: Text("Menengah (Standard)"),
+                      ),
+                      DropdownMenuItem(
+                        value: 'high',
+                        child: Text("Sangat Detail (Complex)"),
+                      ),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) {
+                        setStateDialog(() => detailLevel = val);
+                      }
+                    },
+                  ),
 
-                  // --- PROMPT RAHASIA UNTUK GEMINI ---
-                  final prompt =
-                      """
+                  // -----------------------------
+                  const SizedBox(height: 16),
+                  const Divider(),
+                  const Text(
+                    "Langkah Selanjutnya:",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Tombol Salin Prompt
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.copy),
+                    label: const Text("1. Salin Prompt & Buka AI"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.purple.shade50,
+                      foregroundColor: Colors.purple,
+                      alignment: Alignment.centerLeft,
+                      minimumSize: const Size(double.infinity, 45),
+                    ),
+                    onPressed: () {
+                      if (textCtrl.text.isEmpty) return;
+
+                      // --- KONSTRUKSI PROMPT BERDASARKAN DETAIL ---
+                      String detailInstruction = "";
+                      if (detailLevel == 'low') {
+                        detailInstruction =
+                            "Tingkat Detail: RENDAH. Gunakan sedikit shape (3-8 shape). Gunakan bentuk geometris dasar saja. Fokus pada siluet utama.";
+                      } else if (detailLevel == 'medium') {
+                        detailInstruction =
+                            "Tingkat Detail: MENENGAH. Gunakan detail standar (10-20 shape). Tambahkan aksen seperti sandaran tangan atau kaki meja.";
+                      } else {
+                        detailInstruction =
+                            "Tingkat Detail: SANGAT TINGGI (COMPLEX). Gunakan BANYAK shape kecil (20-50+ shape) untuk menciptakan tekstur, tombol, bayangan, dan detail realistis. Pecah objek besar menjadi komponen kecil. Tumpuk shape untuk efek gradasi/detail.";
+                      }
+
+                      final prompt =
+                          """
 Saya membutuhkan struktur data JSON untuk aplikasi desain denah. 
 Tolong buatkan objek: "${textCtrl.text}".
+$detailInstruction
+
 Hasilkan HANYA kode JSON mentah (tanpa markdown ```json).
 Format JSON harus seperti ini:
 {
@@ -606,37 +663,46 @@ Format JSON harus seperti ini:
 }
 Gunakan kombinasi shape sederhana (rectangle, circle, roundedRect) untuk membentuk visualisasi "${textCtrl.text}" dari pandangan atas (top-down view/denah).
 """;
-                  // Salin ke Clipboard
-                  Clipboard.setData(ClipboardData(text: prompt));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        "Prompt disalin! Tempel ke Gemini/ChatGPT sekarang.",
-                      ),
+                      // Salin ke Clipboard
+                      Clipboard.setData(ClipboardData(text: prompt));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            "Prompt disalin! Tempel ke Gemini/ChatGPT sekarang.",
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  // Tombol Import JSON
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.download),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green.shade50,
+                      foregroundColor: Colors.green.shade800,
+                      alignment: Alignment.centerLeft,
+                      minimumSize: const Size(double.infinity, 45),
                     ),
-                  );
-                },
+                    label: const Text("2. Import JSON Hasil AI"),
+                    onPressed: () {
+                      Navigator.pop(c);
+                      _showImportJsonDialog(context);
+                    },
+                  ),
+                ],
               ),
-
-              const SizedBox(height: 8),
-
-              // Tombol Import JSON
-              ElevatedButton.icon(
-                icon: const Icon(Icons.download),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green.shade50,
-                  foregroundColor: Colors.green.shade800,
-                  alignment: Alignment.centerLeft,
-                ),
-                label: const Text("2. Import JSON Hasil AI"),
-                onPressed: () {
-                  Navigator.pop(c);
-                  _showImportJsonDialog(context);
-                },
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(c),
+                child: const Text("Tutup"),
               ),
             ],
-          ),
-        ),
+          );
+        },
       ),
     );
   }
