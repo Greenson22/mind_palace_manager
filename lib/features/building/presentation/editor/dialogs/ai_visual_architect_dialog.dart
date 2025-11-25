@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
-import 'package:flutter_markdown/flutter_markdown.dart'; // Pastikan package ini ada
+import 'package:flutter_markdown/flutter_markdown.dart';
 
 class AiVisualArchitectDialog extends StatefulWidget {
   final Directory buildingDirectory;
@@ -54,6 +54,7 @@ class _AiVisualArchitectDialogState extends State<AiVisualArchitectDialog> {
     final lociString =
         "${_promptLociRange.start.round()} - ${_promptLociRange.end.round()}";
 
+    // MASTER PROMPT (UPDATED)
     setState(() {
       _generatedInstruction =
           """
@@ -131,8 +132,8 @@ Plaintext
         p.join(widget.buildingDirectory.path, 'prompts_history.txt'),
       );
       final timestamp = DateTime.now().toString().substring(0, 16);
-      // Simpan format Markdown di file text
-      final entry = "\n\n## [SAVED: $timestamp]\n${_aiResultCtrl.text}\n***\n";
+      // Simpan dengan separator '***' untuk memudahkan pemisahan list nanti
+      final entry = "\n\n## [SAVED: $timestamp]\n${_aiResultCtrl.text}\n***";
 
       await file.writeAsString(entry, mode: FileMode.append);
 
@@ -159,38 +160,133 @@ Plaintext
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("Riwayat Prompt"),
-        // Menggunakan Container dengan ukuran tetap agar scrollable
         content: SizedBox(
           width: double.maxFinite,
-          height: 400,
+          height: 500,
           child: FutureBuilder<String>(
-            future: file.existsSync()
-                ? file.readAsString()
-                : Future.value("Belum ada riwayat."),
+            future: file.existsSync() ? file.readAsString() : Future.value(""),
             builder: (context, snapshot) {
-              if (!snapshot.hasData)
+              if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
+              }
 
-              // Menggunakan Markdown Widget untuk merender teks
-              return Markdown(
-                data: snapshot.data!,
-                selectable: true,
-                styleSheet: MarkdownStyleSheet(
-                  h2: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue,
+              final fullText = snapshot.data ?? "";
+              if (fullText.trim().isEmpty) {
+                return const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.history, size: 48, color: Colors.grey),
+                      SizedBox(height: 8),
+                      Text("Belum ada riwayat tersimpan."),
+                    ],
                   ),
-                  code: const TextStyle(
-                    backgroundColor: Colors.black12,
-                    fontFamily: 'monospace',
-                    fontSize: 12,
-                  ),
-                  codeblockDecoration: BoxDecoration(
-                    color: Colors.black12,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
+                );
+              }
+
+              // Split teks berdasarkan separator '***'
+              final List<String> entries = fullText
+                  .split('***')
+                  .where((e) => e.trim().isNotEmpty)
+                  .toList();
+
+              // Balik urutan agar yang terbaru di atas
+              final reversedEntries = entries.reversed.toList();
+
+              return ListView.builder(
+                itemCount: reversedEntries.length,
+                itemBuilder: (context, index) {
+                  final entryRaw = reversedEntries[index].trim();
+
+                  // Parsing Judul dan Isi
+                  String title = "Entry #${entries.length - index}";
+                  String body = entryRaw;
+
+                  // Ambil baris tanggal sebagai judul
+                  final firstLineEnd = entryRaw.indexOf('\n');
+                  if (firstLineEnd != -1) {
+                    final firstLine = entryRaw
+                        .substring(0, firstLineEnd)
+                        .trim();
+                    if (firstLine.startsWith('##')) {
+                      title = firstLine
+                          .replaceAll('#', '')
+                          .replaceAll('[', '')
+                          .replaceAll(']', '')
+                          .trim();
+                      body = entryRaw.substring(firstLineEnd).trim();
+                    }
+                  }
+
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    elevation: 2,
+                    child: ExpansionTile(
+                      leading: const CircleAvatar(
+                        backgroundColor: Colors.purple,
+                        child: Icon(Icons.code, color: Colors.white, size: 20),
+                      ),
+                      title: Text(
+                        title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      children: [
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12.0),
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.black26
+                              : Colors.grey.shade50,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              MarkdownBody(
+                                data: body,
+                                selectable: true,
+                                styleSheet: MarkdownStyleSheet(
+                                  code: const TextStyle(
+                                    fontFamily: 'monospace',
+                                    backgroundColor: Colors.transparent,
+                                  ),
+                                  codeblockDecoration: BoxDecoration(
+                                    color: Colors.black12,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  OutlinedButton.icon(
+                                    icon: const Icon(Icons.copy, size: 16),
+                                    label: const Text("Salin Semua"),
+                                    onPressed: () {
+                                      Clipboard.setData(
+                                        ClipboardData(text: body),
+                                      );
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text("Prompt disalin!"),
+                                          duration: Duration(seconds: 1),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
               );
             },
           ),
@@ -202,8 +298,36 @@ Plaintext
               style: TextStyle(color: Colors.red),
             ),
             onPressed: () async {
-              if (await file.exists()) await file.delete();
-              if (context.mounted) Navigator.pop(ctx);
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (c) => AlertDialog(
+                  title: const Text("Hapus Riwayat?"),
+                  content: const Text("Tindakan ini tidak dapat dibatalkan."),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(c, false),
+                      child: const Text("Batal"),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                      ),
+                      onPressed: () => Navigator.pop(c, true),
+                      child: const Text("Hapus"),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirm == true) {
+                if (await file.exists()) await file.delete();
+                if (context.mounted) {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Riwayat dihapus.")),
+                  );
+                }
+              }
             },
           ),
           TextButton(
