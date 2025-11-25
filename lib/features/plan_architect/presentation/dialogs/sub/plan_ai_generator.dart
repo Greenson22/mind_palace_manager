@@ -12,6 +12,11 @@ class PlanAiGeneratorDialog extends StatefulWidget {
 
 class _PlanAiGeneratorDialogState extends State<PlanAiGeneratorDialog> {
   final jsonCtrl = TextEditingController();
+
+  // Controller untuk input manual (Isi Sendiri)
+  final customTypeCtrl = TextEditingController();
+  final customShapeCtrl = TextEditingController();
+
   String roomType = 'Kamar Tidur';
   String roomShape = 'Kotak (Persegi)';
   double lociCount = 5;
@@ -20,6 +25,8 @@ class _PlanAiGeneratorDialogState extends State<PlanAiGeneratorDialog> {
   @override
   void dispose() {
     jsonCtrl.dispose();
+    customTypeCtrl.dispose();
+    customShapeCtrl.dispose();
     super.dispose();
   }
 
@@ -65,14 +72,19 @@ class _PlanAiGeneratorDialogState extends State<PlanAiGeneratorDialog> {
                     ),
                   ),
                   const SizedBox(height: 8),
+
+                  // --- DROPDOWN TIPE RUANGAN ---
                   DropdownButtonFormField<String>(
                     value: roomType,
+                    isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: "Tipe Ruangan",
                       isDense: true,
                     ),
                     items:
                         [
+                              'AI yang Tentukan',
+                              'Isi Sendiri (Custom)',
                               'Kamar Tidur',
                               'Ruang Tamu',
                               'Dapur',
@@ -88,20 +100,43 @@ class _PlanAiGeneratorDialogState extends State<PlanAiGeneratorDialog> {
                             .toList(),
                     onChanged: (v) => setState(() => roomType = v!),
                   ),
+
+                  // Field Input Manual Tipe Ruangan
+                  if (roomType == 'Isi Sendiri (Custom)')
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: TextField(
+                        controller: customTypeCtrl,
+                        decoration: const InputDecoration(
+                          labelText: "Ketik Tipe Ruangan",
+                          hintText: "Misal: Penjara Bawah Tanah",
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+
                   const SizedBox(height: 8),
+
+                  // --- DROPDOWN BENTUK RUANGAN ---
                   DropdownButtonFormField<String>(
                     value: roomShape,
+                    isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: "Bentuk Ruangan",
                       isDense: true,
                     ),
                     items:
                         [
+                              'AI yang Tentukan',
+                              'Isi Sendiri (Custom)',
                               'Kotak (Persegi)',
                               'Persegi Panjang',
                               'Bentuk L',
                               'Bentuk U',
                               'Koridor Panjang',
+                              'Lingkaran/Oval',
+                              'Heksagonal',
                             ]
                             .map(
                               (e) => DropdownMenuItem(value: e, child: Text(e)),
@@ -109,7 +144,24 @@ class _PlanAiGeneratorDialogState extends State<PlanAiGeneratorDialog> {
                             .toList(),
                     onChanged: (v) => setState(() => roomShape = v!),
                   ),
+
+                  // Field Input Manual Bentuk Ruangan
+                  if (roomShape == 'Isi Sendiri (Custom)')
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: TextField(
+                        controller: customShapeCtrl,
+                        decoration: const InputDecoration(
+                          labelText: "Ketik Bentuk Ruangan",
+                          hintText: "Misal: Segitiga sama kaki",
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+
                   const SizedBox(height: 12),
+
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -123,20 +175,23 @@ class _PlanAiGeneratorDialogState extends State<PlanAiGeneratorDialog> {
                   Slider(
                     value: lociCount,
                     min: 3,
-                    max: 20,
-                    divisions: 17,
+                    max: 30, // Ditingkatkan sedikit
+                    divisions: 27,
                     activeColor: Colors.purple,
                     onChanged: (v) => setState(() => lociCount = v),
                   ),
+
                   TextField(
                     decoration: const InputDecoration(
                       labelText: "Info Tambahan (Opsional)",
-                      hintText: "Cth: Ada piano di pojok, gaya modern",
+                      hintText: "Cth: Ada piano di pojok, nuansa gelap",
                       isDense: true,
                     ),
                     onChanged: (v) => additionalContext = v,
                   ),
+
                   const SizedBox(height: 12),
+
                   ElevatedButton.icon(
                     icon: const Icon(Icons.copy, size: 16),
                     label: const Text("Salin Prompt"),
@@ -189,30 +244,62 @@ class _PlanAiGeneratorDialogState extends State<PlanAiGeneratorDialog> {
   }
 
   void _copyPrompt() {
+    // Logika Penentuan Teks Akhir
+    String finalType = roomType;
+    if (roomType == 'Isi Sendiri (Custom)') {
+      finalType = customTypeCtrl.text.isNotEmpty
+          ? customTypeCtrl.text
+          : 'Bebas';
+    } else if (roomType == 'AI yang Tentukan') {
+      finalType = 'Tentukan sendiri tipe ruangan yang logis dan menarik';
+    }
+
+    String finalShape = roomShape;
+    if (roomShape == 'Isi Sendiri (Custom)') {
+      finalShape = customShapeCtrl.text.isNotEmpty
+          ? customShapeCtrl.text
+          : 'Bebas';
+    } else if (roomShape == 'AI yang Tentukan') {
+      finalShape = 'Tentukan sendiri bentuk yang paling optimal';
+    }
+
     final prompt =
         """
 Saya membuat Memory Palace. Buatkan JSON denah lantai.
-Spesifikasi: $roomType, Bentuk: $roomShape, Loci: ${lociCount.toInt()}. Detail: $additionalContext.
+Spesifikasi: $finalType.
+Bentuk Ruangan: $finalShape.
+Jumlah Loci (Interior): ${lociCount.toInt()}.
+Detail Tambahan: $additionalContext.
 Canvas: 0-500 (Pusat ~250,250).
 
-Format JSON WAJIB (Hanya JSON murni):
+Format JSON WAJIB (Hanya JSON murni tanpa markdown):
 {
   "walls": [
     {"sx": 100, "sy": 100, "ex": 400, "ey": 100},
-    ... (lanjutkan tembok menutup ruangan)
+    ... (lanjutkan tembok menutup ruangan sesuai bentuk)
   ],
   "portals": [
     {"type": "door", "x": 120, "y": 100, "rot": 0},
     {"type": "window", "x": 400, "y": 250, "rot": 90}
-    // rot: Rotasi dalam derajat (0=Atas/Datar, 90=Kanan/Tegak, dst).
+    // rot: Rotasi dalam derajat (0=Atas, 90=Kanan, dst).
     // Letakkan pintu/jendela TEPAT di garis tembok.
   ],
   "loci": [
-    {"name": "1. [Nama]", "x": 120, "y": 120, "icon": "[tipe: bed/chair/tv/etc]", "desc": "..."},
+    {
+      "name": "1. [Nama]", 
+      "x": 120, 
+      "y": 120, 
+      "icon": "[tipe: bed/chair/tv/table/sofa/bath/etc]", 
+      "desc": "...",
+      "size": 20.0 
+    },
     ... (total ${lociCount.toInt()} item interior, urutkan searah jarum jam)
   ]
 }
-PENTING: Pisahkan Pintu/Jendela ke array "portals". Gunakan "loci" hanya untuk furniture/objek memori.
+PENTING: 
+1. Pisahkan Pintu/Jendela ke array "portals". 
+2. Gunakan "loci" hanya untuk furniture/objek memori.
+3. Properti "size" pada "loci" adalah skala objek (double). Gunakan variasi ukuran yang logis (contoh: Lampu=15.0, Kursi=20.0, Meja=35.0, Kasur=50.0).
 """;
     Clipboard.setData(ClipboardData(text: prompt));
     ScaffoldMessenger.of(context).showSnackBar(
