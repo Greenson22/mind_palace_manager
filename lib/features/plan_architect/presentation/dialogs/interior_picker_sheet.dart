@@ -142,7 +142,7 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
                         Expanded(
                           child: TabBarView(
                             children: [
-                              _buildRecentAndCustomTab(), // Tab pertama yang diubah
+                              _buildRecentAndCustomTab(),
                               _buildFavoritesTab(),
                               _buildGrid(_getItemsByCategory('Furnitur')),
                               _buildGrid(_getItemsByCategory('Elektronik')),
@@ -181,7 +181,7 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
     return _buildGrid(results);
   }
 
-  // --- TAB CUSTOM: TEMPAT TOMBOL AI BARU ---
+  // --- TAB CUSTOM ---
   Widget _buildRecentAndCustomTab() {
     final recents = _getRecents();
     final savedCustoms = widget.controller.savedCustomInteriors;
@@ -190,7 +190,7 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
       controller: widget.scrollController,
       padding: const EdgeInsets.all(16),
       children: [
-        // --- [BARU] TOMBOL 1: AI GENERATOR ---
+        // --- TOMBOL 1: AI GENERATOR ---
         InkWell(
           onTap: () => _showAiPromptGenerator(context),
           borderRadius: BorderRadius.circular(12),
@@ -241,7 +241,7 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
           ),
         ),
 
-        // --- TOMBOL 2: Buat dari Gambar (Existing) ---
+        // --- TOMBOL 2: Buat dari Gambar ---
         InkWell(
           onTap: () {
             Navigator.pop(context);
@@ -297,7 +297,13 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
             "Interior Buatan Saya (Custom & AI)",
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 12),
+          const Padding(
+            padding: EdgeInsets.only(top: 4, bottom: 12),
+            child: Text(
+              "Tekan lama untuk menghapus.",
+              style: TextStyle(fontSize: 10, color: Colors.grey),
+            ),
+          ),
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -319,6 +325,45 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
                   widget.controller.placeSavedItem(customItem, center);
                   Navigator.pop(context);
                 },
+                // --- FITUR BARU: HAPUS INTERIOR CUSTOM ---
+                onLongPress: () {
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text("Hapus Interior?"),
+                      content: Text(
+                        "Hapus '${customItem.name}' dari daftar custom?",
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text("Batal"),
+                        ),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              widget.controller.savedCustomInteriors.removeAt(
+                                i,
+                              );
+                            });
+                            Navigator.pop(ctx);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text("Interior custom dihapus."),
+                                duration: Duration(milliseconds: 800),
+                              ),
+                            );
+                          },
+                          child: const Text("Hapus"),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                // -----------------------------------------
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
                   decoration: BoxDecoration(
@@ -485,7 +530,7 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
     );
   }
 
-  // --- [BARU] FUNGSI DIALOG: GENERATE PROMPT ---
+  // --- FUNGSI DIALOG: GENERATE PROMPT ---
   void _showAiPromptGenerator(BuildContext context) {
     final textCtrl = TextEditingController();
 
@@ -596,7 +641,7 @@ Gunakan kombinasi shape sederhana (rectangle, circle, roundedRect) untuk membent
     );
   }
 
-  // --- [BARU] FUNGSI DIALOG: IMPORT JSON ---
+  // --- FUNGSI DIALOG: IMPORT JSON ---
   void _showImportJsonDialog(BuildContext context) {
     final jsonCtrl = TextEditingController();
     showDialog(
