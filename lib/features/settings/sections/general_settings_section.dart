@@ -2,10 +2,13 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
-import 'package:path/path.dart' as p; // Tambahan Import
+import 'package:path/path.dart' as p;
 import 'package:mind_palace_manager/app_settings.dart';
 import 'package:mind_palace_manager/features/settings/widgets/settings_helpers.dart';
 import 'package:mind_palace_manager/features/settings/dialogs/wallpaper_manager_dialogs.dart';
+
+// --- IMPORT HALAMAN BACKUP (Pastikan file ini sudah dibuat) ---
+import 'package:mind_palace_manager/features/settings/backup_page.dart';
 
 class GeneralSettingsSection extends StatelessWidget {
   final TextEditingController folderController;
@@ -247,6 +250,21 @@ class GeneralSettingsSection extends StatelessWidget {
               onPressed: () => _pickAndSaveExportFolder(context),
               tooltip: 'Ubah Folder Export',
             ),
+          ),
+
+          // --- FITUR BACKUP & RESTORE (BARU) ---
+          const Divider(indent: 56),
+          ListTile(
+            leading: Icon(Icons.backup, color: primaryColor),
+            title: const Text('Backup & Restore'),
+            subtitle: const Text('Cadangkan atau pulihkan data (.zip)'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (c) => const BackupPage()),
+              );
+            },
           ),
         ]),
       ],
