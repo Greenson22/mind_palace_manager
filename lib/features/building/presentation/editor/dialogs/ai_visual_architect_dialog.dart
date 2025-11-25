@@ -37,7 +37,6 @@ class _AiVisualArchitectDialogState extends State<AiVisualArchitectDialog> {
   // --- Logic ---
 
   void _runPromptGeneration() {
-    // Logika: Jika kosong, biarkan AI yang menentukan
     final theme = _promptThemeCtrl.text.trim().isEmpty
         ? "BEBAS (Tentukan sendiri tema yang paling atmosferik dan koheren)"
         : _promptThemeCtrl.text;
@@ -50,11 +49,9 @@ class _AiVisualArchitectDialogState extends State<AiVisualArchitectDialog> {
         ? "BEBAS (Sesuaikan gaya pintu dengan Tema Utama)"
         : _promptDoorCtrl.text;
 
-    // Format rentang loci (misal: "5-10")
     final lociString =
         "${_promptLociRange.start.round()} - ${_promptLociRange.end.round()}";
 
-    // MASTER PROMPT (UPDATED)
     setState(() {
       _generatedInstruction =
           """
@@ -132,7 +129,7 @@ Plaintext
         p.join(widget.buildingDirectory.path, 'prompts_history.txt'),
       );
       final timestamp = DateTime.now().toString().substring(0, 16);
-      // Simpan dengan separator '***' untuk memudahkan pemisahan list nanti
+      // Format: HEADER + BODY + SEPARATOR
       final entry = "\n\n## [SAVED: $timestamp]\n${_aiResultCtrl.text}\n***";
 
       await file.writeAsString(entry, mode: FileMode.append);
@@ -158,184 +155,352 @@ Plaintext
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Riwayat Prompt"),
-        content: SizedBox(
-          width: double.maxFinite,
-          height: 500,
-          child: FutureBuilder<String>(
-            future: file.existsSync() ? file.readAsString() : Future.value(""),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-
-              final fullText = snapshot.data ?? "";
-              if (fullText.trim().isEmpty) {
-                return const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.history, size: 48, color: Colors.grey),
-                      SizedBox(height: 8),
-                      Text("Belum ada riwayat tersimpan."),
-                    ],
-                  ),
-                );
-              }
-
-              // Split teks berdasarkan separator '***'
-              final List<String> entries = fullText
-                  .split('***')
-                  .where((e) => e.trim().isNotEmpty)
-                  .toList();
-
-              // Balik urutan agar yang terbaru di atas
-              final reversedEntries = entries.reversed.toList();
-
-              return ListView.builder(
-                itemCount: reversedEntries.length,
-                itemBuilder: (context, index) {
-                  final entryRaw = reversedEntries[index].trim();
-
-                  // Parsing Judul dan Isi
-                  String title = "Entry #${entries.length - index}";
-                  String body = entryRaw;
-
-                  // Ambil baris tanggal sebagai judul
-                  final firstLineEnd = entryRaw.indexOf('\n');
-                  if (firstLineEnd != -1) {
-                    final firstLine = entryRaw
-                        .substring(0, firstLineEnd)
-                        .trim();
-                    if (firstLine.startsWith('##')) {
-                      title = firstLine
-                          .replaceAll('#', '')
-                          .replaceAll('[', '')
-                          .replaceAll(']', '')
-                          .trim();
-                      body = entryRaw.substring(firstLineEnd).trim();
+      builder: (ctx) {
+        // Gunakan StatefulBuilder agar list bisa di-refresh saat hapus/edit
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: const Text("Riwayat Prompt"),
+              content: SizedBox(
+                width: double.maxFinite,
+                height: 500,
+                child: FutureBuilder<String>(
+                  future: file.existsSync()
+                      ? file.readAsString()
+                      : Future.value(""),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
                     }
-                  }
 
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    elevation: 2,
-                    child: ExpansionTile(
-                      leading: const CircleAvatar(
-                        backgroundColor: Colors.purple,
-                        child: Icon(Icons.code, color: Colors.white, size: 20),
-                      ),
-                      title: Text(
-                        title,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
+                    final fullText = snapshot.data ?? "";
+                    if (fullText.trim().isEmpty) {
+                      return const Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.history, size: 48, color: Colors.grey),
+                            SizedBox(height: 8),
+                            Text("Belum ada riwayat tersimpan."),
+                          ],
                         ),
-                      ),
-                      children: [
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(12.0),
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? Colors.black26
-                              : Colors.grey.shade50,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              MarkdownBody(
-                                data: body,
-                                selectable: true,
-                                styleSheet: MarkdownStyleSheet(
-                                  code: const TextStyle(
-                                    fontFamily: 'monospace',
-                                    backgroundColor: Colors.transparent,
-                                  ),
-                                  codeblockDecoration: BoxDecoration(
-                                    color: Colors.black12,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                ),
+                      );
+                    }
+
+                    // 1. Parsing Entries
+                    // Kita split berdasarkan '***'
+                    List<String> entries = fullText
+                        .split('***')
+                        .where((e) => e.trim().isNotEmpty)
+                        .toList();
+
+                    // Balik urutan (Terbaru di atas)
+                    // Kita simpan indeks asli agar operasi hapus/edit akurat
+                    final reversedIndices = List.generate(
+                      entries.length,
+                      (i) => i,
+                    ).reversed.toList();
+
+                    return ListView.builder(
+                      itemCount: reversedIndices.length,
+                      itemBuilder: (context, i) {
+                        final originalIndex = reversedIndices[i];
+                        final entryRaw = entries[originalIndex].trim();
+
+                        // Parsing Header & Body
+                        String title = "Entry #${originalIndex + 1}";
+                        String body = entryRaw;
+                        String headerPart = "";
+
+                        final firstLineEnd = entryRaw.indexOf('\n');
+                        if (firstLineEnd != -1) {
+                          final firstLine = entryRaw
+                              .substring(0, firstLineEnd)
+                              .trim();
+                          if (firstLine.startsWith('##')) {
+                            headerPart =
+                                firstLine; // Simpan header untuk rekonstruksi nanti
+                            title = firstLine
+                                .replaceAll('#', '')
+                                .replaceAll('[', '')
+                                .replaceAll(']', '')
+                                .trim();
+                            body = entryRaw.substring(firstLineEnd).trim();
+                          }
+                        }
+
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          elevation: 2,
+                          child: ExpansionTile(
+                            leading: const CircleAvatar(
+                              backgroundColor: Colors.purple,
+                              child: Icon(
+                                Icons.code,
+                                color: Colors.white,
+                                size: 20,
                               ),
-                              const SizedBox(height: 12),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  OutlinedButton.icon(
-                                    icon: const Icon(Icons.copy, size: 16),
-                                    label: const Text("Salin Semua"),
-                                    onPressed: () {
-                                      Clipboard.setData(
-                                        ClipboardData(text: body),
-                                      );
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text("Prompt disalin!"),
-                                          duration: Duration(seconds: 1),
+                            ),
+                            title: Text(
+                              title,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                            children: [
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12.0),
+                                color:
+                                    Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? Colors.black26
+                                    : Colors.grey.shade50,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    MarkdownBody(
+                                      data: body,
+                                      selectable: true,
+                                      styleSheet: MarkdownStyleSheet(
+                                        code: const TextStyle(
+                                          fontFamily: 'monospace',
+                                          backgroundColor: Colors.transparent,
                                         ),
-                                      );
-                                    },
-                                  ),
-                                ],
+                                        codeblockDecoration: BoxDecoration(
+                                          color: Colors.black12,
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const Divider(height: 24),
+                                    // --- ACTION BUTTONS ---
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        // DELETE
+                                        TextButton.icon(
+                                          icon: const Icon(
+                                            Icons.delete,
+                                            size: 16,
+                                            color: Colors.red,
+                                          ),
+                                          label: const Text(
+                                            "Hapus",
+                                            style: TextStyle(color: Colors.red),
+                                          ),
+                                          onPressed: () async {
+                                            final confirm =
+                                                await showDialog<bool>(
+                                                  context: context,
+                                                  builder: (c) => AlertDialog(
+                                                    title: const Text(
+                                                      "Hapus Item Ini?",
+                                                    ),
+                                                    actions: [
+                                                      TextButton(
+                                                        onPressed: () =>
+                                                            Navigator.pop(
+                                                              c,
+                                                              false,
+                                                            ),
+                                                        child: const Text(
+                                                          "Batal",
+                                                        ),
+                                                      ),
+                                                      ElevatedButton(
+                                                        onPressed: () =>
+                                                            Navigator.pop(
+                                                              c,
+                                                              true,
+                                                            ),
+                                                        child: const Text(
+                                                          "Hapus",
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+
+                                            if (confirm == true) {
+                                              entries.removeAt(originalIndex);
+                                              // Reconstruct full text
+                                              final newFullText = entries
+                                                  .map((e) => "$e\n***")
+                                                  .join("\n");
+                                              await file.writeAsString(
+                                                newFullText,
+                                              );
+                                              setStateDialog(
+                                                () {},
+                                              ); // Refresh list
+                                            }
+                                          },
+                                        ),
+                                        // EDIT
+                                        TextButton.icon(
+                                          icon: const Icon(
+                                            Icons.edit,
+                                            size: 16,
+                                            color: Colors.orange,
+                                          ),
+                                          label: const Text(
+                                            "Edit",
+                                            style: TextStyle(
+                                              color: Colors.orange,
+                                            ),
+                                          ),
+                                          onPressed: () async {
+                                            // Show Edit Dialog
+                                            final editCtrl =
+                                                TextEditingController(
+                                                  text: body,
+                                                );
+                                            final newBody =
+                                                await showDialog<String>(
+                                                  context: context,
+                                                  builder: (c) => AlertDialog(
+                                                    title: const Text(
+                                                      "Edit Prompt",
+                                                    ),
+                                                    content: TextField(
+                                                      controller: editCtrl,
+                                                      maxLines: 10,
+                                                      decoration:
+                                                          const InputDecoration(
+                                                            border:
+                                                                OutlineInputBorder(),
+                                                          ),
+                                                    ),
+                                                    actions: [
+                                                      TextButton(
+                                                        onPressed: () =>
+                                                            Navigator.pop(c),
+                                                        child: const Text(
+                                                          "Batal",
+                                                        ),
+                                                      ),
+                                                      ElevatedButton(
+                                                        onPressed: () =>
+                                                            Navigator.pop(
+                                                              c,
+                                                              editCtrl.text,
+                                                            ),
+                                                        child: const Text(
+                                                          "Simpan",
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+
+                                            if (newBody != null &&
+                                                newBody.isNotEmpty) {
+                                              // Reconstruct entry with old header + new body
+                                              final newEntry =
+                                                  "$headerPart\n$newBody";
+                                              entries[originalIndex] = newEntry;
+
+                                              final newFullText = entries
+                                                  .map((e) => "$e\n***")
+                                                  .join("\n");
+                                              await file.writeAsString(
+                                                newFullText,
+                                              );
+                                              setStateDialog(
+                                                () {},
+                                              ); // Refresh list
+                                            }
+                                          },
+                                        ),
+                                        // COPY
+                                        FilledButton.icon(
+                                          icon: const Icon(
+                                            Icons.copy,
+                                            size: 16,
+                                          ),
+                                          label: const Text("Salin"),
+                                          style: FilledButton.styleFrom(
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                          ),
+                                          onPressed: () {
+                                            Clipboard.setData(
+                                              ClipboardData(text: body),
+                                            );
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                content: Text("Disalin!"),
+                                                duration: Duration(
+                                                  milliseconds: 800,
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              );
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            child: const Text(
-              "Hapus Semua",
-              style: TextStyle(color: Colors.red),
-            ),
-            onPressed: () async {
-              final confirm = await showDialog<bool>(
-                context: context,
-                builder: (c) => AlertDialog(
-                  title: const Text("Hapus Riwayat?"),
-                  content: const Text("Tindakan ini tidak dapat dibatalkan."),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(c, false),
-                      child: const Text("Batal"),
-                    ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                      ),
-                      onPressed: () => Navigator.pop(c, true),
-                      child: const Text("Hapus"),
-                    ),
-                  ],
+                        );
+                      },
+                    );
+                  },
                 ),
-              );
+              ),
+              actions: [
+                TextButton(
+                  child: const Text(
+                    "Hapus Semua",
+                    style: TextStyle(color: Colors.red),
+                  ),
+                  onPressed: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (c) => AlertDialog(
+                        title: const Text("Hapus Riwayat?"),
+                        content: const Text("Semua data riwayat akan hilang."),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(c, false),
+                            child: const Text("Batal"),
+                          ),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                            ),
+                            onPressed: () => Navigator.pop(c, true),
+                            child: const Text("Hapus"),
+                          ),
+                        ],
+                      ),
+                    );
 
-              if (confirm == true) {
-                if (await file.exists()) await file.delete();
-                if (context.mounted) {
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Riwayat dihapus.")),
-                  );
-                }
-              }
-            },
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text("Tutup"),
-          ),
-        ],
-      ),
+                    if (confirm == true) {
+                      if (await file.exists()) await file.delete();
+                      setStateDialog(
+                        () {},
+                      ); // Refresh list (akan muncul empty state)
+                    }
+                  },
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text("Tutup"),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
