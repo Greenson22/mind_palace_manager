@@ -129,7 +129,6 @@ Plaintext
         p.join(widget.buildingDirectory.path, 'prompts_history.txt'),
       );
       final timestamp = DateTime.now().toString().substring(0, 16);
-      // Format: HEADER + BODY + SEPARATOR
       final entry = "\n\n## [SAVED: $timestamp]\n${_aiResultCtrl.text}\n***";
 
       await file.writeAsString(entry, mode: FileMode.append);
@@ -156,7 +155,6 @@ Plaintext
     showDialog(
       context: context,
       builder: (ctx) {
-        // Gunakan StatefulBuilder agar list bisa di-refresh saat hapus/edit
         return StatefulBuilder(
           builder: (context, setStateDialog) {
             return AlertDialog(
@@ -187,15 +185,11 @@ Plaintext
                       );
                     }
 
-                    // 1. Parsing Entries
-                    // Kita split berdasarkan '***'
                     List<String> entries = fullText
                         .split('***')
                         .where((e) => e.trim().isNotEmpty)
                         .toList();
 
-                    // Balik urutan (Terbaru di atas)
-                    // Kita simpan indeks asli agar operasi hapus/edit akurat
                     final reversedIndices = List.generate(
                       entries.length,
                       (i) => i,
@@ -207,7 +201,6 @@ Plaintext
                         final originalIndex = reversedIndices[i];
                         final entryRaw = entries[originalIndex].trim();
 
-                        // Parsing Header & Body
                         String title = "Entry #${originalIndex + 1}";
                         String body = entryRaw;
                         String headerPart = "";
@@ -218,8 +211,7 @@ Plaintext
                               .substring(0, firstLineEnd)
                               .trim();
                           if (firstLine.startsWith('##')) {
-                            headerPart =
-                                firstLine; // Simpan header untuk rekonstruksi nanti
+                            headerPart = firstLine;
                             title = firstLine
                                 .replaceAll('#', '')
                                 .replaceAll('[', '')
@@ -235,18 +227,133 @@ Plaintext
                           child: ExpansionTile(
                             leading: const CircleAvatar(
                               backgroundColor: Colors.purple,
+                              radius: 16,
                               child: Icon(
                                 Icons.code,
                                 color: Colors.white,
-                                size: 20,
+                                size: 16,
                               ),
                             ),
                             title: Text(
                               title,
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 14,
+                                fontSize: 13,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            // --- TOMBOL AKSI DI HEADER (VISIBLE TANPA EXPAND) ---
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.copy,
+                                    size: 20,
+                                    color: Colors.blueGrey,
+                                  ),
+                                  tooltip: "Salin",
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: () {
+                                    Clipboard.setData(
+                                      ClipboardData(text: body),
+                                    );
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text("Disalin ke clipboard!"),
+                                        duration: Duration(milliseconds: 800),
+                                      ),
+                                    );
+                                  },
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.edit,
+                                    size: 20,
+                                    color: Colors.orange,
+                                  ),
+                                  tooltip: "Edit",
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: () async {
+                                    final editCtrl = TextEditingController(
+                                      text: body,
+                                    );
+                                    final newBody = await showDialog<String>(
+                                      context: context,
+                                      builder: (c) => AlertDialog(
+                                        title: const Text("Edit Prompt"),
+                                        content: TextField(
+                                          controller: editCtrl,
+                                          maxLines: 10,
+                                          decoration: const InputDecoration(
+                                            border: OutlineInputBorder(),
+                                          ),
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.pop(c),
+                                            child: const Text("Batal"),
+                                          ),
+                                          ElevatedButton(
+                                            onPressed: () =>
+                                                Navigator.pop(c, editCtrl.text),
+                                            child: const Text("Simpan"),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+
+                                    if (newBody != null && newBody.isNotEmpty) {
+                                      final newEntry = "$headerPart\n$newBody";
+                                      entries[originalIndex] = newEntry;
+                                      final newFullText = entries
+                                          .map((e) => "$e\n***")
+                                          .join("\n");
+                                      await file.writeAsString(newFullText);
+                                      setStateDialog(() {});
+                                    }
+                                  },
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.delete,
+                                    size: 20,
+                                    color: Colors.red,
+                                  ),
+                                  tooltip: "Hapus",
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: () async {
+                                    final confirm = await showDialog<bool>(
+                                      context: context,
+                                      builder: (c) => AlertDialog(
+                                        title: const Text("Hapus Item?"),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(c, false),
+                                            child: const Text("Batal"),
+                                          ),
+                                          ElevatedButton(
+                                            onPressed: () =>
+                                                Navigator.pop(c, true),
+                                            child: const Text("Hapus"),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+
+                                    if (confirm == true) {
+                                      entries.removeAt(originalIndex);
+                                      final newFullText = entries
+                                          .map((e) => "$e\n***")
+                                          .join("\n");
+                                      await file.writeAsString(newFullText);
+                                      setStateDialog(() {});
+                                    }
+                                  },
+                                ),
+                              ],
                             ),
                             children: [
                               Container(
@@ -257,195 +364,19 @@ Plaintext
                                         Brightness.dark
                                     ? Colors.black26
                                     : Colors.grey.shade50,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    MarkdownBody(
-                                      data: body,
-                                      selectable: true,
-                                      styleSheet: MarkdownStyleSheet(
-                                        code: const TextStyle(
-                                          fontFamily: 'monospace',
-                                          backgroundColor: Colors.transparent,
-                                        ),
-                                        codeblockDecoration: BoxDecoration(
-                                          color: Colors.black12,
-                                          borderRadius: BorderRadius.circular(
-                                            4,
-                                          ),
-                                        ),
-                                      ),
+                                child: MarkdownBody(
+                                  data: body,
+                                  selectable: true,
+                                  styleSheet: MarkdownStyleSheet(
+                                    code: const TextStyle(
+                                      fontFamily: 'monospace',
+                                      backgroundColor: Colors.transparent,
                                     ),
-                                    const Divider(height: 24),
-                                    // --- ACTION BUTTONS ---
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.end,
-                                      children: [
-                                        // DELETE
-                                        TextButton.icon(
-                                          icon: const Icon(
-                                            Icons.delete,
-                                            size: 16,
-                                            color: Colors.red,
-                                          ),
-                                          label: const Text(
-                                            "Hapus",
-                                            style: TextStyle(color: Colors.red),
-                                          ),
-                                          onPressed: () async {
-                                            final confirm =
-                                                await showDialog<bool>(
-                                                  context: context,
-                                                  builder: (c) => AlertDialog(
-                                                    title: const Text(
-                                                      "Hapus Item Ini?",
-                                                    ),
-                                                    actions: [
-                                                      TextButton(
-                                                        onPressed: () =>
-                                                            Navigator.pop(
-                                                              c,
-                                                              false,
-                                                            ),
-                                                        child: const Text(
-                                                          "Batal",
-                                                        ),
-                                                      ),
-                                                      ElevatedButton(
-                                                        onPressed: () =>
-                                                            Navigator.pop(
-                                                              c,
-                                                              true,
-                                                            ),
-                                                        child: const Text(
-                                                          "Hapus",
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                );
-
-                                            if (confirm == true) {
-                                              entries.removeAt(originalIndex);
-                                              // Reconstruct full text
-                                              final newFullText = entries
-                                                  .map((e) => "$e\n***")
-                                                  .join("\n");
-                                              await file.writeAsString(
-                                                newFullText,
-                                              );
-                                              setStateDialog(
-                                                () {},
-                                              ); // Refresh list
-                                            }
-                                          },
-                                        ),
-                                        // EDIT
-                                        TextButton.icon(
-                                          icon: const Icon(
-                                            Icons.edit,
-                                            size: 16,
-                                            color: Colors.orange,
-                                          ),
-                                          label: const Text(
-                                            "Edit",
-                                            style: TextStyle(
-                                              color: Colors.orange,
-                                            ),
-                                          ),
-                                          onPressed: () async {
-                                            // Show Edit Dialog
-                                            final editCtrl =
-                                                TextEditingController(
-                                                  text: body,
-                                                );
-                                            final newBody =
-                                                await showDialog<String>(
-                                                  context: context,
-                                                  builder: (c) => AlertDialog(
-                                                    title: const Text(
-                                                      "Edit Prompt",
-                                                    ),
-                                                    content: TextField(
-                                                      controller: editCtrl,
-                                                      maxLines: 10,
-                                                      decoration:
-                                                          const InputDecoration(
-                                                            border:
-                                                                OutlineInputBorder(),
-                                                          ),
-                                                    ),
-                                                    actions: [
-                                                      TextButton(
-                                                        onPressed: () =>
-                                                            Navigator.pop(c),
-                                                        child: const Text(
-                                                          "Batal",
-                                                        ),
-                                                      ),
-                                                      ElevatedButton(
-                                                        onPressed: () =>
-                                                            Navigator.pop(
-                                                              c,
-                                                              editCtrl.text,
-                                                            ),
-                                                        child: const Text(
-                                                          "Simpan",
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                );
-
-                                            if (newBody != null &&
-                                                newBody.isNotEmpty) {
-                                              // Reconstruct entry with old header + new body
-                                              final newEntry =
-                                                  "$headerPart\n$newBody";
-                                              entries[originalIndex] = newEntry;
-
-                                              final newFullText = entries
-                                                  .map((e) => "$e\n***")
-                                                  .join("\n");
-                                              await file.writeAsString(
-                                                newFullText,
-                                              );
-                                              setStateDialog(
-                                                () {},
-                                              ); // Refresh list
-                                            }
-                                          },
-                                        ),
-                                        // COPY
-                                        FilledButton.icon(
-                                          icon: const Icon(
-                                            Icons.copy,
-                                            size: 16,
-                                          ),
-                                          label: const Text("Salin"),
-                                          style: FilledButton.styleFrom(
-                                            visualDensity:
-                                                VisualDensity.compact,
-                                          ),
-                                          onPressed: () {
-                                            Clipboard.setData(
-                                              ClipboardData(text: body),
-                                            );
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              const SnackBar(
-                                                content: Text("Disalin!"),
-                                                duration: Duration(
-                                                  milliseconds: 800,
-                                                ),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      ],
+                                    codeblockDecoration: BoxDecoration(
+                                      color: Colors.black12,
+                                      borderRadius: BorderRadius.circular(4),
                                     ),
-                                  ],
+                                  ),
                                 ),
                               ),
                             ],
@@ -486,9 +417,7 @@ Plaintext
 
                     if (confirm == true) {
                       if (await file.exists()) await file.delete();
-                      setStateDialog(
-                        () {},
-                      ); // Refresh list (akan muncul empty state)
+                      setStateDialog(() {});
                     }
                   },
                 ),
