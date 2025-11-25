@@ -214,7 +214,8 @@ class PlanController extends PlanVariables
   }
 
   // --- FITUR BARU: IMPORT DENAH LENGKAP (TEMBOK + PORTAL + LOCI) ---
-  void importFullPlanFromJson(String jsonString) {
+  // [MODIFIED] Menambahkan parameter addLabels
+  void importFullPlanFromJson(String jsonString, {bool addLabels = true}) {
     try {
       // 1. Parsing JSON
       dynamic decoded;
@@ -326,6 +327,8 @@ class PlanController extends PlanVariables
             icon = Icons.bathtub;
 
           String name = l['name'] ?? "Loci";
+          double size =
+              (l['size'] as num?)?.toDouble() ?? 20.0; // Ambil ukuran dari JSON
 
           newObjects.add(
             PlanObject(
@@ -339,26 +342,28 @@ class PlanController extends PlanVariables
               name: name,
               description: l['desc'] ?? "Titik memori",
               iconCodePoint: icon.codePoint,
-              size: 20.0,
+              size: size, // Gunakan ukuran dari AI
               color: Colors.blueAccent,
             ),
           );
 
-          // Tambah label
-          newLabels.add(
-            PlanLabel(
-              id:
-                  DateTime.now().millisecondsSinceEpoch.toString() +
-                  math.Random().nextInt(1000).toString(),
-              position: Offset(
-                (l['x'] as num).toDouble(),
-                (l['y'] as num).toDouble() + 25,
+          // Tambah label (KONDISIONAL)
+          if (addLabels) {
+            newLabels.add(
+              PlanLabel(
+                id:
+                    DateTime.now().millisecondsSinceEpoch.toString() +
+                    math.Random().nextInt(1000).toString(),
+                position: Offset(
+                  (l['x'] as num).toDouble(),
+                  (l['y'] as num).toDouble() + (size / 2) + 10,
+                ),
+                text: name,
+                fontSize: 10.0,
+                color: Colors.black87,
               ),
-              text: name,
-              fontSize: 10.0,
-              color: Colors.black87,
-            ),
-          );
+            );
+          }
         }
       }
 
