@@ -7,6 +7,10 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:mind_palace_manager/app_settings.dart';
 
+// --- IMPORT DIALOG AI (Pastikan file ini sudah dibuat di langkah sebelumnya) ---
+// Kita menggunakan dialog yang sama karena strukturnya mirip.
+import 'package:mind_palace_manager/features/world/presentation/dialogs/ai_map_prompt_dialog.dart';
+
 class RegionMapEditorPage extends StatefulWidget {
   final Directory regionDirectory;
   const RegionMapEditorPage({super.key, required this.regionDirectory});
@@ -47,6 +51,8 @@ class _RegionMapEditorPageState extends State<RegionMapEditorPage> {
     super.dispose();
   }
 
+  // --- LOGIKA DATA ---
+
   Future<void> _loadData() async {
     if (await _jsonFile.exists()) {
       final content = await _jsonFile.readAsString();
@@ -69,6 +75,7 @@ class _RegionMapEditorPageState extends State<RegionMapEditorPage> {
 
   Future<void> _updateImageAspectRatio(File imageFile) async {
     try {
+      if (!await imageFile.exists()) return;
       final data = await imageFile.readAsBytes();
       final codec = await ui.instantiateImageCodec(data);
       final frame = await codec.getNextFrame();
@@ -87,11 +94,13 @@ class _RegionMapEditorPageState extends State<RegionMapEditorPage> {
     _regionData['district_placements'] = _placements;
     await _jsonFile.writeAsString(json.encode(_regionData));
     if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Perubahan disimpan!')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Perubahan wilayah disimpan!')),
+      );
     }
   }
+
+  // --- LOGIKA GAMBAR & AI ---
 
   Future<void> _pickMapImage() async {
     var res = await FilePicker.platform.pickFiles(type: FileType.image);
@@ -99,17 +108,17 @@ class _RegionMapEditorPageState extends State<RegionMapEditorPage> {
       final src = File(res.files.single.path!);
       final extension = p.extension(src.path);
 
-      // --- BARU: Gunakan nama file tetap (fixed name) ---
+      // Gunakan nama file tetap untuk wilayah ini
       const baseName = 'region_map';
       final newFixedFileName = '$baseName$extension';
 
       final String? oldMapImageName = _mapImageName;
 
-      // 1. Copy file baru ke nama tetap. Ini akan menimpa jika nama sama.
+      // 1. Copy file baru
       final destPath = p.join(widget.regionDirectory.path, newFixedFileName);
       await src.copy(destPath);
 
-      // 2. Hapus file lama jika namanya berbeda (mencegah penumpukan file dengan ekstensi berbeda)
+      // 2. Hapus file lama jika namanya berbeda (misal beda ekstensi)
       if (oldMapImageName != null && oldMapImageName != newFixedFileName) {
         try {
           final oldFile = File(
@@ -128,11 +137,21 @@ class _RegionMapEditorPageState extends State<RegionMapEditorPage> {
       _mapImageFile = File(destPath);
       await _updateImageAspectRatio(_mapImageFile!);
 
-      // 4. Save data dan refresh UI
+      // 4. Save data
       _saveData();
       setState(() {});
     }
   }
+
+  // Fungsi Memunculkan Dialog AI
+  void _showAiPromptDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => const AiMapPromptDialog(),
+    );
+  }
+
+  // --- LOGIKA PENEMPATAN DISTRIK ---
 
   void _placeDistrict() {
     if (_selectedDistrictToPlace == null || _tappedRelativeCoords == null) {
@@ -202,24 +221,19 @@ class _RegionMapEditorPageState extends State<RegionMapEditorPage> {
     }
   }
 
-  // --- BUILD PIN WIDGET (LENGKAP) ---
+  // --- WIDGET PIN ---
   Widget _buildMapPinWidget(
     Map<String, dynamic> iconData,
     String districtName,
   ) {
     final type = iconData['type'];
     final shape = AppSettings.regionPinShape;
-
-    // --- AMBIL WARNA DARI SETTING ---
     final Color pinBaseColor = Color(AppSettings.regionPinColor);
     final Color outlineColor = Color(AppSettings.regionOutlineColor);
     final Color nameColor = Color(AppSettings.regionNameColor);
-    // --------------------------------
 
-    // --- Content Ikon (Gambar/Teks) ---
     Widget pinContent;
     if (shape == 'Tidak Ada (Tanpa Latar)') {
-      // Jika tanpa latar, kita render gambar/teks langsung
       if (type == 'image' && iconData['file'] != null) {
         pinContent = SizedBox(
           width: 30,
@@ -231,7 +245,7 @@ class _RegionMapEditorPageState extends State<RegionMapEditorPage> {
           iconData['data'],
           style: TextStyle(
             fontSize: 16,
-            color: nameColor, // Warna custom
+            color: nameColor,
             fontWeight: FontWeight.bold,
             shadows: const [Shadow(blurRadius: 2, color: Colors.black)],
           ),
@@ -241,7 +255,6 @@ class _RegionMapEditorPageState extends State<RegionMapEditorPage> {
         pinContent = Icon(Icons.holiday_village, size: 24, color: pinBaseColor);
       }
     } else {
-      // Jika Bulat/Kotak, content di-clip
       if (type == 'text' && iconData['data'] != null) {
         pinContent = Text(
           iconData['data'],
@@ -279,31 +292,27 @@ class _RegionMapEditorPageState extends State<RegionMapEditorPage> {
       }
     }
 
-    // --- Container Pin Utama (Shape + Border + Padding) ---
     Widget pinContainer = pinContent;
 
     if (shape != 'Tidak Ada (Tanpa Latar)') {
-      // Outline luar
       Border? borderDeco;
       if (AppSettings.showRegionPinOutline) {
         borderDeco = Border.all(
-          color: outlineColor, // Warna outline custom
+          color: outlineColor,
           width: AppSettings.regionPinOutlineWidth,
         );
       }
 
       pinContainer = Container(
-        // Ukuran dasar 32 + stroke width * 2
         width: 32 + AppSettings.regionPinShapeStrokeWidth * 2,
         height: 32 + AppSettings.regionPinShapeStrokeWidth * 2,
-        // Padding mensimulasikan ketebalan bentuk (warna pin)
         padding: EdgeInsets.all(
           AppSettings.regionPinShapeStrokeWidth > 0
               ? AppSettings.regionPinShapeStrokeWidth
               : 0,
         ),
         decoration: BoxDecoration(
-          color: pinBaseColor, // Warna pin custom
+          color: pinBaseColor,
           shape: shape == 'Kotak' ? BoxShape.rectangle : BoxShape.circle,
           borderRadius: shape == 'Kotak' ? BorderRadius.circular(4) : null,
           border: borderDeco,
@@ -314,7 +323,6 @@ class _RegionMapEditorPageState extends State<RegionMapEditorPage> {
       );
     }
 
-    // --- Tampilkan Nama Distrik (Opsional) ---
     if (AppSettings.showRegionDistrictNames) {
       return Column(
         mainAxisSize: MainAxisSize.min,
@@ -329,10 +337,7 @@ class _RegionMapEditorPageState extends State<RegionMapEditorPage> {
             ),
             child: Text(
               districtName,
-              style: TextStyle(
-                color: nameColor,
-                fontSize: 10,
-              ), // Warna nama custom
+              style: TextStyle(color: nameColor, fontSize: 10),
             ),
           ),
         ],
@@ -342,19 +347,73 @@ class _RegionMapEditorPageState extends State<RegionMapEditorPage> {
     return pinContainer;
   }
 
+  // --- UI UTAMA ---
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Editor Peta Wilayah')),
+      appBar: AppBar(
+        title: const Text('Editor Peta Wilayah'),
+        actions: [
+          // --- TOMBOL AI DI APPBAR ---
+          IconButton(
+            icon: const Icon(Icons.auto_awesome, color: Colors.purple),
+            tooltip: "AI Prompt Generator",
+            onPressed: _showAiPromptDialog,
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // --- BAGIAN GAMBAR & AI ---
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Gambar Peta',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              // Tombol Text Alternatif
+              TextButton.icon(
+                icon: const Icon(
+                  Icons.auto_awesome,
+                  size: 16,
+                  color: Colors.purple,
+                ),
+                label: const Text(
+                  "Buat Prompt AI",
+                  style: TextStyle(color: Colors.purple),
+                ),
+                onPressed: _showAiPromptDialog,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // Info Gambar
+          if (_mapImageFile == null)
+            const Text('Belum ada gambar peta.')
+          else
+            Text(
+              'File: $_mapImageName',
+              style: const TextStyle(fontStyle: FontStyle.italic),
+            ),
+
+          const SizedBox(height: 8),
+
+          // Tombol Pilih Gambar
           ElevatedButton.icon(
             icon: const Icon(Icons.image),
             onPressed: _pickMapImage,
-            label: Text(_mapImageFile == null ? 'Pilih Peta' : 'Ganti Peta'),
+            label: Text(
+              _mapImageFile == null ? 'Pilih Peta dari Galeri' : 'Ganti Peta',
+            ),
           ),
-          const SizedBox(height: 16),
+
+          const Divider(height: 32),
+
+          // --- BAGIAN PENEMPATAN DISTRIK ---
           DropdownButton<Directory>(
             value: _selectedDistrictToPlace,
             hint: const Text('Pilih Distrik untuk ditempatkan'),
@@ -368,6 +427,8 @@ class _RegionMapEditorPageState extends State<RegionMapEditorPage> {
             onChanged: (v) => setState(() => _selectedDistrictToPlace = v),
           ),
           const SizedBox(height: 8),
+
+          // CANVAS INTERAKTIF
           Container(
             height: 400,
             decoration: BoxDecoration(
@@ -405,11 +466,10 @@ class _RegionMapEditorPageState extends State<RegionMapEditorPage> {
                                         height: cons.maxHeight,
                                         fit: BoxFit.cover,
                                       ),
-                                      // Render semua pin
+                                      // Render Pin Distrik
                                       ..._placements.map((pl) {
                                         final name = pl['district_folder_name'];
                                         return Positioned(
-                                          // Offset sedikit dikurangi agar pin berada di tengah titik (kira-kira)
                                           left:
                                               pl['map_x'] * cons.maxWidth - 20,
                                           top:
@@ -435,7 +495,7 @@ class _RegionMapEditorPageState extends State<RegionMapEditorPage> {
                                               ),
                                         );
                                       }),
-                                      // Penanda tap posisi baru
+                                      // Indikator Tap Posisi Baru
                                       if (_tappedRelativeCoords != null)
                                         Positioned(
                                           left:
@@ -494,6 +554,7 @@ class _RegionMapEditorPageState extends State<RegionMapEditorPage> {
                   ),
           ),
           const SizedBox(height: 16),
+
           Center(
             child: ElevatedButton.icon(
               icon: const Icon(Icons.check),
@@ -507,6 +568,8 @@ class _RegionMapEditorPageState extends State<RegionMapEditorPage> {
             ),
           ),
           const Divider(height: 32),
+
+          // Daftar Distrik Terpasang
           const Text(
             'Daftar Distrik Terpasang:',
             style: TextStyle(fontWeight: FontWeight.bold),
