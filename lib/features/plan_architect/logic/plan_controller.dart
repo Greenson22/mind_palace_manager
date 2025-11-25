@@ -1,5 +1,6 @@
 // lib/features/plan_architect/logic/plan_controller.dart
 import 'dart:convert';
+import 'dart:math' as math; // Ditambahkan untuk random ID
 import 'dart:ui'; // Import UI untuk Color
 import 'package:flutter/material.dart';
 import 'package:mind_palace_manager/app_settings.dart';
@@ -52,7 +53,7 @@ class PlanController extends PlanVariables
     }
   }
 
-  // --- FITUR GENERATIVE UI (AI IMPORT) ---
+  // --- FITUR GENERATIVE UI (AI IMPORT OBJEK) ---
   void importInteriorFromJson(String jsonString) {
     try {
       // 1. Validasi Parsing JSON Dasar
@@ -208,6 +209,139 @@ class PlanController extends PlanVariables
       }
     } catch (e) {
       // Rethrow agar UI bisa menangkap pesan error asli
+      rethrow;
+    }
+  }
+
+  // --- FITUR BARU: IMPORT DENAH LENGKAP DARI AI ---
+  void importFullPlanFromJson(String jsonString) {
+    try {
+      // 1. Parsing JSON
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(jsonString);
+      } catch (e) {
+        throw FormatException(
+          "Format JSON tidak valid. Pastikan hanya menyalin kode JSON.\nError: $e",
+        );
+      }
+
+      if (decoded is! Map<String, dynamic>) {
+        throw const FormatException(
+          "JSON harus berupa Object {}, bukan Array.",
+        );
+      }
+
+      final Map<String, dynamic> data = decoded;
+
+      // Bersihkan denah saat ini (Opsional, uncomment jika ingin reset total)
+      // clearAll();
+
+      List<Wall> newWalls = [];
+      List<PlanObject> newObjects = [];
+      List<PlanLabel> newLabels = [];
+
+      // 2. Parse Walls (Tembok)
+      if (data.containsKey('walls') && data['walls'] is List) {
+        final List wallsData = data['walls'];
+        for (var w in wallsData) {
+          newWalls.add(
+            Wall(
+              id:
+                  DateTime.now().millisecondsSinceEpoch.toString() +
+                  math.Random().nextInt(1000).toString(),
+              start: Offset(
+                (w['sx'] as num).toDouble(),
+                (w['sy'] as num).toDouble(),
+              ),
+              end: Offset(
+                (w['ex'] as num).toDouble(),
+                (w['ey'] as num).toDouble(),
+              ),
+              thickness: 4.0, // Default tebal tembok
+              color: Colors.black,
+            ),
+          );
+        }
+      }
+
+      // 3. Parse Loci (Objek Memori)
+      if (data.containsKey('loci') && data['loci'] is List) {
+        final List lociData = data['loci'];
+        for (var l in lociData) {
+          // Mapping icon string ke IconData (Sederhana)
+          IconData icon = Icons.circle;
+          String iconName = (l['icon'] ?? '').toString().toLowerCase();
+          if (iconName.contains('door'))
+            icon = Icons.door_front_door;
+          else if (iconName.contains('window'))
+            icon = Icons.window;
+          else if (iconName.contains('bed'))
+            icon = Icons.bed;
+          else if (iconName.contains('chair'))
+            icon = Icons.chair;
+          else if (iconName.contains('tv'))
+            icon = Icons.tv;
+          else if (iconName.contains('table'))
+            icon = Icons.table_bar;
+          else if (iconName.contains('shelf'))
+            icon = Icons.shelves;
+          else if (iconName.contains('plant'))
+            icon = Icons.local_florist;
+
+          // Gunakan nomor urut jika ada
+          String name = l['name'] ?? "Loci";
+
+          newObjects.add(
+            PlanObject(
+              id:
+                  DateTime.now().millisecondsSinceEpoch.toString() +
+                  math.Random().nextInt(1000).toString(),
+              position: Offset(
+                (l['x'] as num).toDouble(),
+                (l['y'] as num).toDouble(),
+              ),
+              name: name,
+              description: l['desc'] ?? "Titik memori",
+              iconCodePoint: icon.codePoint,
+              size: 20.0,
+              color: Colors.blueAccent,
+            ),
+          );
+
+          // Tambah label angka/nama di dekat objek
+          newLabels.add(
+            PlanLabel(
+              id:
+                  DateTime.now().millisecondsSinceEpoch.toString() +
+                  math.Random().nextInt(1000).toString(),
+              position: Offset(
+                (l['x'] as num).toDouble(),
+                (l['y'] as num).toDouble() + 25,
+              ),
+              text: name,
+              fontSize: 10.0,
+              color: Colors.black87,
+            ),
+          );
+        }
+      }
+
+      if (newWalls.isEmpty && newObjects.isEmpty) {
+        throw Exception(
+          "JSON tidak berisi data 'walls' atau 'loci' yang valid.",
+        );
+      }
+
+      // 4. Update State
+      updateActiveFloor(
+        walls: [...walls, ...newWalls],
+        objects: [...objects, ...newObjects],
+        labels: [...labels, ...newLabels],
+      );
+      saveState();
+      notifyListeners();
+    } catch (e) {
       rethrow;
     }
   }

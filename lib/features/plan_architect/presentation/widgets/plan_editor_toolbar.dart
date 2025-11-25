@@ -94,6 +94,47 @@ class PlanEditorToolbar extends StatelessWidget {
                     color: Colors.green,
                   ),
 
+                // --- ADD THIS BUTTON ---
+                InkWell(
+                  onTap: () => PlanEditorDialogs.showAiPlanGenerator(
+                    context,
+                    controller,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 6,
+                      horizontal: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.purple.shade50, // Warna pembeda
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.purple.shade100),
+                    ),
+                    child: const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.auto_awesome,
+                          color: Colors.purple,
+                          size: 20,
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          "AI Gen",
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: Colors.purple,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                // -----------------------
+
                 // --- STRUKTUR ---
                 _buildToolBtn(
                   context,

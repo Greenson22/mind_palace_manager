@@ -1,9 +1,10 @@
 // lib/features/plan_architect/presentation/dialogs/plan_editor_dialogs.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Ditambahkan untuk Clipboard
 import 'dart:io';
-import 'dart:math' as math; // Tambahan import math
+import 'dart:math' as math;
 import 'package:file_picker/file_picker.dart';
-import 'package:path/path.dart' as p; // Import path
+import 'package:path/path.dart' as p;
 import 'package:mind_palace_manager/features/plan_architect/logic/plan_controller.dart';
 import 'package:mind_palace_manager/features/plan_architect/data/plan_models.dart';
 import 'package:mind_palace_manager/features/plan_architect/presentation/dialogs/interior_picker_sheet.dart';
@@ -793,6 +794,263 @@ class PlanEditorDialogs {
         padding: const EdgeInsets.symmetric(horizontal: 8),
       ),
       child: Text(label, style: const TextStyle(fontSize: 12)),
+    );
+  }
+
+  // --- BARU: AI PLAN GENERATOR DIALOG ---
+  static void showAiPlanGenerator(
+    BuildContext context,
+    PlanController controller,
+  ) {
+    final jsonCtrl = TextEditingController();
+
+    // State variables for Prompt Generator
+    String roomType = 'Kamar Tidur';
+    String roomShape = 'Kotak (Persegi)';
+    double lociCount = 5;
+    String additionalContext = '';
+
+    showDialog(
+      context: context,
+      builder: (c) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.psychology, color: Colors.purple),
+                SizedBox(width: 8),
+                Text("AI Arsitek Denah"),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // --- BAGIAN 1: GENERATOR PROMPT ---
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.purple.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.purple.shade100),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "1. Tentukan Spesifikasi:",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.purple,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+
+                        // Dropdown Tipe Ruangan
+                        DropdownButtonFormField<String>(
+                          value: roomType,
+                          decoration: const InputDecoration(
+                            labelText: "Tipe Ruangan",
+                            isDense: true,
+                          ),
+                          items:
+                              [
+                                    'Kamar Tidur',
+                                    'Ruang Tamu',
+                                    'Dapur',
+                                    'Kamar Mandi',
+                                    'Kantor',
+                                    'Kelas',
+                                    'Istana Fantasi',
+                                    'Museum',
+                                  ]
+                                  .map(
+                                    (e) => DropdownMenuItem(
+                                      value: e,
+                                      child: Text(e),
+                                    ),
+                                  )
+                                  .toList(),
+                          onChanged: (v) => setDialogState(() => roomType = v!),
+                        ),
+
+                        const SizedBox(height: 8),
+
+                        // Dropdown Bentuk
+                        DropdownButtonFormField<String>(
+                          value: roomShape,
+                          decoration: const InputDecoration(
+                            labelText: "Bentuk Ruangan",
+                            isDense: true,
+                          ),
+                          items:
+                              [
+                                    'Kotak (Persegi)',
+                                    'Persegi Panjang',
+                                    'Bentuk L',
+                                    'Bentuk U',
+                                    'Koridor Panjang',
+                                  ]
+                                  .map(
+                                    (e) => DropdownMenuItem(
+                                      value: e,
+                                      child: Text(e),
+                                    ),
+                                  )
+                                  .toList(),
+                          onChanged: (v) =>
+                              setDialogState(() => roomShape = v!),
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        // Slider Loci
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text("Jumlah Loci (Titik):"),
+                            Text(
+                              "${lociCount.toInt()}",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Slider(
+                          value: lociCount,
+                          min: 3,
+                          max: 20,
+                          divisions: 17,
+                          activeColor: Colors.purple,
+                          onChanged: (v) => setDialogState(() => lociCount = v),
+                        ),
+
+                        // Context Tambahan
+                        TextField(
+                          decoration: const InputDecoration(
+                            labelText: "Info Tambahan (Opsional)",
+                            hintText: "Cth: Ada piano di pojok, gaya modern",
+                            isDense: true,
+                          ),
+                          onChanged: (v) => additionalContext = v,
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        // Tombol Copy Prompt
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.copy, size: 16),
+                          label: const Text("Salin Prompt"),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: Colors.purple,
+                            elevation: 0,
+                            side: const BorderSide(color: Colors.purple),
+                            minimumSize: const Size(double.infinity, 36),
+                          ),
+                          onPressed: () {
+                            final prompt =
+                                """
+Saya sedang membuat Memory Palace. Tolong buatkan kode JSON untuk denah lantai aplikasi.
+Spesifikasi:
+- Ruangan: $roomType
+- Bentuk: $roomShape
+- Jumlah Loci (Titik Memori): ${lociCount.toInt()}
+- Detail: $additionalContext
+
+Koordinat Kanvas: 0 sampai 500 (Tengah kira-kira 250,250).
+Format JSON WAJIB seperti ini (HANYA JSON murni, tanpa markdown):
+{
+  "walls": [
+    {"sx": 100, "sy": 100, "ex": 400, "ey": 100}, 
+    {"sx": 400, "sy": 100, "ex": 400, "ey": 400},
+    ... (lanjutkan tembok menutup ruangan sesuai bentuk)
+  ],
+  "loci": [
+    {"name": "1. Pintu Masuk", "x": 120, "y": 120, "icon": "door", "desc": "Titik awal"},
+    {"name": "2. [Nama Objek]", "x": [koordinat], "y": [koordinat], "icon": "[tipe_objek: bed/chair/tv/table/shelf]", "desc": "[deskripsi singkat]"},
+    ... (total ${lociCount.toInt()} item, urutkan searah jarum jam)
+  ]
+}
+Pastikan tembok terhubung rapi. Sebarkan loci di pinggir tembok atau tengah ruangan secara logis.
+""";
+                            Clipboard.setData(ClipboardData(text: prompt));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  "Prompt disalin! Tempel ke AI (Gemini/ChatGPT).",
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+                  const Divider(),
+                  const SizedBox(height: 8),
+
+                  // --- BAGIAN 2: IMPORT JSON ---
+                  const Text(
+                    "2. Paste Hasil JSON di Sini:",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: jsonCtrl,
+                    maxLines: 5,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                    ),
+                    decoration: const InputDecoration(
+                      hintText: '{"walls": [...], "loci": [...]}',
+                      border: OutlineInputBorder(),
+                      filled: true,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(c),
+                child: const Text("Batal"),
+              ),
+              FilledButton(
+                onPressed: () {
+                  if (jsonCtrl.text.isNotEmpty) {
+                    try {
+                      controller.importFullPlanFromJson(jsonCtrl.text);
+                      Navigator.pop(c);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("Denah AI berhasil dibuat!"),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            "Gagal: ${e.toString().split('\n').first}",
+                          ),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                },
+                child: const Text("Generate Denah"),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }
