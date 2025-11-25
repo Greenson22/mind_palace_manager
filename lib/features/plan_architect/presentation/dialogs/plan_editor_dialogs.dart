@@ -1,5 +1,7 @@
+// lib/features/plan_architect/presentation/dialogs/plan_editor_dialogs.dart
 import 'package:flutter/material.dart';
 import 'dart:io';
+import 'dart:math' as math; // Tambahan import math
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p; // Import path
 import 'package:mind_palace_manager/features/plan_architect/logic/plan_controller.dart';
@@ -32,7 +34,7 @@ class PlanEditorDialogs {
     Colors.white,
   ];
 
-  // --- HELPER BARU: MENAMPILKAN GAMBAR FULL SCREEN ---
+  // --- HELPER: MENAMPILKAN GAMBAR FULL SCREEN ---
   static void _showFullScreenImage(BuildContext context, String imagePath) {
     showDialog(
       context: context,
@@ -667,6 +669,130 @@ class PlanEditorDialogs {
           ],
         ),
       ),
+    );
+  }
+
+  // --- BARU: Dialog Rotasi Detail ---
+  static void showRotationDialog(
+    BuildContext context,
+    double currentRotationRadians,
+    Function(double) onRotationChanged,
+  ) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        // Konversi radians ke derajat untuk tampilan UI
+        double currentDegrees = (currentRotationRadians * 180 / math.pi) % 360;
+        if (currentDegrees < 0) currentDegrees += 360;
+
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text("Atur Rotasi"),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Preview Circle/Arrow
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.grey.shade200,
+                      border: Border.all(color: Colors.grey),
+                    ),
+                    child: Transform.rotate(
+                      angle: currentDegrees * math.pi / 180,
+                      child: const Icon(
+                        Icons.arrow_upward,
+                        size: 40,
+                        color: Colors.blue,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Teks Derajat
+                  Text(
+                    "${currentDegrees.round()}°",
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  // Slider 0 - 360
+                  Slider(
+                    value: currentDegrees,
+                    min: 0.0,
+                    max: 360.0,
+                    divisions: 360, // Step per 1 derajat
+                    label: "${currentDegrees.round()}°",
+                    onChanged: (val) {
+                      setState(() {
+                        currentDegrees = val;
+                      });
+                      // Kirim balik dalam radians
+                      onRotationChanged(val * math.pi / 180);
+                    },
+                  ),
+
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _buildQuickRotateBtn("-45°", -45, currentDegrees, (v) {
+                        setState(() => currentDegrees = v);
+                        onRotationChanged(v * math.pi / 180);
+                      }),
+                      _buildQuickRotateBtn("0°", 0, currentDegrees, (v) {
+                        setState(() => currentDegrees = v);
+                        onRotationChanged(v * math.pi / 180);
+                      }),
+                      _buildQuickRotateBtn("+45°", 45, currentDegrees, (v) {
+                        setState(() => currentDegrees = v);
+                        onRotationChanged(v * math.pi / 180);
+                      }),
+                    ],
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text("Selesai"),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  static Widget _buildQuickRotateBtn(
+    String label,
+    double delta,
+    double current,
+    Function(double) onChanged,
+  ) {
+    return OutlinedButton(
+      onPressed: () {
+        if (delta == 0) {
+          onChanged(0);
+        } else {
+          double newVal = (current + delta) % 360;
+          if (newVal < 0) newVal += 360;
+          onChanged(newVal);
+        }
+      },
+      style: OutlinedButton.styleFrom(
+        visualDensity: VisualDensity.compact,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+      ),
+      child: Text(label, style: const TextStyle(fontSize: 12)),
     );
   }
 }

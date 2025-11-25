@@ -113,6 +113,7 @@ mixin PlanTransformMixin on PlanVariables, PlanStateMixin {
     );
   }
 
+  // --- Rotasi 90 Derajat (Relative) ---
   void rotateSelected() {
     if (selectedId == null) return;
 
@@ -202,6 +203,71 @@ mixin PlanTransformMixin on PlanVariables, PlanStateMixin {
       saveState();
       return;
     }
+  }
+
+  // --- BARU: Rotasi Detail (Absolute Radians) ---
+  void setSelectionRotation(double radians) {
+    if (selectedId == null) return;
+
+    int idx;
+    // 1. Rotasi Group
+    if ((idx = groups.indexWhere((g) => g.id == selectedId)) != -1) {
+      var newGroups = List<PlanGroup>.from(groups);
+      newGroups[idx] = newGroups[idx].copyWith(rotation: radians);
+      updateActiveFloor(groups: newGroups);
+      saveState();
+      return;
+    }
+
+    // 2. Rotasi Object
+    if ((idx = objects.indexWhere((o) => o.id == selectedId)) != -1) {
+      var newObjs = List<PlanObject>.from(objects);
+      newObjs[idx] = newObjs[idx].copyWith(rotation: radians);
+      updateActiveFloor(objects: newObjs);
+      saveState();
+      return;
+    }
+
+    // 3. Rotasi Shape
+    if ((idx = shapes.indexWhere((s) => s.id == selectedId)) != -1) {
+      var newShapes = List<PlanShape>.from(shapes);
+      newShapes[idx] = newShapes[idx].copyWith(rotation: radians);
+      updateActiveFloor(shapes: newShapes);
+      saveState();
+      return;
+    }
+
+    // 4. Rotasi Portal
+    if ((idx = portals.indexWhere((p) => p.id == selectedId)) != -1) {
+      var newPortals = List<PlanPortal>.from(portals);
+      newPortals[idx] = newPortals[idx].copyWith(rotation: radians);
+      updateActiveFloor(portals: newPortals);
+      saveState();
+      return;
+    }
+
+    // 5. Rotasi Tembok (Putar di poros tengah sesuai derajat)
+    if ((idx = walls.indexWhere((w) => w.id == selectedId)) != -1) {
+      var newWalls = List<Wall>.from(walls);
+      final w = newWalls[idx];
+      final center = (w.start + w.end) / 2;
+      final length = (w.end - w.start).distance;
+
+      // Hitung offset x,y baru berdasarkan sudut absolute
+      final dx = (length / 2) * cos(radians);
+      final dy = (length / 2) * sin(radians);
+
+      newWalls[idx] = w.copyWith(
+        start: Offset(center.dx - dx, center.dy - dy),
+        end: Offset(center.dx + dx, center.dy + dy),
+      );
+      updateActiveFloor(walls: newWalls);
+      saveState();
+      return;
+    }
+
+    // 6. Path tidak didukung untuk rotasi absolut saat ini
+    // karena tidak memiliki properti 'rotation' tersimpan
   }
 
   void flipSelected(bool horizontal) {

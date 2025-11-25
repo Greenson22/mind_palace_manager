@@ -1,3 +1,4 @@
+// lib/features/plan_architect/logic/mixins/plan_selection_mixin.dart
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'plan_variables.dart';
@@ -285,7 +286,6 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
     );
   }
 
-  // --- FUNGSI FLIP (CERMIN) DIPERBAIKI ---
   void flipSelected(bool horizontal) {
     if (selectedId == null && multiSelectedIds.isEmpty) return;
 
@@ -393,56 +393,12 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       double newRot = item.rotation;
       bool newFlipX = item.flipX;
 
-      // Logika:
-      // 1. Toggle flipX untuk membalik gambar/shape secara internal.
-      // 2. Sesuaikan Rotasi agar orientasi benar setelah dipindah posisinya.
       newFlipX = !newFlipX;
 
       if (horizontal) {
-        // Flip Horizontal (Mirror X): Sudut -> Negatif sudut
         newRot = -newRot;
       } else {
-        // Flip Vertikal (Mirror Y): Sudut -> PI - sudut
-        // Ini karena sistem koordinat Y ke bawah.
         newRot = pi - newRot;
-        // Jika 0 derajat (kanan), jadi PI (kiri). Benar untuk flip Y jika objek 'menghadap' sesuatu.
-        // Jika 90 derajat (bawah), jadi PI - PI/2 = PI/2 (90). Tetap bawah?
-        // Tidak, Mirror Y dari Bawah (0,1) adalah Atas (0,-1) atau 270 deg.
-        // PI - (PI/2) = PI/2. Salah.
-
-        // KOREKSI:
-        // V-Flip = Mirror X-Axis. (x, y) -> (x, -y).
-        // Vector (cos t, sin t) -> (cos t, -sin t).
-        // Sudut baru t' = -t.
-        // TAPI, kita juga melakukan Toggle FlipX (Mirror Y-Axis lokal).
-        // Jadi total transformasi = Mirror Global X + Mirror Lokal Y.
-        // Ini rumit. Mari sederhanakan:
-
-        // Visual Flip V pada Pintu:
-        // Pintu menghadap ATAS (0 rot, shape digambar ke atas).
-        // Flip V -> Pintu menghadap BAWAH.
-        // Jika kita pakai Toggle FlipX (shape terbalik kiri-kanan),
-        // Lalu rotasi?
-
-        // Mari gunakan pendekatan matematis murni pada rotasi:
-        // H-Flip (Mirror Vertical Axis): Angle -> PI - Angle.
-        // V-Flip (Mirror Horizontal Axis): Angle -> -Angle.
-        // Dan kita TIDAK ubah flipX untuk V-Flip jika kita sudah putar?
-        // Tidak, flipX diperlukan untuk 'handedness' (engsel kiri/kanan).
-
-        // KEPUTUSAN FINAL LOGIKA:
-        // Kita selalu toggle flipX (untuk mirror sifat objek).
-        // H-Flip: Rotasi = -Rotasi.
-        // V-Flip: Rotasi = PI - Rotasi.
-        // (Ini akan dicoba, jika terbalik tinggal ditukar).
-
-        // Revisi berdasarkan percobaan umum 2D:
-        // Scale(-1, 1) [FlipX] membalik sumbu X lokal.
-        // Rotasi global.
-
-        // Mari kita pakai logika sederhana yang konsisten dengan painter scale(-1,1):
-        // H-Flip: Toggle flipX. Rotasi = -Rotasi.
-        // V-Flip: Toggle flipX. Rotasi = (pi - Rotasi).
       }
 
       // Khusus Shape (karena pakai Rect)
@@ -714,6 +670,7 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
     saveState();
   }
 
+  // --- Rotasi 90 Derajat (Biasa) ---
   void rotateSelected() {
     if (selectedId == null) return;
 
@@ -765,7 +722,7 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       return;
     }
 
-    // 5. Rotasi Tembok (Wall) - PERBAIKAN
+    // 5. Rotasi Tembok (Wall)
     List<Wall> newWalls = List.from(walls);
     final wIdx = newWalls.indexWhere((w) => w.id == selectedId);
     if (wIdx != -1) {
@@ -815,6 +772,89 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
       saveState();
       return;
     }
+  }
+
+  // --- BARU: Rotasi Spesifik (Detail/Derajat) ---
+  void setSelectionRotation(double radians) {
+    if (selectedId == null) return;
+
+    // 1. Rotasi Group
+    List<PlanGroup> newGroups = List.from(groups);
+    final gIdx = newGroups.indexWhere((g) => g.id == selectedId);
+    if (gIdx != -1) {
+      newGroups[gIdx] = newGroups[gIdx].copyWith(rotation: radians);
+      updateActiveFloor(groups: newGroups);
+      saveState();
+      return;
+    }
+
+    // 2. Rotasi Object
+    List<PlanObject> newObjs = List.from(objects);
+    final objIdx = newObjs.indexWhere((o) => o.id == selectedId);
+    if (objIdx != -1) {
+      newObjs[objIdx] = newObjs[objIdx].copyWith(rotation: radians);
+      updateActiveFloor(objects: newObjs);
+      saveState();
+      return;
+    }
+
+    // 3. Rotasi Shape
+    List<PlanShape> newShapes = List.from(shapes);
+    final shpIdx = newShapes.indexWhere((s) => s.id == selectedId);
+    if (shpIdx != -1) {
+      newShapes[shpIdx] = newShapes[shpIdx].copyWith(rotation: radians);
+      updateActiveFloor(shapes: newShapes);
+      saveState();
+      return;
+    }
+
+    // 4. Rotasi Portal
+    List<PlanPortal> newPortals = List.from(portals);
+    final pIdx = newPortals.indexWhere((p) => p.id == selectedId);
+    if (pIdx != -1) {
+      newPortals[pIdx] = newPortals[pIdx].copyWith(rotation: radians);
+      updateActiveFloor(portals: newPortals);
+      saveState();
+      return;
+    }
+
+    // 5. Rotasi Tembok (Complex: Calculate delta angle & rotate around center)
+    List<Wall> newWalls = List.from(walls);
+    final wIdx = newWalls.indexWhere((w) => w.id == selectedId);
+    if (wIdx != -1) {
+      final w = newWalls[wIdx];
+      final double dx = w.end.dx - w.start.dx;
+      final double dy = w.end.dy - w.start.dy;
+      final double currentAngle = atan2(dy, dx);
+      final double deltaAngle = radians - currentAngle;
+
+      final center = (w.start + w.end) / 2;
+
+      Offset rotatePoint(Offset p, Offset c, double angle) {
+        final x = p.dx - c.dx;
+        final y = p.dy - c.dy;
+        final nx = x * cos(angle) - y * sin(angle);
+        final ny = x * sin(angle) + y * cos(angle);
+        return Offset(nx + c.dx, ny + c.dy);
+      }
+
+      newWalls[wIdx] = w.copyWith(
+        start: rotatePoint(w.start, center, deltaAngle),
+        end: rotatePoint(w.end, center, deltaAngle),
+      );
+      updateActiveFloor(walls: newWalls);
+      saveState();
+      return;
+    }
+
+    // 6. Rotasi Path (Complex: Rotate points around center)
+    // Catatan: Path tidak menyimpan properti 'rotation', jadi ini
+    // akan memutar titiknya secara permanen. UI Slider mungkin 'jumpy'
+    // jika tidak hati-hati, tapi untuk 'set value' ini oke.
+    // Opsi: Untuk Path, kita mungkin hanya dukung +90, tapi jika dipaksa:
+    // Kita butuh rotasi delta relatif, bukan absolute set.
+    // Skip Path untuk setRotation (absolute) demi kestabilan,
+    // atau implementasi rotasi relatif jika diperlukan nanti.
   }
 
   void updateSelectedAttribute({
@@ -997,6 +1037,7 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
         'type': 'Struktur',
         'isPath': false,
         'nav': null,
+        'rotation': p.rotation, // Tambahkan rotation
       };
     } catch (_) {}
 
@@ -1010,6 +1051,7 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
         'isPath': false,
         'isGroup': true,
         'nav': null,
+        'rotation': g.rotation, // Tambahkan rotation
       };
     } catch (_) {}
     try {
@@ -1021,6 +1063,7 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
         'type': 'Bentuk',
         'isPath': false,
         'nav': null,
+        'rotation': s.rotation, // Tambahkan rotation
       };
     } catch (_) {}
     try {
@@ -1032,6 +1075,7 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
         'type': 'Label',
         'isPath': false,
         'nav': null,
+        'rotation': 0.0, // Label belum dukung rotasi
       };
     } catch (_) {}
     try {
@@ -1043,6 +1087,7 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
         'type': 'Interior',
         'isPath': false,
         'nav': o.navTargetFloorId,
+        'rotation': o.rotation, // Tambahkan rotation
       };
     } catch (_) {}
     try {
@@ -1058,6 +1103,9 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
     } catch (_) {}
     try {
       final w = walls.firstWhere((x) => x.id == selectedId);
+      // Hitung rotasi tembok manual
+      final dx = w.end.dx - w.start.dx;
+      final dy = w.end.dy - w.start.dy;
       return {
         'id': w.id,
         'title': 'Tembok',
@@ -1065,6 +1113,7 @@ mixin PlanSelectionMixin on PlanVariables, PlanStateMixin {
         'type': 'Struktur',
         'isPath': false,
         'nav': null,
+        'rotation': atan2(dy, dx), // Tambahkan rotation
       };
     } catch (_) {}
     return null;

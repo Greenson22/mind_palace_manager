@@ -1,3 +1,4 @@
+// lib/features/plan_architect/presentation/widgets/plan_selection_bar.dart
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -472,11 +473,25 @@ class PlanSelectionBar extends StatelessWidget {
                   label: "Flip V",
                   onTap: () => controller.flipSelected(false),
                 ),
-                _buildQuickAction(
-                  context,
-                  icon: Icons.rotate_right,
-                  label: "Putar",
-                  onTap: controller.rotateSelected,
+
+                // --- BUTTON ROTASI DENGAN LONG PRESS ---
+                GestureDetector(
+                  onLongPress: () {
+                    // Ambil rotasi saat ini dari data (default 0 jika null)
+                    final currentRad =
+                        (data?['rotation'] as num?)?.toDouble() ?? 0.0;
+                    PlanEditorDialogs.showRotationDialog(context, currentRad, (
+                      newRad,
+                    ) {
+                      controller.setSelectionRotation(newRad);
+                    });
+                  },
+                  child: _buildQuickAction(
+                    context,
+                    icon: Icons.rotate_right,
+                    label: "Putar",
+                    onTap: controller.rotateSelected, // Tap biasa = 90 deg
+                  ),
                 ),
 
                 _buildQuickAction(
