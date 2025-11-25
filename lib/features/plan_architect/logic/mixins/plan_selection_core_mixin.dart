@@ -1,19 +1,27 @@
+// lib/features/plan_architect/logic/mixins/plan_selection_core_mixin.dart
 import 'dart:math';
-import 'dart:io'; // Import IO
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:path/path.dart' as p; // Import Path
+import 'package:path/path.dart' as p;
+import 'package:flutter/foundation.dart'; // Untuk listEquals
+
 import 'plan_variables.dart';
 import 'plan_state_mixin.dart';
 import '../../data/plan_models.dart';
 import '../plan_enums.dart';
 
 mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
+  // --- STATE UNTUK CYCLE SELECTION (SELEKSI BERTUMPUK) ---
+  List<String> _hitCandidates = []; // Daftar objek yang tertumpuk di titik tap
+  int _hitCandidateIndex = 0; // Indeks objek yang sedang dipilih
+
   void toggleMultiSelectMode() {
     isMultiSelectMode = !isMultiSelectMode;
     if (!isMultiSelectMode) {
       multiSelectedIds.clear();
     }
     selectedId = null;
+    _hitCandidates.clear(); // Reset cycle saat mode berubah
     notifyListeners();
   }
 
@@ -37,19 +45,26 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
       selectedId = null;
     }
     final Set<String> newSelections = {};
-    for (var w in walls)
-      if (rect.contains(w.start) && rect.contains(w.end))
+    for (var w in walls) {
+      if (rect.contains(w.start) && rect.contains(w.end)) {
         newSelections.add(w.id);
-    for (var o in objects)
+      }
+    }
+    for (var o in objects) {
       if (rect.contains(o.position)) newSelections.add(o.id);
-    for (var s in shapes)
+    }
+    for (var s in shapes) {
       if (rect.overlaps(s.rect.inflate(5.0))) newSelections.add(s.id);
-    for (var g in groups)
+    }
+    for (var g in groups) {
       if (rect.contains(g.position)) newSelections.add(g.id);
-    for (var p in portals)
+    }
+    for (var p in portals) {
       if (rect.contains(p.position)) newSelections.add(p.id);
-    for (var l in labels)
+    }
+    for (var l in labels) {
       if (rect.contains(l.position)) newSelections.add(l.id);
+    }
     for (var p in paths) {
       for (var pt in p.points) {
         if (rect.contains(pt)) {
@@ -65,22 +80,25 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
   Map<String, String>? findNavigableItemAt(Offset pos) {
     for (var p in portals.reversed) {
       if ((p.position - pos).distance < (p.width / 2 + 5)) {
-        if (p.navTargetFloorId != null)
+        if (p.navTargetFloorId != null) {
           return {'id': p.id, 'targetPlanId': p.navTargetFloorId!};
+        }
         return null;
       }
     }
     for (var obj in objects.reversed) {
       if ((obj.position - pos).distance < 25.0) {
-        if (obj.navTargetFloorId != null)
+        if (obj.navTargetFloorId != null) {
           return {'id': obj.id, 'targetPlanId': obj.navTargetFloorId!};
+        }
         return null;
       }
     }
     for (var wall in walls) {
       if (isPointNearLine(pos, wall.start, wall.end, 15.0)) {
-        if (wall.navTargetFloorId != null)
+        if (wall.navTargetFloorId != null) {
           return {'id': wall.id, 'targetPlanId': wall.navTargetFloorId!};
+        }
         return null;
       }
     }
@@ -88,82 +106,97 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
   }
 
   void handleSelection(Offset pos) {
-    String? hitId;
+    // Kumpulkan SEMUA item yang terkena tap (Hit Test) dalam urutan Layer (Atas ke Bawah)
+    List<String> newHits = [];
+
+    // 1. Labels (Paling Atas)
     for (var lbl in labels.reversed) {
       if ((lbl.position - pos).distance < 20.0) {
-        hitId = lbl.id;
-        break;
+        newHits.add(lbl.id);
       }
     }
-    if (hitId == null) {
-      for (var p in portals.reversed) {
-        if ((p.position - pos).distance < (p.width / 2 + 5)) {
-          hitId = p.id;
-          break;
-        }
+    // 2. Portals (Pintu/Jendela)
+    for (var p in portals.reversed) {
+      if ((p.position - pos).distance < (p.width / 2 + 5)) {
+        newHits.add(p.id);
       }
     }
-    if (hitId == null) {
-      for (var obj in objects.reversed) {
-        if ((obj.position - pos).distance < 25.0) {
-          hitId = obj.id;
-          break;
-        }
+    // 3. Objects (Interior)
+    for (var obj in objects.reversed) {
+      if ((obj.position - pos).distance < 25.0) {
+        newHits.add(obj.id);
       }
     }
-    if (hitId == null) {
-      for (var grp in groups.reversed) {
-        final offset = pos - grp.position;
-        final cosA = cos(-grp.rotation);
-        final sinA = sin(-grp.rotation);
-        final localX = offset.dx * cosA - offset.dy * sinA;
-        final localY = offset.dx * sinA + offset.dy * cosA;
-        final localPos = Offset(localX, localY);
-        final bounds = grp.getBounds();
-        if (bounds.inflate(10).contains(localPos)) {
-          hitId = grp.id;
-          break;
-        }
+    // 4. Groups
+    for (var grp in groups.reversed) {
+      final offset = pos - grp.position;
+      final cosA = cos(-grp.rotation);
+      final sinA = sin(-grp.rotation);
+      final localX = offset.dx * cosA - offset.dy * sinA;
+      final localY = offset.dx * sinA + offset.dy * cosA;
+      final localPos = Offset(localX, localY);
+      final bounds = grp.getBounds();
+      if (bounds.inflate(10).contains(localPos)) {
+        newHits.add(grp.id);
       }
     }
-    if (hitId == null) {
-      for (var shp in shapes.reversed) {
-        if (shp.rect.contains(pos)) {
-          hitId = shp.id;
-          break;
-        }
+    // 5. Shapes
+    for (var shp in shapes.reversed) {
+      if (shp.rect.contains(pos)) {
+        newHits.add(shp.id);
       }
     }
-    if (hitId == null) {
-      for (var path in paths.reversed) {
-        if (isPointNearPath(pos, path)) {
-          hitId = path.id;
-          break;
-        }
+    // 6. Paths (Gambar Garis)
+    for (var path in paths.reversed) {
+      if (isPointNearPath(pos, path)) {
+        newHits.add(path.id);
       }
     }
-    if (hitId == null) {
-      for (var wall in walls) {
-        if (isPointNearLine(pos, wall.start, wall.end, 15.0)) {
-          hitId = wall.id;
-          break;
-        }
+    // 7. Walls (Tembok - Layer Paling Bawah)
+    for (var wall in walls.reversed) {
+      if (isPointNearLine(pos, wall.start, wall.end, 15.0)) {
+        newHits.add(wall.id);
       }
     }
 
+    // --- LOGIKA SELECTION CYCLING (PILAH PILIH TUMPUKAN) ---
     if (isMultiSelectMode) {
-      if (hitId != null) {
-        if (multiSelectedIds.contains(hitId))
+      // Mode Multi: Toggle item teratas saja untuk konsistensi
+      if (newHits.isNotEmpty) {
+        final hitId = newHits.first;
+        if (multiSelectedIds.contains(hitId)) {
           multiSelectedIds.remove(hitId);
-        else
+        } else {
           multiSelectedIds.add(hitId);
+        }
       }
       selectedId = null;
     } else {
-      selectedId = hitId;
-      isObjectSelected = hitId != null;
-      multiSelectedIds.clear();
+      // Mode Single: Fitur Cycle Aktif
+      if (newHits.isEmpty) {
+        // Klik area kosong -> Deselect semua
+        selectedId = null;
+        isObjectSelected = false;
+        multiSelectedIds.clear();
+        _hitCandidates.clear();
+      } else {
+        // Cek apakah user mengetuk tumpukan yang sama dengan sebelumnya
+        if (listEquals(newHits, _hitCandidates)) {
+          // Ya, Cycle ke item berikutnya dalam daftar
+          _hitCandidateIndex = (_hitCandidateIndex + 1) % newHits.length;
+        } else {
+          // Tidak, ini tumpukan baru atau klik pertama
+          _hitCandidates = newHits;
+          _hitCandidateIndex = 0; // Reset ke item paling atas
+        }
+
+        // Set item yang terpilih berdasarkan index cycle
+        selectedId = _hitCandidates[_hitCandidateIndex];
+        isObjectSelected = true;
+        multiSelectedIds.clear();
+      }
     }
+
     notifyListeners();
   }
 
@@ -180,8 +213,9 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
   bool isPointNearPath(Offset p, PlanPath path) {
     if (path.points.length < 2) return false;
     for (int i = 0; i < path.points.length - 1; i++) {
-      if (isPointNearLine(p, path.points[i], path.points[i + 1], 10.0))
+      if (isPointNearLine(p, path.points[i], path.points[i + 1], 10.0)) {
         return true;
+      }
     }
     return false;
   }
@@ -204,6 +238,7 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
     );
     selectedId = null;
     multiSelectedIds.clear();
+    _hitCandidates.clear(); // Bersihkan cache cycle saat hapus
     saveState();
   }
 
@@ -219,36 +254,39 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
       'paths': [],
       'groups': [],
     };
-    for (var item in objects)
+    for (var item in objects) {
       if (ids.contains(item.id)) result['objects']!.add(item.toJson());
-    for (var item in walls)
+    }
+    for (var item in walls) {
       if (ids.contains(item.id)) result['walls']!.add(item.toJson());
-    for (var item in portals)
+    }
+    for (var item in portals) {
       if (ids.contains(item.id)) result['portals']!.add(item.toJson());
-    for (var item in shapes)
+    }
+    for (var item in shapes) {
       if (ids.contains(item.id)) result['shapes']!.add(item.toJson());
-    for (var item in labels)
+    }
+    for (var item in labels) {
       if (ids.contains(item.id)) result['labels']!.add(item.toJson());
-    for (var item in paths)
+    }
+    for (var item in paths) {
       if (ids.contains(item.id)) result['paths']!.add(item.toJson());
-    for (var item in groups)
+    }
+    for (var item in groups) {
       if (ids.contains(item.id)) result['groups']!.add(item.toJson());
+    }
     result.removeWhere((key, value) => value.isEmpty);
     return result;
   }
 
-  // --- HELPER BARU: RESOLVE PATH ---
   String? _resolvePath(String? path) {
     if (path == null) return null;
-    // Jika path relatif dan kita punya building directory, gabungkan
     if (buildingDirectory != null && !p.isAbsolute(path)) {
       return p.join(buildingDirectory!.path, path);
     }
     return path;
   }
-  // --------------------------------
 
-  // --- UPDATE: Sertakan 'desc' untuk Grup dan Portal ---
   Map<String, dynamic>? getSelectedItemData() {
     if (selectedId == null) return null;
 
@@ -259,11 +297,11 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         'title': p.type == PlanPortalType.door ? 'Pintu' : 'Jendela',
         'desc': p.description.isNotEmpty
             ? p.description
-            : 'Lebar: ${p.width.toInt()}', // Gunakan deskripsi jika ada
+            : 'Lebar: ${p.width.toInt()}',
         'type': 'Struktur',
         'isPath': false,
         'nav': p.navTargetFloorId,
-        'refImage': _resolvePath(p.referenceImage), // Resolve Path
+        'refImage': _resolvePath(p.referenceImage),
       };
     } catch (_) {}
 
@@ -272,7 +310,7 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
       return {
         'id': g.id,
         'title': g.name,
-        'desc': g.description, // Ambil deskripsi grup
+        'desc': g.description,
         'type': 'Grup',
         'isPath': false,
         'isGroup': true,
@@ -288,7 +326,7 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         'type': 'Bentuk',
         'isPath': false,
         'nav': null,
-        'refImage': _resolvePath(s.referenceImage), // Resolve Path
+        'refImage': _resolvePath(s.referenceImage),
       };
     } catch (_) {}
     try {
@@ -311,7 +349,7 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         'type': 'Interior',
         'isPath': false,
         'nav': o.navTargetFloorId,
-        'refImage': _resolvePath(o.referenceImage), // Resolve Path
+        'refImage': _resolvePath(o.referenceImage),
       };
     } catch (_) {}
     try {
@@ -334,7 +372,7 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         'type': 'Struktur',
         'isPath': false,
         'nav': w.navTargetFloorId,
-        'refImage': _resolvePath(w.referenceImage), // Resolve Path
+        'refImage': _resolvePath(w.referenceImage),
       };
     } catch (_) {}
     return null;
