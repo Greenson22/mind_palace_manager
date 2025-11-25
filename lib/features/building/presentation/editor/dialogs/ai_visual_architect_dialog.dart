@@ -46,7 +46,7 @@ class _AiVisualArchitectDialogState extends State<AiVisualArchitectDialog> {
         : _promptDoorCtrl.text;
     final loci = _promptLociCount.toInt();
 
-    // Template (Disederhanakan untuk file ini, Anda bisa paste template panjang asli di sini)
+    // Template (Disederhanakan untuk file ini)
     setState(() {
       _generatedInstruction =
           """
@@ -143,6 +143,25 @@ termasuk tekstur dinding, lantai, dan objek Loci.
 
   @override
   Widget build(BuildContext context) {
+    // --- DETEKSI TEMA (DARK/LIGHT) ---
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Warna Adaptif untuk Bagian Ungu (Generator)
+    final purpleContainer = isDark
+        ? Colors.purple.shade900.withOpacity(0.3)
+        : Colors.purple.shade50;
+    final purpleBorder = isDark
+        ? Colors.purple.shade700
+        : Colors.purple.shade100;
+    final purpleTitle = isDark ? Colors.purple.shade200 : Colors.purple;
+
+    // Warna Adaptif untuk Bagian Hijau (Simpan)
+    final greenContainer = isDark
+        ? Colors.green.shade900.withOpacity(0.3)
+        : Colors.green.shade50;
+    final greenBorder = isDark ? Colors.green.shade700 : Colors.green.shade100;
+    final greenTitle = isDark ? Colors.green.shade200 : Colors.green;
+
     return AlertDialog(
       title: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -172,18 +191,18 @@ termasuk tekstur dinding, lantai, dan objek Loci.
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.purple.shade50,
+                  color: purpleContainer, // Gunakan warna adaptif
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.purple.shade100),
+                  border: Border.all(color: purpleBorder),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       "1. Generator Instruksi",
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Colors.purple,
+                        color: purpleTitle, // Gunakan warna adaptif
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -231,6 +250,9 @@ termasuk tekstur dinding, lantai, dan objek Loci.
                       label: const Text("Generate & Salin"),
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size(double.infinity, 36),
+                        // Tombol tetap ungu solid agar kontras
+                        backgroundColor: Colors.purple,
+                        foregroundColor: Colors.white,
                       ),
                       onPressed: () {
                         _runPromptGeneration();
@@ -254,18 +276,18 @@ termasuk tekstur dinding, lantai, dan objek Loci.
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.green.shade50,
+                  color: greenContainer, // Gunakan warna adaptif
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.green.shade100),
+                  border: Border.all(color: greenBorder),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       "2. Simpan Hasil",
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Colors.green,
+                        color: greenTitle, // Gunakan warna adaptif
                       ),
                     ),
                     const SizedBox(height: 8),
