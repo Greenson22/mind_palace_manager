@@ -7,6 +7,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:mind_palace_manager/app_settings.dart';
 
+// --- GANTI IMPORT KE FILE BARU ---
+import 'package:mind_palace_manager/features/world/presentation/dialogs/ai_world_map_prompt_dialog.dart';
+
 class WorldMapEditorPage extends StatefulWidget {
   final Directory worldDirectory;
   const WorldMapEditorPage({super.key, required this.worldDirectory});
@@ -36,7 +39,6 @@ class _WorldMapEditorPageState extends State<WorldMapEditorPage> {
   @override
   void initState() {
     super.initState();
-    // Simpan di root folder dengan nama world_data.json
     _jsonFile = File(p.join(widget.worldDirectory.path, 'world_data.json'));
     _loadData();
   }
@@ -66,7 +68,6 @@ class _WorldMapEditorPageState extends State<WorldMapEditorPage> {
         print("Error loading world data: $e");
       }
     }
-    // Muat daftar wilayah
     try {
       final entities = await widget.worldDirectory.list().toList();
       _regionFolders = entities.whereType<Directory>().toList();
@@ -108,18 +109,13 @@ class _WorldMapEditorPageState extends State<WorldMapEditorPage> {
     if (res != null) {
       final src = File(res.files.single.path!);
       final extension = p.extension(src.path);
-
-      // --- BARU: Gunakan nama file tetap ---
       const baseName = 'world_map';
       final newFixedFileName = '$baseName$extension';
-
       final String? oldMapImageName = _mapImageName;
 
-      // 1. Copy file baru ke nama tetap. Ini akan menimpa jika nama sama.
       final destPath = p.join(widget.worldDirectory.path, newFixedFileName);
       await src.copy(destPath);
 
-      // 2. Hapus file lama jika namanya berbeda (mencegah penumpukan file dengan ekstensi berbeda)
       if (oldMapImageName != null && oldMapImageName != newFixedFileName) {
         try {
           final oldFile = File(
@@ -133,15 +129,20 @@ class _WorldMapEditorPageState extends State<WorldMapEditorPage> {
         }
       }
 
-      // 3. Update state variables
       _mapImageName = newFixedFileName;
       _mapImageFile = File(destPath);
       await _updateImageAspectRatio(_mapImageFile!);
-
-      // 4. Save data dan refresh UI
       _saveData();
       setState(() {});
     }
+  }
+
+  // --- GUNAKAN DIALOG BARU (KHUSUS WORLD MAP) ---
+  void _showAiPromptDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => const AiWorldMapPromptDialog(),
+    );
   }
 
   void _placeRegion() {
@@ -184,7 +185,6 @@ class _WorldMapEditorPageState extends State<WorldMapEditorPage> {
     _transformationController.value = Matrix4.identity();
   }
 
-  // Helper: Ambil ikon dari folder wilayah (region_data.json)
   Future<Map<String, dynamic>> _getRegionIconData(
     String regionFolderName,
   ) async {
@@ -211,7 +211,6 @@ class _WorldMapEditorPageState extends State<WorldMapEditorPage> {
   }
 
   Widget _buildMapPinWidget(Map<String, dynamic> iconData, String regionName) {
-    // Kita gunakan setting yang sama dengan Region Pin untuk konsistensi
     final type = iconData['type'];
     final shape = AppSettings.regionPinShape;
     final Color pinBaseColor = Color(AppSettings.regionPinColor);
@@ -332,16 +331,63 @@ class _WorldMapEditorPageState extends State<WorldMapEditorPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Editor Peta Dunia')),
+      appBar: AppBar(
+        title: const Text('Editor Peta Dunia'),
+        actions: [
+          // --- Tombol AI ---
+          IconButton(
+            icon: const Icon(Icons.auto_awesome, color: Colors.purple),
+            tooltip: "AI World Prompt",
+            onPressed: _showAiPromptDialog,
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // --- Header Gambar + AI ---
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Gambar Peta',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              TextButton.icon(
+                icon: const Icon(
+                  Icons.auto_awesome,
+                  size: 16,
+                  color: Colors.purple,
+                ),
+                label: const Text(
+                  "Buat Prompt AI",
+                  style: TextStyle(color: Colors.purple),
+                ),
+                onPressed: _showAiPromptDialog,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (_mapImageFile == null) const Text('Belum ada gambar peta.'),
+          if (_mapImageFile != null)
+            Text(
+              'File: $_mapImageName',
+              style: const TextStyle(fontStyle: FontStyle.italic),
+            ),
+          const SizedBox(height: 8),
           ElevatedButton.icon(
             icon: const Icon(Icons.image),
+            label: Text(
+              _mapImageFile == null ? 'Pilih Peta dari Galeri' : 'Ganti Peta',
+            ),
             onPressed: _pickMapImage,
-            label: Text(_mapImageFile == null ? 'Pilih Peta' : 'Ganti Peta'),
           ),
-          const SizedBox(height: 16),
+          const Divider(height: 32),
+          const Text(
+            "Penempatan Wilayah",
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          const SizedBox(height: 8),
           DropdownButton<Directory>(
             value: _selectedRegionToPlace,
             hint: const Text('Pilih Wilayah untuk ditempatkan'),
