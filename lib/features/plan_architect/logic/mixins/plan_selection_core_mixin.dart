@@ -1,12 +1,13 @@
 import 'dart:math';
+import 'dart:io'; // Import IO
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p; // Import Path
 import 'plan_variables.dart';
 import 'plan_state_mixin.dart';
 import '../../data/plan_models.dart';
 import '../plan_enums.dart';
 
 mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
-  // ... (toggleMultiSelectMode, selectAll, selectInRect, findNavigableItemAt, handleSelection, isPointNearLine, isPointNearPath, deleteSelected, getRawSelectedItems TETAP SAMA) ...
   void toggleMultiSelectMode() {
     isMultiSelectMode = !isMultiSelectMode;
     if (!isMultiSelectMode) {
@@ -236,6 +237,17 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
     return result;
   }
 
+  // --- HELPER BARU: RESOLVE PATH ---
+  String? _resolvePath(String? path) {
+    if (path == null) return null;
+    // Jika path relatif dan kita punya building directory, gabungkan
+    if (buildingDirectory != null && !p.isAbsolute(path)) {
+      return p.join(buildingDirectory!.path, path);
+    }
+    return path;
+  }
+  // --------------------------------
+
   // --- UPDATE: Sertakan 'desc' untuk Grup dan Portal ---
   Map<String, dynamic>? getSelectedItemData() {
     if (selectedId == null) return null;
@@ -251,7 +263,7 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         'type': 'Struktur',
         'isPath': false,
         'nav': p.navTargetFloorId,
-        'refImage': p.referenceImage,
+        'refImage': _resolvePath(p.referenceImage), // Resolve Path
       };
     } catch (_) {}
 
@@ -276,7 +288,7 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         'type': 'Bentuk',
         'isPath': false,
         'nav': null,
-        'refImage': s.referenceImage,
+        'refImage': _resolvePath(s.referenceImage), // Resolve Path
       };
     } catch (_) {}
     try {
@@ -299,7 +311,7 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         'type': 'Interior',
         'isPath': false,
         'nav': o.navTargetFloorId,
-        'refImage': o.referenceImage,
+        'refImage': _resolvePath(o.referenceImage), // Resolve Path
       };
     } catch (_) {}
     try {
@@ -322,7 +334,7 @@ mixin PlanSelectionCoreMixin on PlanVariables, PlanStateMixin {
         'type': 'Struktur',
         'isPath': false,
         'nav': w.navTargetFloorId,
-        'refImage': w.referenceImage,
+        'refImage': _resolvePath(w.referenceImage), // Resolve Path
       };
     } catch (_) {}
     return null;

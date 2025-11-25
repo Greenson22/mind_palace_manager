@@ -11,7 +11,7 @@ import 'widgets/plan_editor_toolbar.dart';
 import 'widgets/plan_selection_bar.dart';
 import 'widgets/plan_canvas_view.dart';
 import 'package:mind_palace_manager/features/building/presentation/management/logic/district_building_logic.dart';
-import 'package:mind_palace_manager/features/building/presentation/management/building_plan_list_page.dart'; // Import Halaman List
+import 'package:mind_palace_manager/features/building/presentation/management/building_plan_list_page.dart';
 
 class PlanEditorPage extends StatefulWidget {
   // Parameter opsional: jika diisi, editor berjalan dalam mode "Bangunan Denah"
@@ -48,6 +48,10 @@ class _PlanEditorPageState extends State<PlanEditorPage> {
     super.initState();
     _currentFilename = widget.planFilename ?? 'plan.json';
     _currentPlanName = widget.planName;
+
+    // --- UPDATE: Set Directory ke Controller agar bisa resolve path ---
+    _controller.buildingDirectory = widget.buildingDirectory;
+    // -----------------------------------------------------------------
 
     // Jika dibuka dari bangunan, muat file plan yang sesuai
     if (widget.buildingDirectory != null) {

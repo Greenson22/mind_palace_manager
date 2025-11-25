@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:path/path.dart' as p; // Import path
 import 'package:mind_palace_manager/features/plan_architect/logic/plan_controller.dart';
 import 'package:mind_palace_manager/features/plan_architect/data/plan_models.dart';
 import 'package:mind_palace_manager/features/plan_architect/presentation/dialogs/interior_picker_sheet.dart';
@@ -301,6 +302,20 @@ class PlanEditorDialogs {
               );
             }
 
+            // Logic tampilan gambar preview di dialog
+            ImageProvider? imageProvider;
+            if (newRefImage != null) {
+              // Cek apakah path relatif atau absolut
+              String displayPath = newRefImage!;
+              if (buildingDirectory != null && !p.isAbsolute(displayPath)) {
+                displayPath = p.join(buildingDirectory.path, displayPath);
+              }
+              final file = File(displayPath);
+              if (file.existsSync()) {
+                imageProvider = FileImage(file);
+              }
+            }
+
             return AlertDialog(
               title: Text('Edit ${data['type']}'),
               content: SingleChildScrollView(
@@ -324,6 +339,7 @@ class PlanEditorDialogs {
                           if (result != null &&
                               result.files.single.path != null) {
                             setState(() {
+                              // Simpan path absolut sementara dari picker
                               newRefImage = result.files.single.path;
                             });
                           }
@@ -336,14 +352,14 @@ class PlanEditorDialogs {
                             color: Colors.grey.shade200,
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(color: Colors.grey.shade400),
-                            image: newRefImage != null
+                            image: imageProvider != null
                                 ? DecorationImage(
-                                    image: FileImage(File(newRefImage!)),
+                                    image: imageProvider!,
                                     fit: BoxFit.cover,
                                   )
                                 : null,
                           ),
-                          child: newRefImage == null
+                          child: imageProvider == null
                               ? const Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
@@ -442,13 +458,37 @@ class PlanEditorDialogs {
                   child: const Text('Hapus'),
                 ),
                 ElevatedButton(
-                  onPressed: () {
+                  onPressed: () async {
+                    // --- LOGIKA BARU: COPY GAMBAR SAAT SIMPAN ---
+                    String? finalRefImage = newRefImage;
+                    if (newRefImage != null && buildingDirectory != null) {
+                      // Jika path absolut (dari picker), berarti file baru
+                      if (p.isAbsolute(newRefImage!)) {
+                        try {
+                          final ext = p.extension(newRefImage!);
+                          final fileName =
+                              'ref_img_${DateTime.now().millisecondsSinceEpoch}$ext';
+                          final destPath = p.join(
+                            buildingDirectory.path,
+                            fileName,
+                          );
+                          await File(newRefImage!).copy(destPath);
+                          finalRefImage = fileName; // Simpan path relatif
+                        } catch (e) {
+                          debugPrint("Gagal copy ref image: $e");
+                        }
+                      }
+                    }
+                    // ---------------------------------------------
+
                     controller.updateSelectedAttribute(
                       desc: descCtrl.text,
                       name: titleCtrl.text,
                       navTarget: selectedNavFloorId,
-                      referenceImage: newRefImage,
+                      referenceImage:
+                          finalRefImage, // Gunakan path yang sudah diproses
                     );
+
                     if (isWall && lengthCtrl != null) {
                       final newLen = double.tryParse(
                         lengthCtrl.text.replaceAll(',', '.'),
@@ -540,7 +580,8 @@ class PlanEditorDialogs {
     Map<String, dynamic> data,
   ) {
     final colorScheme = Theme.of(context).colorScheme;
-    String? refImage = data['refImage'];
+    String? refImage =
+        data['refImage']; // Ini sekarang path absolut yang sudah di-resolve oleh Controller
 
     showModalBottomSheet(
       context: context,
