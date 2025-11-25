@@ -60,6 +60,7 @@ class AppSettings {
   // --- KEYS BARU UNTUK INTERIOR ---
   static const String _favoriteInteriorsKey = 'favoriteInteriors';
   static const String _recentInteriorsKey = 'recentInteriors';
+  static const String _customLibraryKey = 'customLibrary'; // <--- KEY BARU
 
   // --- PLAN ARCHITECT KEYS (EDITOR) ---
   static const String _planShowGridKey = 'planShowGrid';
@@ -76,7 +77,6 @@ class AppSettings {
   static const String _planBackgroundOpacityKey = 'planBackgroundOpacity';
   static const String _planBackgroundScaleKey = 'planBackgroundScale';
 
-  // --- UPDATE TERBARU: BACKGROUND MODE ---
   static const String _planBackgroundModeKey =
       'planBackgroundMode'; // 'default', 'solid', 'gradient', 'image'
   static const String _planBackgroundImageKey = 'planBackgroundImage';
@@ -138,6 +138,7 @@ class AppSettings {
 
   static List<String> favoriteInteriors = [];
   static List<String> recentInteriors = [];
+  static List<String> customLibraryJson = []; // <--- VARIABLE BARU
 
   // --- PLAN ARCHITECT VARIABLES ---
   static bool planShowGrid = true;
@@ -149,15 +150,13 @@ class AppSettings {
   static bool planLayerLabels = true;
   static bool planLayerDims = false;
 
-  // --- VARIABLE BARU UNTUK BACKGROUND DENAH ---
   static double planBackgroundBlur = 30.0;
   static double planBackgroundOpacity = 0.6;
   static double planBackgroundScale = 1.0;
 
-  // --- UPDATE TERBARU VARIABLES ---
   static String planBackgroundMode = 'default';
   static String? planBackgroundImage;
-  static int planSolidColor = 0xFF121212; // Default Gelap
+  static int planSolidColor = 0xFF121212;
   static int planGradientColor1 = Colors.blue.shade900.value;
   static int planGradientColor2 = Colors.black.value;
   static bool planEnableBlur = true;
@@ -234,6 +233,8 @@ class AppSettings {
 
     favoriteInteriors = prefs.getStringList(_favoriteInteriorsKey) ?? [];
     recentInteriors = prefs.getStringList(_recentInteriorsKey) ?? [];
+    // --- LOAD LIBRARY ---
+    customLibraryJson = prefs.getStringList(_customLibraryKey) ?? [];
 
     planShowGrid = prefs.getBool(_planShowGridKey) ?? true;
     planShowZoomButtons = prefs.getBool(_planShowZoomButtonsKey) ?? true;
@@ -245,7 +246,6 @@ class AppSettings {
     planLayerLabels = prefs.getBool(_planLayerLabelsKey) ?? true;
     planLayerDims = prefs.getBool(_planLayerDimsKey) ?? false;
 
-    // --- LOAD SETTINGS BARU ---
     planBackgroundBlur = prefs.getDouble(_planBackgroundBlurKey) ?? 30.0;
     planBackgroundOpacity = prefs.getDouble(_planBackgroundOpacityKey) ?? 0.6;
     planBackgroundScale = prefs.getDouble(_planBackgroundScaleKey) ?? 1.0;
@@ -260,7 +260,22 @@ class AppSettings {
     planEnableBlur = prefs.getBool(_planEnableBlurKey) ?? true;
   }
 
-  // ... (SAVE FUNCTIONS LAMA TETAP DIPERTAHANKAN, DISALIN DI BAWAH) ...
+  // --- METHODS UNTUK LIBRARY CUSTOM ---
+  static Future<void> addCustomAsset(String jsonStr) async {
+    final prefs = await SharedPreferences.getInstance();
+    customLibraryJson.add(jsonStr);
+    await prefs.setStringList(_customLibraryKey, customLibraryJson);
+  }
+
+  static Future<void> removeCustomAsset(int index) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (index >= 0 && index < customLibraryJson.length) {
+      customLibraryJson.removeAt(index);
+      await prefs.setStringList(_customLibraryKey, customLibraryJson);
+    }
+  }
+
+  // --- SAVE METHODS LAINNYA ---
   static Future<void> saveBackgroundMode(String mode) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_wallpaperModeKey, mode);
@@ -579,7 +594,6 @@ class AppSettings {
     }
   }
 
-  // --- SAVE FUNCTIONS BARU ---
   static Future<void> savePlanBackgroundBlur(double value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble(_planBackgroundBlurKey, value);

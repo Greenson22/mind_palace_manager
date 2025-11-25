@@ -1,5 +1,8 @@
+// lib/features/plan_architect/logic/mixins/plan_edit_mixin.dart
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:mind_palace_manager/app_settings.dart';
 import 'plan_variables.dart';
 import 'plan_state_mixin.dart';
 import '../../data/plan_models.dart';
@@ -98,20 +101,13 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
 
       // --- LOGIKA BARU: RESIZE GROUP (SCALING) ---
       if (stroke != null) {
-        // 1. Hitung ukuran saat ini
         final currentRect = group.getBounds();
         final currentWidth = currentRect.width;
 
-        // 2. Hitung faktor skala (Target Width / Current Width)
-        // Cegah pembagian dengan 0
         if (currentWidth > 0.1) {
           final scaleFactor = stroke / currentWidth;
 
-          // Batasi skala agar tidak terlalu ekstrem dalam satu langkah
           if (scaleFactor > 0.01 && scaleFactor < 100) {
-            // Helper function untuk scale posisi relatif
-            // Posisi relatif child terhadap (0,0) grup akan dikalikan scaleFactor
-
             final newObjects = group.objects.map((o) {
               return o.copyWith(
                 position: o.position * scaleFactor,
@@ -120,7 +116,6 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
             }).toList();
 
             final newShapes = group.shapes.map((s) {
-              // Scale rect: left, top, width, height
               final newRect = Rect.fromLTWH(
                 s.rect.left * scaleFactor,
                 s.rect.top * scaleFactor,
@@ -259,6 +254,40 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
     saveState();
   }
 
+  // --- UPDATE: Simpan ke Global Library ---
+  void saveCurrentSelectionToLibrary() {
+    if (selectedId == null) return;
+
+    dynamic itemToSave;
+    String metaType = '';
+
+    int pIdx = paths.indexWhere((p) => p.id == selectedId);
+    if (pIdx != -1) {
+      itemToSave = paths[pIdx].copyWith(isSavedAsset: true);
+      metaType = 'PlanPath';
+    } else {
+      int gIdx = groups.indexWhere((g) => g.id == selectedId);
+      if (gIdx != -1) {
+        itemToSave = groups[gIdx].copyWith(isSavedAsset: true);
+        metaType = 'PlanGroup';
+      }
+    }
+
+    if (itemToSave != null) {
+      // Simpan ke list runtime
+      savedCustomInteriors.add(itemToSave);
+
+      // Simpan ke Persistent Storage
+      final jsonStr = jsonEncode({
+        'metaType': metaType,
+        'data': itemToSave.toJson(),
+      });
+      AppSettings.addCustomAsset(jsonStr);
+
+      notifyListeners();
+    }
+  }
+
   void updateSelectedWallLength(double newLengthInMeters) {
     if (selectedId == null) return;
     int idx = walls.indexWhere((w) => w.id == selectedId);
@@ -282,18 +311,6 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
     }
   }
 
-  void saveCurrentSelectionToLibrary() {
-    if (selectedId == null) return;
-    int idx;
-    if ((idx = paths.indexWhere((p) => p.id == selectedId)) != -1) {
-      savedCustomInteriors.add(paths[idx].copyWith(isSavedAsset: true));
-      notifyListeners();
-    } else if ((idx = groups.indexWhere((g) => g.id == selectedId)) != -1) {
-      savedCustomInteriors.add(groups[idx].copyWith(isSavedAsset: true));
-      notifyListeners();
-    }
-  }
-
   void updateSelectedColor(Color color) =>
       updateSelectedAttribute(color: color);
   void updateSelectedStrokeWidth(double width) =>
@@ -312,7 +329,6 @@ mixin PlanEditMixin on PlanVariables, PlanStateMixin {
       saveState();
       return;
     }
-    // ... (Logic objek lain)
     int oIdx = objects.indexWhere((o) => o.id == selectedId);
     if (oIdx != -1) {
       final item = objects[oIdx];

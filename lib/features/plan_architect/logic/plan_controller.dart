@@ -1,10 +1,8 @@
 // lib/features/plan_architect/logic/plan_controller.dart
-import 'dart:convert'; // Diperlukan untuk jsonDecode
-import 'package:flutter/material.dart'; // Diperlukan untuk Color, Offset, debugPrint
-
-// --- IMPORT INI YANG SEBELUMNYA HILANG (PENYEBAB ERROR) ---
-import '../data/plan_models.dart'; // Diperlukan untuk PlanShape, PlanPath, PlanGroup
-// ---------------------------------------------------------
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:mind_palace_manager/app_settings.dart';
+import '../data/plan_models.dart';
 
 import 'mixins/plan_variables.dart';
 import 'mixins/plan_state_mixin.dart';
@@ -34,6 +32,23 @@ class PlanController extends PlanVariables
   PlanController() {
     activeTool = PlanTool.select;
     initFloors();
+    _loadGlobalLibrary();
+  }
+
+  void _loadGlobalLibrary() {
+    savedCustomInteriors.clear();
+    for (String jsonStr in AppSettings.customLibraryJson) {
+      try {
+        final map = jsonDecode(jsonStr);
+        if (map['metaType'] == 'PlanGroup') {
+          savedCustomInteriors.add(PlanGroup.fromJson(map['data']));
+        } else if (map['metaType'] == 'PlanPath') {
+          savedCustomInteriors.add(PlanPath.fromJson(map['data']));
+        }
+      } catch (e) {
+        debugPrint("Gagal load asset custom: $e");
+      }
+    }
   }
 
   // --- FITUR GENERATIVE UI (AI IMPORT) ---
@@ -46,26 +61,21 @@ class PlanController extends PlanVariables
       List<PlanShape> shapes = [];
       List<PlanPath> paths = [];
 
-      // ID unik untuk grup baru
       final String groupId = DateTime.now().millisecondsSinceEpoch.toString();
-      // Tempatkan di tengah kanvas (variabel dari PlanVariables)
       final Offset centerPos = Offset(canvasWidth / 2, canvasHeight / 2);
 
       for (var el in elements) {
         String type = el['type'];
 
-        // Offset relatif elemen terhadap pusat grup
         double x = (el['x'] as num).toDouble();
         double y = (el['y'] as num).toDouble();
 
-        // Parsing Warna (Support format #RRGGBB)
+        // Parsing Warna
         String colorStr = el['color'].toString();
         if (colorStr.startsWith('#')) {
           colorStr = colorStr.replaceAll('#', '0xFF');
         }
-        // Fallback jika format warnanya hanya angka hex string tanpa prefix
         if (!colorStr.startsWith('0x')) {
-          // Asumsi jika 6 karakter hex, tambahkan opasitas penuh
           if (colorStr.length == 6) colorStr = '0xFF$colorStr';
         }
 
@@ -73,14 +83,13 @@ class PlanController extends PlanVariables
         try {
           color = Color(int.parse(colorStr));
         } catch (_) {
-          color = Colors.black; // Default fallback
+          color = Colors.black;
         }
 
         if (type == 'shape') {
           double w = (el['w'] as num).toDouble();
           double h = (el['h'] as num).toDouble();
 
-          // Mapping string ke Enum PlanShapeType
           String shapeTypeStr = el['shapeType'] ?? 'rectangle';
           PlanShapeType shapeType = PlanShapeType.values.firstWhere(
             (e) => e.toString().split('.').last == shapeTypeStr,
@@ -106,7 +115,7 @@ class PlanController extends PlanVariables
           paths.add(
             PlanPath(
               id: "${groupId}_p_${paths.length}",
-              points: points, // Point ini relatif terhadap (0,0) lokal grup
+              points: points,
               color: color,
               strokeWidth: (el['width'] as num?)?.toDouble() ?? 2.0,
             ),
@@ -122,21 +131,24 @@ class PlanController extends PlanVariables
           description: "Dibuat oleh Gemini AI",
           shapes: shapes,
           paths: paths,
-          isSavedAsset: true, // Simpan agar bisa dipakai lagi dari menu Custom
+          isSavedAsset: true,
         );
 
-        // Masukkan ke dalam daftar objek aktif (PlanGroupMixin / PlanStateMixin)
         updateActiveFloor(groups: [...groups, newGroup]);
 
-        // Simpan ke library custom juga (PlanVariables)
+        // Simpan otomatis ke library global
         savedCustomInteriors.add(newGroup);
+        final jsonStr = jsonEncode({
+          'metaType': 'PlanGroup',
+          'data': newGroup.toJson(),
+        });
+        AppSettings.addCustomAsset(jsonStr);
 
         saveState();
         notifyListeners();
       }
     } catch (e) {
       debugPrint("Gagal import JSON AI: $e");
-      // Note: Idealnya tambahkan callback onError untuk menampilkan SnackBar di UI
     }
   }
 }

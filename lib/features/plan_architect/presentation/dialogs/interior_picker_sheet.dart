@@ -1,6 +1,6 @@
 // lib/features/plan_architect/presentation/dialogs/interior_picker_sheet.dart
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // PENTING: Untuk fitur Copy/Paste Clipboard
+import 'package:flutter/services.dart';
 import 'package:mind_palace_manager/app_settings.dart';
 import 'package:mind_palace_manager/features/plan_architect/logic/plan_controller.dart';
 import 'package:mind_palace_manager/features/plan_architect/data/interior_data.dart';
@@ -86,7 +86,6 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
       child: Column(
         children: [
           const SizedBox(height: 8),
-          // Handle Bar
           Container(
             width: 40,
             height: 4,
@@ -95,7 +94,6 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          // Search Bar
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: TextField(
@@ -122,7 +120,6 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
               onChanged: (val) => setState(() => _searchQuery = val),
             ),
           ),
-          // Tabs Content
           Expanded(
             child: isSearching
                 ? _buildSearchResults()
@@ -181,7 +178,6 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
     return _buildGrid(results);
   }
 
-  // --- TAB CUSTOM ---
   Widget _buildRecentAndCustomTab() {
     final recents = _getRecents();
     final savedCustoms = widget.controller.savedCustomInteriors;
@@ -190,7 +186,6 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
       controller: widget.scrollController,
       padding: const EdgeInsets.all(16),
       children: [
-        // --- TOMBOL 1: AI GENERATOR ---
         InkWell(
           onTap: () => _showAiPromptGenerator(context),
           borderRadius: BorderRadius.circular(12),
@@ -227,7 +222,7 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
                         ),
                       ),
                       Text(
-                        "1. Tulis Deskripsi -> 2. Copy Prompt -> 3. Import JSON",
+                        "1. Buat Prompt -> 2. Paste ke Gemini -> 3. Import JSON",
                         style: TextStyle(
                           fontSize: 10,
                           color: Colors.purple.shade700,
@@ -240,8 +235,6 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
             ),
           ),
         ),
-
-        // --- TOMBOL 2: Buat dari Gambar ---
         InkWell(
           onTap: () {
             Navigator.pop(context);
@@ -290,7 +283,6 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
             ),
           ),
         ),
-
         if (savedCustoms.isNotEmpty) ...[
           const SizedBox(height: 24),
           const Text(
@@ -331,7 +323,7 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
                     builder: (ctx) => AlertDialog(
                       title: const Text("Hapus Interior?"),
                       content: Text(
-                        "Hapus '${customItem.name}' dari daftar custom?",
+                        "Hapus '${customItem.name}' dari daftar global?",
                       ),
                       actions: [
                         TextButton(
@@ -342,7 +334,8 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.red,
                           ),
-                          onPressed: () {
+                          onPressed: () async {
+                            await AppSettings.removeCustomAsset(i);
                             setState(() {
                               widget.controller.savedCustomInteriors.removeAt(
                                 i,
@@ -351,12 +344,14 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
                             Navigator.pop(ctx);
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text("Interior custom dihapus."),
+                                content: Text(
+                                  "Interior dihapus dari library global.",
+                                ),
                                 duration: Duration(milliseconds: 800),
                               ),
                             );
                           },
-                          child: const Text("Hapus"),
+                          child: const Text("Hapus Permanen"),
                         ),
                       ],
                     ),
@@ -403,7 +398,6 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
             },
           ),
         ],
-
         const SizedBox(height: 24),
         const Text(
           "Baru Digunakan",
@@ -528,10 +522,9 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
     );
   }
 
-  // --- FUNGSI DIALOG: GENERATE PROMPT ---
   void _showAiPromptGenerator(BuildContext context) {
     final textCtrl = TextEditingController();
-    String detailLevel = 'medium'; // Default: Menengah
+    String detailLevel = 'medium';
 
     showDialog(
       context: context,
@@ -563,8 +556,6 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
                     maxLines: 2,
                   ),
                   const SizedBox(height: 16),
-
-                  // --- PILIHAN TINGKAT DETAIL ---
                   const Text(
                     "Tingkat Kedetailan:",
                     style: TextStyle(fontWeight: FontWeight.bold),
@@ -596,8 +587,6 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
                       }
                     },
                   ),
-
-                  // -----------------------------
                   const SizedBox(height: 16),
                   const Divider(),
                   const Text(
@@ -605,8 +594,6 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
-
-                  // Tombol Salin Prompt
                   ElevatedButton.icon(
                     icon: const Icon(Icons.copy),
                     label: const Text("1. Salin Prompt & Buka AI"),
@@ -619,7 +606,6 @@ class _InteriorPickerSheetState extends State<InteriorPickerSheet> {
                     onPressed: () {
                       if (textCtrl.text.isEmpty) return;
 
-                      // --- KONSTRUKSI PROMPT BERDASARKAN DETAIL ---
                       String detailInstruction = "";
                       if (detailLevel == 'low') {
                         detailInstruction =
@@ -663,7 +649,6 @@ Format JSON harus seperti ini:
 }
 Gunakan kombinasi shape sederhana (rectangle, circle, roundedRect) untuk membentuk visualisasi "${textCtrl.text}" dari pandangan atas (top-down view/denah).
 """;
-                      // Salin ke Clipboard
                       Clipboard.setData(ClipboardData(text: prompt));
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
@@ -674,10 +659,7 @@ Gunakan kombinasi shape sederhana (rectangle, circle, roundedRect) untuk membent
                       );
                     },
                   ),
-
                   const SizedBox(height: 8),
-
-                  // Tombol Import JSON
                   ElevatedButton.icon(
                     icon: const Icon(Icons.download),
                     style: ElevatedButton.styleFrom(
@@ -707,7 +689,6 @@ Gunakan kombinasi shape sederhana (rectangle, circle, roundedRect) untuk membent
     );
   }
 
-  // --- FUNGSI DIALOG: IMPORT JSON ---
   void _showImportJsonDialog(BuildContext context) {
     final jsonCtrl = TextEditingController();
     showDialog(
@@ -733,11 +714,10 @@ Gunakan kombinasi shape sederhana (rectangle, circle, roundedRect) untuk membent
           ElevatedButton(
             onPressed: () {
               if (jsonCtrl.text.trim().isNotEmpty) {
-                // Panggil fungsi di Controller
                 try {
                   widget.controller.importInteriorFromJson(jsonCtrl.text);
-                  Navigator.pop(c); // Tutup Dialog Import
-                  Navigator.pop(context); // Tutup Sheet Utama
+                  Navigator.pop(c);
+                  Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text("Objek AI berhasil dibuat!")),
                   );
