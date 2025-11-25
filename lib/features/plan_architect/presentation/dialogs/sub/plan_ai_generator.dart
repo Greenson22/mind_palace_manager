@@ -22,7 +22,6 @@ class _PlanAiGeneratorDialogState extends State<PlanAiGeneratorDialog> {
   double lociCount = 5;
   String additionalContext = '';
 
-  // --- OPSI BARU ---
   bool includeLabels = true;
 
   @override
@@ -76,7 +75,6 @@ class _PlanAiGeneratorDialogState extends State<PlanAiGeneratorDialog> {
                   ),
                   const SizedBox(height: 8),
 
-                  // --- TIPE RUANGAN ---
                   DropdownButtonFormField<String>(
                     value: roomType,
                     isExpanded: true,
@@ -119,7 +117,6 @@ class _PlanAiGeneratorDialogState extends State<PlanAiGeneratorDialog> {
 
                   const SizedBox(height: 8),
 
-                  // --- BENTUK RUANGAN ---
                   DropdownButtonFormField<String>(
                     value: roomShape,
                     isExpanded: true,
@@ -189,7 +186,6 @@ class _PlanAiGeneratorDialogState extends State<PlanAiGeneratorDialog> {
                     onChanged: (v) => additionalContext = v,
                   ),
 
-                  // --- CHECKBOX LABEL ---
                   const SizedBox(height: 8),
                   CheckboxListTile(
                     title: const Text(
@@ -212,7 +208,6 @@ class _PlanAiGeneratorDialogState extends State<PlanAiGeneratorDialog> {
                     activeColor: Colors.purple,
                   ),
 
-                  // ---------------------
                   const SizedBox(height: 12),
 
                   ElevatedButton.icon(
@@ -297,40 +292,50 @@ Canvas: 0-500 (Pusat ~250,250).
 Format JSON WAJIB (Hanya JSON murni):
 {
   "walls": [
-    {"sx": 100, "sy": 100, "ex": 400, "ey": 100},
+    {
+      "sx": 100, "sy": 100, "ex": 400, "ey": 100,
+      "desc": "[Deskripsi Tembok: Visual, Tekstur, Suara]"
+    },
     ... (lanjutkan tembok menutup ruangan)
   ],
   "portals": [
-    {"type": "door", "x": 120, "y": 100, "rot": 0},
-    {"type": "window", "x": 400, "y": 250, "rot": 90}
+    {
+      "type": "door", "x": 120, "y": 100, "rot": 0,
+      "desc": "[Deskripsi Pintu: Bahan, Suara Engsel, Aroma]"
+    },
+    {
+      "type": "window", "x": 400, "y": 250, "rot": 90,
+      "desc": "[Deskripsi Jendela: Cahaya, Suara Luar, Tekstur Kaca]"
+    }
   ],
   "loci": [
     {
-      "name": "1. [Nama]", 
+      "name": "1. [Nama Objek]", 
       "x": 120, 
       "y": 120, 
       "icon": "[tipe: bed/chair/tv/etc]", 
-      "desc": "...",
+      "desc": "[Deskripsi Objek: Visual, Sentuhan, Suara, Aroma, Emosi]",
       "size": 20.0
     },
     ...
   ]
 }
 PENTING: 
-1. Pisahkan Pintu/Jendela ke array "portals". 
-2. Gunakan "loci" hanya untuk furniture/objek memori.
-3. Properti "size" adalah estimasi ukuran objek dalam pixel (double).
+1. Properti "size" pada "loci" adalah estimasi ukuran objek (double).
+2. Deskripsi ("desc") WAJIB kaya dan MULTISENSORIK untuk SEMUA elemen (Tembok, Pintu, Jendela, Loci).
+   - Jelaskan: Visual (warna/bentuk), Tekstur (kasar/halus), Suara (gema/decit), Aroma (wangi/apek), Emosi (tenang/seram).
+   - Contoh Tembok: "Dinding batu dingin berlumut, lembab saat disentuh, berbau tanah basah."
+   - Contoh Pintu: "Pintu kayu ek tua, engsel berkarat yang memekik, terasa berat didorong."
 """;
     Clipboard.setData(ClipboardData(text: prompt));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Prompt disalin! Tempel ke AI.")),
+      const SnackBar(content: Text("Prompt Multisensorik Lengkap disalin!")),
     );
   }
 
   void _generatePlan() {
     if (jsonCtrl.text.isNotEmpty) {
       try {
-        // --- PASSING NILAI ADD LABELS ---
         widget.controller.importFullPlanFromJson(
           jsonCtrl.text,
           addLabels: includeLabels,

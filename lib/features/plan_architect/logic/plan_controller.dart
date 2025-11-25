@@ -1,7 +1,7 @@
 // lib/features/plan_architect/logic/plan_controller.dart
 import 'dart:convert';
-import 'dart:ui'; // Import UI untuk Color
-import 'dart:math' as math; // Ditambahkan untuk random ID & PI
+import 'dart:ui';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:mind_palace_manager/app_settings.dart';
 import '../data/plan_models.dart';
@@ -56,7 +56,6 @@ class PlanController extends PlanVariables
   // --- FITUR GENERATIVE UI (AI IMPORT OBJEK TUNGGAL) ---
   void importInteriorFromJson(String jsonString) {
     try {
-      // 1. Validasi Parsing JSON Dasar
       dynamic decoded;
       try {
         decoded = jsonDecode(jsonString);
@@ -75,7 +74,6 @@ class PlanController extends PlanVariables
       final Map<String, dynamic> data = decoded;
       final String name = data['name'] ?? 'Objek AI';
 
-      // 2. Validasi Key 'elements'
       if (!data.containsKey('elements')) {
         throw const FormatException(
           "JSON tidak memiliki key 'elements'. Pastikan struktur JSON sesuai template.",
@@ -93,26 +91,22 @@ class PlanController extends PlanVariables
       List<PlanPath> paths = [];
 
       final String groupId = DateTime.now().millisecondsSinceEpoch.toString();
-      // Posisi tengah canvas
       final Offset centerPos = Offset(canvasWidth / 2, canvasHeight / 2);
 
-      // 3. Loop Elements dengan Error Catching per item
       for (int i = 0; i < elements.length; i++) {
         try {
           var el = elements[i];
-          if (el is! Map) continue; // Skip jika bukan object
+          if (el is! Map) continue;
 
           String type = el['type'] ?? 'unknown';
 
           double x = (el['x'] as num?)?.toDouble() ?? 0.0;
           double y = (el['y'] as num?)?.toDouble() ?? 0.0;
 
-          // Parsing Warna yang Fleksibel
           String colorStr = el['color'].toString();
           if (colorStr.startsWith('#')) {
             colorStr = colorStr.replaceAll('#', '0xFF');
           } else if (!colorStr.startsWith('0x') && colorStr.length == 6) {
-            // Asumsi hex tanpa prefix (e.g., FFFFFF)
             colorStr = '0xFF$colorStr';
           }
 
@@ -129,7 +123,6 @@ class PlanController extends PlanVariables
 
             String shapeTypeStr = el['shapeType'] ?? 'rectangle';
 
-            // Mencari Enum yang cocok
             PlanShapeType shapeType = PlanShapeType.values.firstWhere(
               (e) => e.toString().split('.').last == shapeTypeStr,
               orElse: () => PlanShapeType.rectangle,
@@ -174,11 +167,9 @@ class PlanController extends PlanVariables
           }
         } catch (e) {
           debugPrint("Error parsing element index $i: $e");
-          // Lanjutkan ke elemen berikutnya (skip yang error)
         }
       }
 
-      // 4. Cek apakah ada hasil
       if (shapes.isNotEmpty || paths.isNotEmpty) {
         final newGroup = PlanGroup(
           id: groupId,
@@ -192,7 +183,6 @@ class PlanController extends PlanVariables
 
         updateActiveFloor(groups: [...groups, newGroup]);
 
-        // Simpan otomatis ke library global
         savedCustomInteriors.add(newGroup);
         final jsonStr = jsonEncode({
           'metaType': 'PlanGroup',
@@ -208,16 +198,13 @@ class PlanController extends PlanVariables
         );
       }
     } catch (e) {
-      // Rethrow agar UI bisa menangkap pesan error asli
       rethrow;
     }
   }
 
   // --- FITUR BARU: IMPORT DENAH LENGKAP (TEMBOK + PORTAL + LOCI) ---
-  // [MODIFIED] Menambahkan parameter addLabels
   void importFullPlanFromJson(String jsonString, {bool addLabels = true}) {
     try {
-      // 1. Parsing JSON
       dynamic decoded;
       try {
         decoded = jsonDecode(jsonString);
@@ -236,8 +223,8 @@ class PlanController extends PlanVariables
       final Map<String, dynamic> data = decoded;
 
       List<Wall> newWalls = [];
-      List<PlanPortal> newPortals = []; // Khusus Pintu/Jendela
-      List<PlanObject> newObjects = []; // Khusus Interior/Loci
+      List<PlanPortal> newPortals = [];
+      List<PlanObject> newObjects = [];
       List<PlanLabel> newLabels = [];
 
       // 2. Parse Walls (Tembok)
@@ -259,6 +246,8 @@ class PlanController extends PlanVariables
               ),
               thickness: 4.0,
               color: Colors.black,
+              // --- BACA DESKRIPSI ---
+              description: w['desc'] ?? 'Tembok',
             ),
           );
         }
@@ -273,8 +262,6 @@ class PlanController extends PlanVariables
               ? PlanPortalType.window
               : PlanPortalType.door;
 
-          // AI memberikan rotasi dalam derajat (0, 90, 180, 270)
-          // Kita konversi ke Radian
           double rotDeg = (p['rot'] as num?)?.toDouble() ?? 0.0;
           double rotRad = rotDeg * (math.pi / 180.0);
 
@@ -288,9 +275,11 @@ class PlanController extends PlanVariables
                 (p['y'] as num).toDouble(),
               ),
               rotation: rotRad,
-              width: 40.0, // Ukuran standar
+              width: 40.0,
               type: portalType,
               color: Colors.brown,
+              // --- BACA DESKRIPSI ---
+              description: p['desc'] ?? '',
             ),
           );
         }
@@ -300,11 +289,9 @@ class PlanController extends PlanVariables
       if (data.containsKey('loci') && data['loci'] is List) {
         final List lociData = data['loci'];
         for (var l in lociData) {
-          // Mapping icon string ke IconData
           IconData icon = Icons.circle;
           String iconName = (l['icon'] ?? '').toString().toLowerCase();
 
-          // Cek jika AI salah memasukkan pintu/jendela ke Loci
           if (iconName.contains('door') || iconName.contains('window')) {
             continue;
           }
@@ -327,8 +314,7 @@ class PlanController extends PlanVariables
             icon = Icons.bathtub;
 
           String name = l['name'] ?? "Loci";
-          double size =
-              (l['size'] as num?)?.toDouble() ?? 20.0; // Ambil ukuran dari JSON
+          double size = (l['size'] as num?)?.toDouble() ?? 20.0;
 
           newObjects.add(
             PlanObject(
@@ -340,14 +326,15 @@ class PlanController extends PlanVariables
                 (l['y'] as num).toDouble(),
               ),
               name: name,
+              // --- DESKRIPSI LOCI SUDAH ADA ---
               description: l['desc'] ?? "Titik memori",
               iconCodePoint: icon.codePoint,
-              size: size, // Gunakan ukuran dari AI
+              size: size,
               color: Colors.blueAccent,
             ),
           );
 
-          // Tambah label (KONDISIONAL)
+          // Tambah label jika opsi aktif
           if (addLabels) {
             newLabels.add(
               PlanLabel(
@@ -373,7 +360,6 @@ class PlanController extends PlanVariables
         );
       }
 
-      // 5. Update State (Merge dengan yang ada)
       updateActiveFloor(
         walls: [...walls, ...newWalls],
         objects: [...objects, ...newObjects],
